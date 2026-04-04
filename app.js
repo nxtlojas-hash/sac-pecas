@@ -7,12 +7,18 @@ let selectedParts = []; // {modelId, idx, nome, preco, peso}
 
 // --- Model metadata ---
 const MODEL_ICONS = {
-  'e-kay': '\u26A1',
+  'kay': '\u26A1',
   'jaya': '\uD83C\uDFCD\uFE0F',
   'juna-smart': '\uD83D\uDEF5',
   'luna': '\uD83C\uDF19',
   'shaka': '\uD83D\uDD25',
-  'zilla': '\uD83D\uDC9A'
+  'zilla': '\uD83D\uDC9A',
+  'gataka': '\uD83C\uDFCE\uFE0F',
+  'pancho': '\uD83E\uDD20',
+  'hyphen': '\u2796',
+  'vega': '\u2B50',
+  'kimbo': '\uD83E\uDD81',
+  'juna': '\uD83D\uDEF4'
 };
 
 // --- Navigation ---

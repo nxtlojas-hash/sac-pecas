@@ -15,7 +15,7 @@ from pathlib import Path
 # --- Configuration ---
 
 MODELS = {
-    "e-kay":      {"nome": "E-KAY",       "folder": "J:/Meu Drive/SAC/PEÇAS/E-KAY PEÇAS"},
+    "kay":        {"nome": "Kay",          "folder": "J:/Meu Drive/SAC/PEÇAS/E-KAY PEÇAS"},
     "jaya":       {"nome": "JAYA",        "folder": "J:/Meu Drive/SAC/PEÇAS/JAYA PEÇAS"},
     "juna-smart": {"nome": "JUNA SMART",  "folder": "J:/Meu Drive/SAC/PEÇAS/JUNA SMART PEÇAS"},
     "luna":       {"nome": "LUNA",        "folder": "J:/Meu Drive/SAC/PEÇAS/LUNA PEÇAS"},

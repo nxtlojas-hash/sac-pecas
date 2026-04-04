@@ -9,12 +9,18 @@ let adminFilterModel = '';
 
 // --- Model IDs and names ---
 const ADMIN_MODELS = [
-  { id: 'e-kay', nome: 'E-KAY' },
-  { id: 'jaya', nome: 'JAYA' },
-  { id: 'juna-smart', nome: 'JUNA SMART' },
+  { id: 'gataka', nome: 'Gataka' },
+  { id: 'pancho', nome: 'Pancho' },
   { id: 'luna', nome: 'LUNA' },
+  { id: 'juna-smart', nome: 'JUNA SMART' },
+  { id: 'hyphen', nome: 'Hyphen' },
+  { id: 'vega', nome: 'Vega' },
+  { id: 'zilla', nome: 'ZILLA' },
   { id: 'shaka', nome: 'SHAKA' },
-  { id: 'zilla', nome: 'ZILLA' }
+  { id: 'jaya', nome: 'JAYA' },
+  { id: 'kay', nome: 'Kay' },
+  { id: 'kimbo', nome: 'Kimbo' },
+  { id: 'juna', nome: 'Juna' }
 ];
 
 // --- Init Admin ---
