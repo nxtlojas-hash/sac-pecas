@@ -639,6 +639,9 @@ function adicionarPeca() {
   atualizarTotal();
   atualizarPesoTotal();
 
+  // Verificar estoque
+  verificarEstoquePeca(modelId, descricao);
+
   // Clear part fields
   document.getElementById('descricaoPeca').value = '';
   document.getElementById('qtdPeca').value = '1';
@@ -979,6 +982,8 @@ function enviarParaGoogle(venda) {
     if (response.type === 'opaque' || response.ok) {
       atualizarChecklist('checkPlanilha', true);
       atualizarChecklist('checkBling', true);
+      // Baixa automatica de estoque
+      baixaEstoqueVenda(venda);
     } else {
       atualizarChecklist('checkPlanilha', false);
       atualizarChecklist('checkBling', false);
@@ -991,6 +996,94 @@ function enviarParaGoogle(venda) {
     atualizarChecklist('checkBling', false);
     finalizarEnvio();
   });
+}
+
+// --- Stock check when adding part ---
+function verificarEstoquePeca(modelId, pecaNome) {
+  var info = null;
+  if (typeof getEstoquePeca === 'function') {
+    info = getEstoquePeca(modelId, pecaNome);
+  }
+
+  // Remover alerta anterior
+  var oldAlert = document.getElementById('alertaEstoque');
+  if (oldAlert) oldAlert.remove();
+
+  if (!info) return; // Sem info de estoque, nao alertar
+
+  var alertDiv = document.createElement('div');
+  alertDiv.id = 'alertaEstoque';
+
+  if (info.sumare === 0 && info.jaragua === 0) {
+    alertDiv.className = 'alerta-estoque alerta-estoque-indisponivel';
+    alertDiv.innerHTML = '\u26A0\uFE0F <strong>' + pecaNome + '</strong> est\u00e1 indispon\u00edvel no estoque. Deseja continuar?';
+  } else if (info.sumare === 0) {
+    alertDiv.className = 'alerta-estoque alerta-estoque-parcial';
+    alertDiv.innerHTML = '\u2139\uFE0F <strong>' + pecaNome + '</strong> dispon\u00edvel apenas em <strong>Jaragu\u00e1</strong> (qtd: ' + info.jaragua + ')';
+  } else if (info.jaragua === 0) {
+    alertDiv.className = 'alerta-estoque alerta-estoque-parcial';
+    alertDiv.innerHTML = '\u2139\uFE0F <strong>' + pecaNome + '</strong> dispon\u00edvel apenas em <strong>Sumar\u00e9</strong> (qtd: ' + info.sumare + ')';
+  } else {
+    return; // Ambos disponiveis, sem alerta
+  }
+
+  var listaPecas = document.getElementById('listaPecas');
+  if (listaPecas) {
+    listaPecas.parentNode.insertBefore(alertDiv, listaPecas);
+  }
+
+  // Auto-remover apos 8 segundos
+  setTimeout(function() {
+    if (alertDiv.parentNode) alertDiv.remove();
+  }, 8000);
+}
+
+// --- Auto-decrement stock on sale ---
+function baixaEstoqueVenda(venda) {
+  if (typeof GOOGLE_SCRIPT_URL === 'undefined' || GOOGLE_SCRIPT_URL.indexOf('SUBSTITUIR') !== -1) return;
+
+  var pecas = venda.pecas || [];
+  pecas.forEach(function(p) {
+    // Determinar localizacao pela tipo de atendimento
+    var localizacao = 'sumare'; // default
+    if (venda.tipoAtendimento && venda.tipoAtendimento.toLowerCase().indexOf('sumare') !== -1) {
+      localizacao = 'sumare';
+    } else {
+      localizacao = 'jaragua';
+    }
+
+    var payload = {
+      action: 'baixa_estoque',
+      modelo: p.modelo || '',
+      peca: p.descricao || '',
+      localizacao: localizacao,
+      quantidade: p.quantidade || 1
+    };
+
+    fetch(GOOGLE_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload)
+    }).then(function(resp) {
+      return resp.text();
+    }).then(function(text) {
+      try {
+        var data = JSON.parse(text);
+        console.log('Baixa estoque:', data);
+      } catch (e) {
+        console.warn('Baixa estoque: resposta nao-JSON', text);
+      }
+    }).catch(function(err) {
+      console.warn('Baixa estoque: erro', err);
+    });
+  });
+
+  // Invalidar cache de estoque
+  if (typeof estoqueCache !== 'undefined') {
+    for (var key in estoqueCache) {
+      delete estoqueCache[key];
+    }
+  }
 }
 
 function finalizarEnvio() {

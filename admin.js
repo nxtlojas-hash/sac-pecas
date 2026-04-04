@@ -23,6 +23,11 @@ const ADMIN_MODELS = [
   { id: 'juna', nome: 'Juna' }
 ];
 
+// --- Admin Stock State ---
+let adminEstoque = [];
+let adminEstoqueSearch = '';
+let adminEstoqueFilterModel = '';
+
 // --- Init Admin ---
 function initAdmin() {
   buildAdminView();
@@ -36,7 +41,16 @@ function buildAdminView() {
 
   container.innerHTML =
     '<div class="admin-header">' +
-      '<h2 class="admin-titulo">Gerenciar Pecas</h2>' +
+      '<h2 class="admin-titulo">Admin</h2>' +
+      '<div class="admin-tabs">' +
+        '<button class="admin-tab active" data-admin-tab="pecas">Pecas</button>' +
+        '<button class="admin-tab" data-admin-tab="estoque">Estoque</button>' +
+      '</div>' +
+    '</div>' +
+
+    // === TAB PECAS ===
+    '<div class="admin-tab-content active" id="admin-tab-pecas">' +
+    '<div class="admin-sub-header">' +
       '<button class="btn-primario" id="btn-admin-nova-peca">+ Nova Peca</button>' +
     '</div>' +
 
@@ -68,6 +82,36 @@ function buildAdminView() {
         '</thead>' +
         '<tbody id="admin-tbody"></tbody>' +
       '</table>' +
+    '</div>' +
+    '</div>' +
+
+    // === TAB ESTOQUE ===
+    '<div class="admin-tab-content" id="admin-tab-estoque">' +
+    '<div class="admin-filtros">' +
+      '<input type="text" class="search-input admin-search" id="estoque-search" placeholder="Buscar peca no estoque...">' +
+      '<select class="admin-select-modelo" id="estoque-filter-modelo">' +
+        '<option value="">Todos os modelos</option>' +
+        ADMIN_MODELS.map(function(m) {
+          return '<option value="' + m.id + '">' + m.nome + '</option>';
+        }).join('') +
+      '</select>' +
+      '<button class="btn-primario btn-sm" id="btn-estoque-reload">Recarregar</button>' +
+    '</div>' +
+    '<div class="admin-stats" id="estoque-stats"></div>' +
+    '<div class="admin-table-wrap">' +
+      '<table class="admin-table" id="estoque-table">' +
+        '<thead>' +
+          '<tr>' +
+            '<th>Modelo</th>' +
+            '<th>Peca</th>' +
+            '<th>Sumare</th>' +
+            '<th>Jaragua</th>' +
+            '<th>Ultima Atualizacao</th>' +
+          '</tr>' +
+        '</thead>' +
+        '<tbody id="estoque-tbody"></tbody>' +
+      '</table>' +
+    '</div>' +
     '</div>';
 
   // Event: New part button
@@ -99,6 +143,37 @@ function buildAdminView() {
       adminSortAsc = true;
     }
     refreshAdminTable();
+  });
+
+  // Event: Admin tabs
+  container.querySelectorAll('.admin-tab').forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      container.querySelectorAll('.admin-tab').forEach(function(t) { t.classList.remove('active'); });
+      container.querySelectorAll('.admin-tab-content').forEach(function(c) { c.classList.remove('active'); });
+      tab.classList.add('active');
+      var target = document.getElementById('admin-tab-' + tab.dataset.adminTab);
+      if (target) target.classList.add('active');
+      if (tab.dataset.adminTab === 'estoque') {
+        loadEstoqueAdmin();
+      }
+    });
+  });
+
+  // Event: Estoque search
+  document.getElementById('estoque-search').addEventListener('input', function() {
+    adminEstoqueSearch = this.value.toLowerCase().trim();
+    renderEstoqueTable();
+  });
+
+  // Event: Estoque filter model
+  document.getElementById('estoque-filter-modelo').addEventListener('change', function() {
+    adminEstoqueFilterModel = this.value;
+    renderEstoqueTable();
+  });
+
+  // Event: Estoque reload
+  document.getElementById('btn-estoque-reload').addEventListener('click', function() {
+    loadEstoqueAdmin();
   });
 }
 
@@ -613,3 +688,208 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 });
+
+// ========================================
+// ESTOQUE (Stock Management in Admin)
+// ========================================
+
+// --- Load stock from Sheets ---
+function loadEstoqueAdmin() {
+  if (typeof GOOGLE_SCRIPT_URL === 'undefined' || GOOGLE_SCRIPT_URL.indexOf('SUBSTITUIR') !== -1) {
+    console.warn('Estoque: Google Script URL nao configurada');
+    // Build from catalog parts with empty stock
+    adminEstoque = collectAllParts().map(function(p) {
+      return { modelo: p.modelId, modeloNome: p.modelNome, peca: p.nome, sumare: 0, jaragua: 0, ultimaAtualizacao: '' };
+    });
+    renderEstoqueTable();
+    return;
+  }
+
+  var statsEl = document.getElementById('estoque-stats');
+  if (statsEl) statsEl.textContent = 'Carregando estoque...';
+
+  var url = GOOGLE_SCRIPT_URL + '?action=listar_estoque';
+  fetch(url, { redirect: 'follow' })
+    .then(function(res) { return res.text(); })
+    .then(function(text) {
+      var data;
+      try { data = JSON.parse(text); } catch (e) {
+        if (statsEl) statsEl.textContent = 'Erro ao parsear resposta do estoque';
+        return;
+      }
+
+      var sheetEstoque = {};
+      if (data && data.sucesso && data.estoque) {
+        data.estoque.forEach(function(item) {
+          var key = (item.modelo || '').toLowerCase() + '|' + (item.peca || '').toLowerCase();
+          sheetEstoque[key] = item;
+        });
+      }
+
+      // Mesclar com catalogo para ter lista completa
+      var allParts = collectAllParts();
+      adminEstoque = allParts.map(function(p) {
+        var key = p.modelId.toLowerCase() + '|' + p.nome.toLowerCase();
+        var info = sheetEstoque[key];
+        return {
+          modelo: p.modelId,
+          modeloNome: p.modelNome,
+          peca: p.nome,
+          sumare: info ? (parseInt(info.sumare) || 0) : 0,
+          jaragua: info ? (parseInt(info.jaragua) || 0) : 0,
+          ultimaAtualizacao: info ? (info.ultimaAtualizacao || '') : ''
+        };
+      });
+
+      renderEstoqueTable();
+    })
+    .catch(function(err) {
+      console.warn('Estoque: erro ao carregar', err);
+      if (statsEl) statsEl.textContent = 'Erro ao carregar estoque';
+    });
+}
+
+// --- Render stock table ---
+function renderEstoqueTable() {
+  var filtered = adminEstoque.filter(function(item) {
+    if (adminEstoqueFilterModel && item.modelo !== adminEstoqueFilterModel) return false;
+    if (adminEstoqueSearch && item.peca.toLowerCase().indexOf(adminEstoqueSearch) === -1 &&
+        item.modeloNome.toLowerCase().indexOf(adminEstoqueSearch) === -1) return false;
+    return true;
+  });
+
+  var statsEl = document.getElementById('estoque-stats');
+  if (statsEl) {
+    statsEl.textContent = filtered.length + ' itens' +
+      (adminEstoqueFilterModel || adminEstoqueSearch ? ' (filtrados de ' + adminEstoque.length + ' total)' : ' no total');
+  }
+
+  var tbody = document.getElementById('estoque-tbody');
+  if (!tbody) return;
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--cor-texto-claro);padding:2rem;">Nenhum item de estoque encontrado</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(function(item, idx) {
+    var globalIdx = adminEstoque.indexOf(item);
+    var sumareClass = item.sumare === 0 ? ' estoque-cell-zero' : '';
+    var jaraguaClass = item.jaragua === 0 ? ' estoque-cell-zero' : '';
+    var atualizacao = item.ultimaAtualizacao ? formatarDataEstoque(item.ultimaAtualizacao) : '-';
+
+    return '<tr>' +
+      '<td><span class="admin-badge-modelo">' + item.modeloNome + '</span></td>' +
+      '<td>' + item.peca + '</td>' +
+      '<td class="estoque-cell-editable' + sumareClass + '" data-idx="' + globalIdx + '" data-field="sumare" title="Clique para editar">' + item.sumare + '</td>' +
+      '<td class="estoque-cell-editable' + jaraguaClass + '" data-idx="' + globalIdx + '" data-field="jaragua" title="Clique para editar">' + item.jaragua + '</td>' +
+      '<td style="font-size:0.75rem;color:var(--cor-texto-claro);">' + atualizacao + '</td>' +
+    '</tr>';
+  }).join('');
+
+  // Event delegation for inline editing
+  tbody.onclick = function(e) {
+    var cell = e.target.closest('.estoque-cell-editable');
+    if (!cell) return;
+    if (cell.querySelector('input')) return; // ja editando
+
+    var idx = parseInt(cell.dataset.idx);
+    var field = cell.dataset.field;
+    var currentVal = adminEstoque[idx][field];
+
+    var input = document.createElement('input');
+    input.type = 'number';
+    input.min = '0';
+    input.value = currentVal;
+    input.className = 'estoque-inline-input';
+
+    cell.textContent = '';
+    cell.appendChild(input);
+    input.focus();
+    input.select();
+
+    function saveValue() {
+      var newVal = parseInt(input.value) || 0;
+      if (newVal < 0) newVal = 0;
+
+      adminEstoque[idx][field] = newVal;
+      cell.textContent = newVal;
+      cell.classList.toggle('estoque-cell-zero', newVal === 0);
+
+      // Salvar no Sheets
+      salvarEstoqueItem(adminEstoque[idx]);
+    }
+
+    input.addEventListener('blur', saveValue);
+    input.addEventListener('keydown', function(ev) {
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        input.blur();
+      }
+      if (ev.key === 'Escape') {
+        cell.textContent = currentVal;
+        cell.classList.toggle('estoque-cell-zero', currentVal === 0);
+      }
+    });
+  };
+}
+
+// --- Save stock item to Sheets ---
+function salvarEstoqueItem(item) {
+  if (typeof GOOGLE_SCRIPT_URL === 'undefined' || GOOGLE_SCRIPT_URL.indexOf('SUBSTITUIR') !== -1) {
+    console.warn('Estoque: URL nao configurada, salvamento apenas local');
+    return;
+  }
+
+  var payload = {
+    action: 'atualizar_estoque',
+    modelo: item.modelo,
+    peca: item.peca,
+    sumare: item.sumare,
+    jaragua: item.jaragua
+  };
+
+  fetch(GOOGLE_SCRIPT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(payload)
+  }).then(function(resp) {
+    return resp.text();
+  }).then(function(text) {
+    try {
+      var data = JSON.parse(text);
+      if (data && data.sucesso) {
+        mostrarFeedback('Estoque atualizado: ' + item.peca, 'sucesso');
+      } else {
+        mostrarFeedback('Erro ao salvar estoque: ' + (data.erro || ''), 'erro');
+      }
+    } catch (e) {
+      console.warn('Estoque: resposta nao-JSON', text);
+    }
+  }).catch(function(err) {
+    mostrarFeedback('Erro ao salvar estoque: ' + err.message, 'erro');
+  });
+
+  // Invalidar cache de estoque do catalogo
+  if (typeof estoqueCache !== 'undefined') {
+    for (var key in estoqueCache) {
+      delete estoqueCache[key];
+    }
+  }
+}
+
+// --- Format date for stock display ---
+function formatarDataEstoque(isoStr) {
+  if (!isoStr) return '-';
+  try {
+    var d = new Date(isoStr);
+    var dia = String(d.getDate()).padStart(2, '0');
+    var mes = String(d.getMonth() + 1).padStart(2, '0');
+    var ano = d.getFullYear();
+    var hora = String(d.getHours()).padStart(2, '0');
+    var min = String(d.getMinutes()).padStart(2, '0');
+    return dia + '/' + mes + '/' + ano + ' ' + hora + ':' + min;
+  } catch (e) {
+    return isoStr;
+  }
+}

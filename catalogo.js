@@ -3,6 +3,7 @@
 let catalogoPecas = [];
 let catalogoModelId = null;
 let isRevenda = false;
+let estoqueCache = {}; // Cache de estoque por modelo
 
 // --- Open catalog for a model ---
 function openCatalogo(modelId) {
@@ -18,6 +19,87 @@ function openCatalogo(modelId) {
   isRevenda = false;
 
   renderCatalogo();
+  carregarEstoqueModelo(modelId);
+}
+
+// --- Load stock data for current model ---
+function carregarEstoqueModelo(modelId) {
+  if (!modelId) return;
+  // Se ja tem cache, usa
+  if (estoqueCache[modelId]) {
+    renderEstoqueBadges(modelId);
+    return;
+  }
+
+  if (typeof GOOGLE_SCRIPT_URL === 'undefined' || GOOGLE_SCRIPT_URL.indexOf('SUBSTITUIR') !== -1) return;
+
+  var url = GOOGLE_SCRIPT_URL + '?action=listar_estoque';
+  fetch(url, { redirect: 'follow' })
+    .then(function(res) { return res.text(); })
+    .then(function(text) {
+      var data;
+      try { data = JSON.parse(text); } catch (e) { return; }
+      if (data && data.sucesso && data.estoque) {
+        // Indexar por modelo+peca
+        data.estoque.forEach(function(item) {
+          var key = item.modelo.toLowerCase();
+          if (!estoqueCache[key]) estoqueCache[key] = {};
+          estoqueCache[key][item.peca.toLowerCase()] = {
+            sumare: item.sumare || 0,
+            jaragua: item.jaragua || 0
+          };
+        });
+        renderEstoqueBadges(modelId);
+      }
+    })
+    .catch(function(err) {
+      console.warn('Catalogo: erro ao carregar estoque', err);
+    });
+}
+
+// --- Render stock badges on cards ---
+function renderEstoqueBadges(modelId) {
+  var estoqueModelo = estoqueCache[modelId.toLowerCase()] || {};
+  var cards = document.querySelectorAll('#grid-pecas .peca-card');
+
+  cards.forEach(function(card) {
+    var nomeEl = card.querySelector('.peca-nome');
+    if (!nomeEl) return;
+    var nome = nomeEl.textContent.trim().toLowerCase();
+
+    // Remover badge anterior se existir
+    var oldBadge = card.querySelector('.estoque-badge');
+    if (oldBadge) oldBadge.remove();
+
+    var badge = document.createElement('div');
+    var info = estoqueModelo[nome];
+
+    if (!info) {
+      badge.className = 'estoque-badge estoque-sem-info';
+      badge.textContent = 'Sem info';
+    } else if (info.sumare === 0 && info.jaragua === 0) {
+      badge.className = 'estoque-badge estoque-indisponivel';
+      badge.textContent = 'Indispon\u00edvel';
+    } else if (info.sumare === 0 || info.jaragua === 0) {
+      badge.className = 'estoque-badge estoque-parcial';
+      badge.textContent = 'S: ' + info.sumare + ' | J: ' + info.jaragua;
+    } else {
+      badge.className = 'estoque-badge estoque-disponivel';
+      badge.textContent = 'S: ' + info.sumare + ' | J: ' + info.jaragua;
+    }
+
+    var body = card.querySelector('.peca-body');
+    if (body) {
+      body.insertBefore(badge, body.querySelector('.peca-actions'));
+    }
+  });
+}
+
+// --- Get stock for a specific part (used by form) ---
+function getEstoquePeca(modelId, pecaNome) {
+  if (!modelId || !pecaNome) return null;
+  var estoqueModelo = estoqueCache[modelId.toLowerCase()] || {};
+  return estoqueModelo[pecaNome.toLowerCase()] || null;
 }
 
 // --- Render filtered grid ---

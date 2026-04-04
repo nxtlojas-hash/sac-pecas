@@ -43,6 +43,7 @@ var PASTA_PDF_ORCAMENTOS = '1rTamTXwXDFWIi_0YLgFD1MdzMigcPlNr';
 var ABA_ORCAMENTOS = 'Orcamentos';
 var ABA_REGISTROS = 'Registros';
 var ABA_PECAS = 'Pecas';
+var ABA_ESTOQUE = 'Estoque';
 
 // ========================================
 // MAPEAMENTO FISCAL (Tabela Claudia Pecas)
@@ -655,6 +656,16 @@ function doGet(e) {
       case 'listar_pecas':
         return jsonResponse(listarPecasSheet());
 
+      // --- Estoque ---
+      case 'listar_estoque':
+        return jsonResponse(listarEstoque());
+
+      case 'buscar_estoque':
+        return jsonResponse(buscarEstoque(
+          e.parameter.modelo || '',
+          e.parameter.peca || ''
+        ));
+
       // --- Bling Auth ---
       case 'status':
         var tokens = getBlingTokens();
@@ -761,6 +772,13 @@ function doPost(e) {
       // --- Gerenciar Pecas (Admin) ---
       case 'gerenciar_peca':
         return jsonResponse(gerenciarPeca(body));
+
+      // --- Estoque ---
+      case 'atualizar_estoque':
+        return jsonResponse(atualizarEstoque(body));
+
+      case 'baixa_estoque':
+        return jsonResponse(baixaEstoque(body));
 
       default:
         return jsonResponse({ sucesso: false, erro: 'Acao POST desconhecida: ' + action });
@@ -1379,4 +1397,165 @@ function listarPecasSheet() {
   }
 
   return { sucesso: true, pecas: pecas };
+}
+
+// ========================================
+// ESTOQUE (STOCK CONTROL)
+// ========================================
+
+/**
+ * Obtem ou cria a aba "Estoque"
+ * Colunas: Modelo | Peca | Sumare | Jaragua | UltimaAtualizacao
+ */
+function getOrCreateAbaEstoque() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(ABA_ESTOQUE);
+  if (!sheet) {
+    sheet = ss.insertSheet(ABA_ESTOQUE);
+    sheet.getRange(1, 1, 1, 5).setValues([['Modelo', 'Peca', 'Sumare', 'Jaragua', 'UltimaAtualizacao']]);
+    sheet.getRange(1, 1, 1, 5).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+/**
+ * Lista todo o estoque
+ */
+function listarEstoque() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(ABA_ESTOQUE);
+  if (!sheet) {
+    return { sucesso: true, estoque: [] };
+  }
+
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) {
+    return { sucesso: true, estoque: [] };
+  }
+
+  var estoque = [];
+  for (var i = 1; i < data.length; i++) {
+    estoque.push({
+      modelo: data[i][0] || '',
+      peca: data[i][1] || '',
+      sumare: parseInt(data[i][2]) || 0,
+      jaragua: parseInt(data[i][3]) || 0,
+      ultimaAtualizacao: data[i][4] || ''
+    });
+  }
+
+  return { sucesso: true, estoque: estoque };
+}
+
+/**
+ * Busca estoque de uma peca especifica
+ */
+function buscarEstoque(modelo, peca) {
+  if (!modelo || !peca) return { sucesso: false, erro: 'Modelo e peca sao obrigatorios' };
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(ABA_ESTOQUE);
+  if (!sheet) {
+    return { sucesso: true, estoque: null };
+  }
+
+  var data = sheet.getDataRange().getValues();
+  var modeloLower = modelo.toLowerCase();
+  var pecaLower = peca.toLowerCase();
+
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]).toLowerCase() === modeloLower &&
+        String(data[i][1]).toLowerCase() === pecaLower) {
+      return {
+        sucesso: true,
+        estoque: {
+          modelo: data[i][0],
+          peca: data[i][1],
+          sumare: parseInt(data[i][2]) || 0,
+          jaragua: parseInt(data[i][3]) || 0,
+          ultimaAtualizacao: data[i][4] || ''
+        }
+      };
+    }
+  }
+
+  return { sucesso: true, estoque: null };
+}
+
+/**
+ * Atualiza estoque (set absoluto)
+ * body: { modelo, peca, sumare, jaragua }
+ */
+function atualizarEstoque(body) {
+  var sheet = getOrCreateAbaEstoque();
+  var modelo = body.modelo || '';
+  var peca = body.peca || '';
+  var sumare = parseInt(body.sumare) || 0;
+  var jaragua = parseInt(body.jaragua) || 0;
+  var timestamp = new Date().toISOString();
+
+  if (!modelo || !peca) {
+    return { sucesso: false, erro: 'Modelo e peca sao obrigatorios' };
+  }
+
+  var data = sheet.getDataRange().getValues();
+  var modeloLower = modelo.toLowerCase();
+  var pecaLower = peca.toLowerCase();
+
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]).toLowerCase() === modeloLower &&
+        String(data[i][1]).toLowerCase() === pecaLower) {
+      sheet.getRange(i + 1, 1, 1, 5).setValues([[modelo, peca, sumare, jaragua, timestamp]]);
+      return { sucesso: true, mensagem: 'Estoque atualizado: ' + peca + ' (' + modelo + ')' };
+    }
+  }
+
+  // Nao encontrou, criar nova linha
+  sheet.appendRow([modelo, peca, sumare, jaragua, timestamp]);
+  return { sucesso: true, mensagem: 'Estoque criado: ' + peca + ' (' + modelo + ')' };
+}
+
+/**
+ * Baixa de estoque (decrementa)
+ * body: { modelo, peca, localizacao ('sumare' ou 'jaragua'), quantidade }
+ */
+function baixaEstoque(body) {
+  var sheet = getOrCreateAbaEstoque();
+  var modelo = body.modelo || '';
+  var peca = body.peca || '';
+  var localizacao = (body.localizacao || '').toLowerCase();
+  var quantidade = parseInt(body.quantidade) || 1;
+  var timestamp = new Date().toISOString();
+
+  if (!modelo || !peca) {
+    return { sucesso: false, erro: 'Modelo e peca sao obrigatorios' };
+  }
+
+  if (localizacao !== 'sumare' && localizacao !== 'jaragua') {
+    return { sucesso: false, erro: 'Localizacao deve ser "sumare" ou "jaragua"' };
+  }
+
+  var data = sheet.getDataRange().getValues();
+  var modeloLower = modelo.toLowerCase();
+  var pecaLower = peca.toLowerCase();
+
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]).toLowerCase() === modeloLower &&
+        String(data[i][1]).toLowerCase() === pecaLower) {
+      var col = localizacao === 'sumare' ? 3 : 4; // coluna C ou D (1-indexed)
+      var atual = parseInt(data[i][col - 1]) || 0;
+      var novo = Math.max(0, atual - quantidade);
+      sheet.getRange(i + 1, col).setValue(novo);
+      sheet.getRange(i + 1, 5).setValue(timestamp);
+      return {
+        sucesso: true,
+        mensagem: 'Baixa de ' + quantidade + ' unidade(s) de ' + peca + ' em ' + localizacao,
+        estoqueAnterior: atual,
+        estoqueAtual: novo
+      };
+    }
+  }
+
+  return { sucesso: true, mensagem: 'Peca nao encontrada no estoque, baixa ignorada' };
 }
