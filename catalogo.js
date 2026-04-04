@@ -72,6 +72,7 @@ function renderCatalogo() {
         '<div class="peca-actions">' +
           '<button class="btn-action btn-orcamento" data-idx="' + origIdx + '">+ Orcamento</button>' +
           '<button class="btn-action btn-registrar" data-idx="' + origIdx + '">\uD83D\uDCCB Registrar</button>' +
+          '<button class="btn-action btn-edit-peca" data-idx="' + origIdx + '" title="Editar peca">&#9998;</button>' +
         '</div>' +
       '</div>';
 
@@ -123,6 +124,16 @@ document.getElementById('grid-pecas').addEventListener('click', function(e) {
   var btnReg = e.target.closest('.btn-registrar');
   if (btnReg) {
     addToFormAndNavigate(parseInt(btnReg.dataset.idx));
+    return;
+  }
+
+  // Edit part (admin)
+  var btnEdit = e.target.closest('.btn-edit-peca');
+  if (btnEdit) {
+    var editIdx = parseInt(btnEdit.dataset.idx);
+    if (typeof openEditFromCatalog === 'function' && catalogoModelId) {
+      openEditFromCatalog(catalogoModelId, editIdx);
+    }
     return;
   }
 });
@@ -186,10 +197,41 @@ function addToSelection(idx) {
 function addToFormAndNavigate(idx) {
   var peca = catalogoPecas[idx];
   if (!peca) return;
-  mostrarFeedback('Navegando para registro de ' + peca.nome, 'info');
-  if (typeof addPartToForm === 'function') {
-    addPartToForm(peca, catalogoModelId);
-  } else {
-    navigateTo('formulario');
+
+  var tipoPreco = isRevenda ? 'revenda' : 'cliente';
+  var preco = peca.preco;
+  if (preco != null && isRevenda) preco = preco * 0.85;
+
+  if (preco == null || preco <= 0) {
+    mostrarFeedback(peca.nome + ': sem preco definido, nao pode adicionar', 'erro');
+    return;
   }
+
+  var pesoGramas = (typeof parseWeight === 'function') ? parseWeight(peca.peso || '') : 0;
+  var modelNome = CATALOGO_MODELOS[catalogoModelId] ? CATALOGO_MODELOS[catalogoModelId].nome : catalogoModelId;
+
+  var item = {
+    id: Date.now() + Math.random(),
+    modelId: catalogoModelId,
+    modelo: modelNome,
+    descricao: peca.nome,
+    cor: '',
+    tipoPreco: tipoPreco,
+    quantidade: 1,
+    precoUnitario: preco,
+    total: preco,
+    peso: peca.peso || '',
+    pesoGramas: pesoGramas,
+    img: peca.img || ''
+  };
+
+  // Add directly to form parts list
+  if (typeof pecasAdicionadas !== 'undefined') {
+    pecasAdicionadas.push(item);
+    if (typeof renderizarPecas === 'function') renderizarPecas();
+    if (typeof atualizarTotal === 'function') atualizarTotal();
+    if (typeof atualizarPesoTotal === 'function') atualizarPesoTotal();
+  }
+
+  mostrarFeedback(peca.nome + ' adicionado! Continue no catalogo ou va para Registrar', 'sucesso');
 }

@@ -201,6 +201,9 @@ function buildFormHTML() {
         '<span class="subtotal-label">Subtotal: <strong id="subtotalPeca">R$ 0,00</strong></span>' +
         '<button type="button" class="btn-primario btn-adicionar-peca" onclick="adicionarPeca()">+ Adicionar Peca</button>' +
       '</div>' +
+      '<div class="form-row" style="align-items:center;margin-top:0.5rem;">' +
+        '<button type="button" class="btn-secundario" onclick="buscarNoCatalogo()" style="width:100%;">&#128269; Buscar no Catalogo</button>' +
+      '</div>' +
       '<div id="listaPecas" class="lista-pecas"></div>' +
       '<div class="form-total">Total Pecas: <strong id="totalVenda">R$ 0,00</strong></div>' +
     '</div>' +
@@ -1197,7 +1200,17 @@ function gerarPDFSeparacao() {
   }
 }
 
-// --- Called from catalog ---
+// --- Navigate to catalog from form ---
+function buscarNoCatalogo() {
+  if (currentModel) {
+    navigateTo('catalogo', { model: currentModel });
+  } else {
+    navigateTo('home');
+    mostrarFeedback('Selecione um modelo para abrir o catalogo', 'info');
+  }
+}
+
+// --- Called from catalog (legacy, now catalog adds directly) ---
 function addPartToForm(peca, modelId) {
   navigateTo('formulario');
 

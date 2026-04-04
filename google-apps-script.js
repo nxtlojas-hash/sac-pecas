@@ -42,6 +42,7 @@ var BLING_API_BASE = 'https://www.bling.com.br/Api/v3';
 var PASTA_PDF_ORCAMENTOS = '1rTamTXwXDFWIi_0YLgFD1MdzMigcPlNr';
 var ABA_ORCAMENTOS = 'Orcamentos';
 var ABA_REGISTROS = 'Registros';
+var ABA_PECAS = 'Pecas';
 
 // ========================================
 // MAPEAMENTO FISCAL (Tabela Claudia Pecas)
@@ -650,6 +651,10 @@ function doGet(e) {
       case 'gerar_pdf_orcamento':
         return jsonResponse(gerarPdfOrcamento(e.parameter.numero || ''));
 
+      // --- Pecas (Admin) ---
+      case 'listar_pecas':
+        return jsonResponse(listarPecasSheet());
+
       // --- Bling Auth ---
       case 'status':
         var tokens = getBlingTokens();
@@ -752,6 +757,10 @@ function doPost(e) {
       // --- Registrar Venda (Planilha + Bling) ---
       case 'registrar_venda':
         return jsonResponse(registrarVenda(body));
+
+      // --- Gerenciar Pecas (Admin) ---
+      case 'gerenciar_peca':
+        return jsonResponse(gerenciarPeca(body));
 
       default:
         return jsonResponse({ sucesso: false, erro: 'Acao POST desconhecida: ' + action });
@@ -1226,4 +1235,107 @@ function registrarVenda(dados) {
 
   resultado.sucesso = resultado.planilha || resultado.bling;
   return resultado;
+}
+
+// ========================================
+// GERENCIAR PECAS (Admin)
+// ========================================
+
+/**
+ * Obtem ou cria a aba "Pecas"
+ */
+function getOrCreateAbaPecas() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(ABA_PECAS);
+  if (!sheet) {
+    sheet = ss.insertSheet(ABA_PECAS);
+    // Criar cabecalho
+    sheet.getRange(1, 1, 1, 7).setValues([['Timestamp', 'Modelo', 'ModeloNome', 'Nome', 'Preco', 'Peso', 'Img']]);
+    sheet.getRange(1, 1, 1, 7).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+/**
+ * Gerencia pecas (adicionar, editar, excluir)
+ * body: { action, acao, modelo, modeloNome, idx, nome, preco, peso, img }
+ */
+function gerenciarPeca(body) {
+  var sheet = getOrCreateAbaPecas();
+  var acao = body.acao || '';
+  var modelo = body.modelo || '';
+  var modeloNome = body.modeloNome || '';
+  var nome = body.nome || '';
+  var preco = body.preco;
+  var peso = body.peso || '';
+  var img = body.img || '';
+  var timestamp = new Date().toISOString();
+
+  if (acao === 'adicionar') {
+    sheet.appendRow([timestamp, modelo, modeloNome, nome, preco, peso, img]);
+    return { sucesso: true, mensagem: 'Peca adicionada: ' + nome };
+  }
+
+  if (acao === 'editar') {
+    // Procurar linha existente pelo modelo + nome antigo, ou adicionar/atualizar
+    var data = sheet.getDataRange().getValues();
+    var found = false;
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][1] === modelo && data[i][3].toString().toLowerCase() === nome.toLowerCase()) {
+        // Atualizar linha existente
+        sheet.getRange(i + 1, 1, 1, 7).setValues([[timestamp, modelo, modeloNome, nome, preco, peso, img]]);
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      // Se nao encontrou, adicionar como nova
+      sheet.appendRow([timestamp, modelo, modeloNome, nome, preco, peso, img]);
+    }
+    return { sucesso: true, mensagem: 'Peca atualizada: ' + nome };
+  }
+
+  if (acao === 'excluir') {
+    var data2 = sheet.getDataRange().getValues();
+    for (var j = 1; j < data2.length; j++) {
+      if (data2[j][1] === modelo && data2[j][3].toString().toLowerCase() === nome.toLowerCase()) {
+        sheet.deleteRow(j + 1);
+        return { sucesso: true, mensagem: 'Peca excluida: ' + nome };
+      }
+    }
+    return { sucesso: true, mensagem: 'Peca nao encontrada na planilha (ja removida da memoria)' };
+  }
+
+  return { sucesso: false, erro: 'Acao de peca desconhecida: ' + acao };
+}
+
+/**
+ * Lista todas as pecas salvas na aba "Pecas"
+ */
+function listarPecasSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(ABA_PECAS);
+  if (!sheet) {
+    return { sucesso: true, pecas: [] };
+  }
+
+  var data = sheet.getDataRange().getValues();
+  if (data.length <= 1) {
+    return { sucesso: true, pecas: [] };
+  }
+
+  var pecas = [];
+  for (var i = 1; i < data.length; i++) {
+    pecas.push({
+      modelo: data[i][1] || '',
+      modeloNome: data[i][2] || '',
+      nome: data[i][3] || '',
+      preco: data[i][4],
+      peso: data[i][5] || '',
+      img: data[i][6] || ''
+    });
+  }
+
+  return { sucesso: true, pecas: pecas };
 }
