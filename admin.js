@@ -296,6 +296,16 @@ function openAdminPartModal(peca, modelId, idx) {
   });
 }
 
+// --- Read file as base64 data URL ---
+function readFileAsBase64(file) {
+  return new Promise(function(resolve, reject) {
+    var reader = new FileReader();
+    reader.onload = function() { resolve(reader.result); };
+    reader.onerror = function() { reject(reader.error); };
+    reader.readAsDataURL(file);
+  });
+}
+
 // --- Save part (add or edit) ---
 function saveAdminPart(isEdit, editModelId, editIdx) {
   var nome = document.getElementById('admin-peca-nome').value.trim();
@@ -323,74 +333,117 @@ function saveAdminPart(isEdit, editModelId, editIdx) {
     return;
   }
 
-  // Handle image
+  // Handle image - read as base64 if a new file was selected
   var fileInput = document.getElementById('admin-peca-img');
-  var imgPath = '';
+  var hasNewImage = fileInput.files && fileInput.files[0];
 
-  if (isEdit) {
-    // Keep existing image if no new one selected
-    var existingPeca = CATALOGO_MODELOS[editModelId].pecas[editIdx];
-    imgPath = existingPeca.img || '';
-  }
-
-  if (fileInput.files && fileInput.files[0]) {
-    // For file uploads, create a local object URL for preview
-    // In production, the image would be uploaded to the server
-    imgPath = URL.createObjectURL(fileInput.files[0]);
-  }
-
-  if (isEdit) {
-    // Update existing part in original model
-    var peca = CATALOGO_MODELOS[editModelId].pecas[editIdx];
-    peca.nome = nome;
-    peca.preco = preco;
-    peca.peso = peso;
-    if (imgPath) peca.img = imgPath;
-    savePartToSheets('editar', editModelId, editIdx, peca);
-
-    // Add to newly selected models (that didn't have this part)
-    selectedModels.forEach(function(mid) {
-      if (mid === editModelId) return; // skip original
-      if (!CATALOGO_MODELOS[mid]) return;
-      // Check if part already exists in this model
-      var exists = CATALOGO_MODELOS[mid].pecas.some(function(p) {
-        return p.nome.toLowerCase() === nome.toLowerCase();
-      });
-      if (!exists) {
-        var newPeca = { nome: nome, preco: preco, peso: peso, img: imgPath || peca.img };
-        CATALOGO_MODELOS[mid].pecas.push(newPeca);
-        savePartToSheets('adicionar', mid, CATALOGO_MODELOS[mid].pecas.length - 1, newPeca);
-      }
+  var imagePromise;
+  if (hasNewImage) {
+    imagePromise = readFileAsBase64(fileInput.files[0]).then(function(base64) {
+      return { base64: base64, nome: fileInput.files[0].name };
     });
-
-    mostrarFeedback('Peca "' + nome + '" atualizada em ' + selectedModels.length + ' modelo(s)!', 'sucesso');
   } else {
-    // Add new part to selected models
-    selectedModels.forEach(function(mid) {
-      if (!CATALOGO_MODELOS[mid]) return;
-      var newPeca = {
-        nome: nome,
-        preco: preco,
-        peso: peso,
-        img: imgPath || 'img/' + mid + '/' + nome + '.jpeg'
-      };
-      CATALOGO_MODELOS[mid].pecas.push(newPeca);
-
-      // Save to Google Sheets
-      var newIdx = CATALOGO_MODELOS[mid].pecas.length - 1;
-      savePartToSheets('adicionar', mid, newIdx, newPeca);
-    });
-    mostrarFeedback('Peca "' + nome + '" adicionada a ' + selectedModels.length + ' modelo(s)!', 'sucesso');
+    imagePromise = Promise.resolve(null);
   }
 
-  // Close modal and refresh
-  document.getElementById('modal-admin').style.display = 'none';
-  refreshAdminTable();
-
-  // Refresh catalog if it's open
-  if (catalogoModelId) {
-    openCatalogo(catalogoModelId);
+  // Disable save button while processing
+  var saveBtn = document.getElementById('admin-modal-save');
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Salvando...';
   }
+
+  imagePromise.then(function(imageData) {
+    var imgPath = '';
+    var imagemBase64 = null;
+    var imagemNome = null;
+
+    if (isEdit) {
+      var existingPeca = CATALOGO_MODELOS[editModelId].pecas[editIdx];
+      imgPath = existingPeca.img || '';
+    }
+
+    if (imageData) {
+      imagemBase64 = imageData.base64;
+      imagemNome = imageData.nome;
+      // Temporary local preview until Drive URL comes back
+      imgPath = URL.createObjectURL(fileInput.files[0]);
+    }
+
+    if (isEdit) {
+      var peca = CATALOGO_MODELOS[editModelId].pecas[editIdx];
+      peca.nome = nome;
+      peca.preco = preco;
+      peca.peso = peso;
+      if (imgPath) peca.img = imgPath;
+
+      // Save to Sheets and get Drive URL back
+      savePartToSheets('editar', editModelId, editIdx, peca, imagemBase64, imagemNome).then(function(resp) {
+        if (resp && resp.imagemUrl) {
+          peca.img = resp.imagemUrl;
+          refreshAdminTable();
+        }
+      });
+
+      // Add to newly selected models (that didn't have this part)
+      selectedModels.forEach(function(mid) {
+        if (mid === editModelId) return;
+        if (!CATALOGO_MODELOS[mid]) return;
+        var exists = CATALOGO_MODELOS[mid].pecas.some(function(p) {
+          return p.nome.toLowerCase() === nome.toLowerCase();
+        });
+        if (!exists) {
+          var newPeca = { nome: nome, preco: preco, peso: peso, img: imgPath || peca.img };
+          CATALOGO_MODELOS[mid].pecas.push(newPeca);
+          savePartToSheets('adicionar', mid, CATALOGO_MODELOS[mid].pecas.length - 1, newPeca, imagemBase64, imagemNome).then(function(resp) {
+            if (resp && resp.imagemUrl) {
+              newPeca.img = resp.imagemUrl;
+            }
+          });
+        }
+      });
+
+      mostrarFeedback('Peca "' + nome + '" atualizada em ' + selectedModels.length + ' modelo(s)!', 'sucesso');
+    } else {
+      // Add new part to selected models
+      selectedModels.forEach(function(mid) {
+        if (!CATALOGO_MODELOS[mid]) return;
+        var newPeca = {
+          nome: nome,
+          preco: preco,
+          peso: peso,
+          img: imgPath || 'img/' + mid + '/' + nome + '.jpeg'
+        };
+        CATALOGO_MODELOS[mid].pecas.push(newPeca);
+
+        var newIdx = CATALOGO_MODELOS[mid].pecas.length - 1;
+        savePartToSheets('adicionar', mid, newIdx, newPeca, imagemBase64, imagemNome).then(function(resp) {
+          if (resp && resp.imagemUrl) {
+            newPeca.img = resp.imagemUrl;
+            refreshAdminTable();
+          }
+        });
+      });
+      mostrarFeedback('Peca "' + nome + '" adicionada a ' + selectedModels.length + ' modelo(s)!', 'sucesso');
+    }
+
+    // Close modal and refresh
+    document.getElementById('modal-admin').style.display = 'none';
+    refreshAdminTable();
+
+    // Refresh catalog if it's open
+    if (typeof catalogoModelId !== 'undefined' && catalogoModelId && typeof openCatalogo === 'function') {
+      openCatalogo(catalogoModelId);
+    }
+  }).catch(function(err) {
+    console.error('Admin: erro ao processar imagem', err);
+    mostrarFeedback('Erro ao processar imagem: ' + err.message, 'erro');
+  }).finally(function() {
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = isEdit ? 'Salvar Alteracoes' : 'Adicionar Peca';
+    }
+  });
 }
 
 // --- Delete part ---
@@ -419,10 +472,10 @@ function confirmDeletePart(modelId, idx) {
 }
 
 // --- Save to Google Sheets ---
-function savePartToSheets(acao, modelId, idx, peca) {
+function savePartToSheets(acao, modelId, idx, peca, imagemBase64, imagemNome) {
   if (typeof GOOGLE_SCRIPT_URL === 'undefined' || GOOGLE_SCRIPT_URL.indexOf('SUBSTITUIR') !== -1) {
     console.warn('Admin: Google Script URL nao configurada, salvamento apenas local.');
-    return;
+    return Promise.resolve(null);
   }
 
   var payload = {
@@ -437,15 +490,30 @@ function savePartToSheets(acao, modelId, idx, peca) {
     img: peca.img || ''
   };
 
-  fetch(GOOGLE_SCRIPT_URL, {
+  // Include base64 image if provided
+  if (imagemBase64 && imagemNome) {
+    payload.imagemBase64 = imagemBase64;
+    payload.imagemNome = imagemNome;
+  }
+
+  return fetch(GOOGLE_SCRIPT_URL, {
     method: 'POST',
-    mode: 'no-cors',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify(payload)
-  }).then(function() {
-    console.log('Admin: peca salva no Sheets (' + acao + ')');
+  }).then(function(resp) {
+    return resp.text();
+  }).then(function(text) {
+    try {
+      var data = JSON.parse(text);
+      console.log('Admin: peca salva no Sheets (' + acao + ')', data);
+      return data;
+    } catch (e) {
+      console.warn('Admin: resposta nao-JSON do Sheets', text);
+      return null;
+    }
   }).catch(function(err) {
     console.error('Admin: erro ao salvar no Sheets', err);
+    return null;
   });
 }
 
@@ -458,16 +526,23 @@ function loadPartsFromSheets() {
 
   var url = GOOGLE_SCRIPT_URL + '?action=listar_pecas';
 
-  fetch(url)
-    .then(function(res) { return res.json(); })
-    .then(function(data) {
+  fetch(url, { redirect: 'follow' })
+    .then(function(res) { return res.text(); })
+    .then(function(text) {
+      var data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        console.warn('Admin: resposta nao-JSON ao listar pecas', text);
+        return;
+      }
       if (data && data.sucesso && data.pecas && data.pecas.length > 0) {
         applySheetsParts(data.pecas);
         console.log('Admin: ' + data.pecas.length + ' pecas carregadas do Sheets');
         // Refresh views
-        if (currentView === 'home') renderHome();
-        if (currentView === 'catalogo' && catalogoModelId) openCatalogo(catalogoModelId);
-        if (currentView === 'admin') refreshAdminTable();
+        if (typeof currentView !== 'undefined' && currentView === 'home' && typeof renderHome === 'function') renderHome();
+        if (typeof currentView !== 'undefined' && currentView === 'catalogo' && typeof catalogoModelId !== 'undefined' && catalogoModelId && typeof openCatalogo === 'function') openCatalogo(catalogoModelId);
+        if (typeof currentView !== 'undefined' && currentView === 'admin' && typeof refreshAdminTable === 'function') refreshAdminTable();
       }
     })
     .catch(function(err) {

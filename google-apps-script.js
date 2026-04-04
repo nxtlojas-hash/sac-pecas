@@ -1258,6 +1258,38 @@ function getOrCreateAbaPecas() {
 }
 
 /**
+ * Salva imagem no Google Drive e retorna URL publica de thumbnail
+ */
+function salvarImagemDrive(base64Data, nomeArquivo) {
+  var folder;
+  try {
+    folder = DriveApp.getFolderById(PASTA_PDF_ORCAMENTOS);
+    var subfolders = folder.getFoldersByName('imagens-pecas');
+    if (subfolders.hasNext()) {
+      folder = subfolders.next();
+    } else {
+      folder = folder.createFolder('imagens-pecas');
+    }
+  } catch(e) {
+    folder = DriveApp.getRootFolder();
+  }
+
+  var contentType = 'image/jpeg';
+  if (base64Data.indexOf('data:') === 0) {
+    var parts = base64Data.split(',');
+    contentType = parts[0].split(':')[1].split(';')[0];
+    base64Data = parts[1];
+  }
+
+  var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), contentType, nomeArquivo);
+  var file = folder.createFile(blob);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+  var fileId = file.getId();
+  return 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w400';
+}
+
+/**
  * Gerencia pecas (adicionar, editar, excluir)
  * body: { action, acao, modelo, modeloNome, idx, nome, preco, peso, img }
  */
@@ -1271,29 +1303,38 @@ function gerenciarPeca(body) {
   var peso = body.peso || '';
   var img = body.img || '';
   var timestamp = new Date().toISOString();
+  var imagemUrl = '';
+
+  // Se veio imagem em base64, salvar no Drive
+  if (body.imagemBase64 && body.imagemNome) {
+    try {
+      imagemUrl = salvarImagemDrive(body.imagemBase64, body.imagemNome);
+      img = imagemUrl;
+    } catch (e) {
+      // Se falhar upload, continuar sem imagem nova
+      imagemUrl = '';
+    }
+  }
 
   if (acao === 'adicionar') {
     sheet.appendRow([timestamp, modelo, modeloNome, nome, preco, peso, img]);
-    return { sucesso: true, mensagem: 'Peca adicionada: ' + nome };
+    return { sucesso: true, mensagem: 'Peca adicionada: ' + nome, imagemUrl: imagemUrl };
   }
 
   if (acao === 'editar') {
-    // Procurar linha existente pelo modelo + nome antigo, ou adicionar/atualizar
     var data = sheet.getDataRange().getValues();
     var found = false;
     for (var i = 1; i < data.length; i++) {
       if (data[i][1] === modelo && data[i][3].toString().toLowerCase() === nome.toLowerCase()) {
-        // Atualizar linha existente
         sheet.getRange(i + 1, 1, 1, 7).setValues([[timestamp, modelo, modeloNome, nome, preco, peso, img]]);
         found = true;
         break;
       }
     }
     if (!found) {
-      // Se nao encontrou, adicionar como nova
       sheet.appendRow([timestamp, modelo, modeloNome, nome, preco, peso, img]);
     }
-    return { sucesso: true, mensagem: 'Peca atualizada: ' + nome };
+    return { sucesso: true, mensagem: 'Peca atualizada: ' + nome, imagemUrl: imagemUrl };
   }
 
   if (acao === 'excluir') {
