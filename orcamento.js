@@ -475,46 +475,58 @@ function enviarOrcamento(orcamento, comPDF) {
 
   fetch(GOOGLE_SCRIPT_URL, {
     method: 'POST',
-    mode: 'no-cors',
     redirect: 'follow',
+    headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify(orcamento)
   })
   .then(function(response) {
-    if (response.type === 'opaque' || response.ok) {
+    return response.text();
+  })
+  .then(function(text) {
+    var data = {};
+    try { data = JSON.parse(text); } catch(e) { data = { sucesso: true }; }
+
+    if (data.sucesso !== false) {
       mostrarFeedback('Orcamento ' + orcamento.numero + ' salvo!', 'sucesso');
       fecharModalNovoOrc();
-      // Clear selected parts
       selectedParts = [];
       updateSelectionBadge();
-
-      // Navigate to orcamentos list and reload
       navigateTo('orcamentos');
-      setTimeout(function() {
-        loadOrcamentos();
-      }, 2000);
+      setTimeout(function() { loadOrcamentos(); }, 3000);
 
       if (comPDF) {
-        // Request PDF generation
-        setTimeout(function() {
-          solicitarPDFOrcamento(orcamento.numero);
-        }, 2500);
+        setTimeout(function() { solicitarPDFOrcamento(orcamento.numero); }, 4000);
       }
     } else {
-      mostrarFeedback('Erro ao salvar orcamento', 'erro');
+      mostrarFeedback('Erro: ' + (data.erro || 'desconhecido'), 'erro');
     }
   })
   .catch(function(error) {
     console.error('Erro ao salvar orcamento:', error);
-    mostrarFeedback('Erro ao salvar orcamento', 'erro');
+    // Even with error, the POST may have succeeded (CORS redirect issue)
+    mostrarFeedback('Orcamento enviado. Verificando...', 'info');
+    fecharModalNovoOrc();
+    selectedParts = [];
+    updateSelectionBadge();
+    navigateTo('orcamentos');
+    setTimeout(function() { loadOrcamentos(); }, 3000);
   });
 }
 
 function solicitarPDFOrcamento(numero) {
   var url = GOOGLE_SCRIPT_URL + '?action=gerar_pdf_orcamento&numero=' + encodeURIComponent(numero);
 
-  fetch(url)
-    .then(function(resp) { return resp.json(); })
-    .then(function(data) {
+  mostrarFeedback('Gerando PDF...', 'info');
+
+  fetch(url, { redirect: 'follow' })
+    .then(function(resp) { return resp.text(); })
+    .then(function(text) {
+      var data;
+      try { data = JSON.parse(text); } catch(e) {
+        console.error('Resposta PDF invalida:', text.substring(0, 200));
+        mostrarFeedback('Erro ao gerar PDF', 'erro');
+        return;
+      }
       if (data.sucesso && data.pdfUrl) {
         mostrarFeedback('PDF gerado com sucesso!', 'sucesso');
         window.open(data.pdfUrl, '_blank');
@@ -524,40 +536,48 @@ function solicitarPDFOrcamento(numero) {
     })
     .catch(function(error) {
       console.error('Erro ao gerar PDF:', error);
-      mostrarFeedback('Erro ao gerar PDF do orcamento', 'erro');
+      mostrarFeedback('Erro ao gerar PDF: ' + error.message, 'erro');
     });
 }
 
 // --- Load quotes from backend ---
 function loadOrcamentos() {
-  var busca = document.getElementById('busca-orcamento').value.trim();
-  var status = document.getElementById('filtro-status-orc').value;
-  var data = document.getElementById('filtro-data-orc').value;
+  var busca = document.getElementById('busca-orcamento');
+  var status = document.getElementById('filtro-status-orc');
+  var data = document.getElementById('filtro-data-orc');
 
   var params = ['action=listar_orcamentos'];
-  if (busca) params.push('busca=' + encodeURIComponent(busca));
-  if (status) params.push('status=' + encodeURIComponent(status));
-  if (data) params.push('data=' + encodeURIComponent(data));
+  if (busca && busca.value.trim()) params.push('busca=' + encodeURIComponent(busca.value.trim()));
+  if (status && status.value) params.push('status=' + encodeURIComponent(status.value));
+  if (data && data.value) params.push('data=' + encodeURIComponent(data.value));
 
   var url = GOOGLE_SCRIPT_URL + '?' + params.join('&');
 
   var lista = document.getElementById('lista-orcamentos');
   if (lista) lista.innerHTML = '<p class="orc-vazio">Carregando orcamentos...</p>';
 
-  fetch(url)
-    .then(function(resp) { return resp.json(); })
-    .then(function(data) {
+  fetch(url, { redirect: 'follow' })
+    .then(function(resp) {
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      return resp.text();
+    })
+    .then(function(text) {
+      var data;
+      try { data = JSON.parse(text); } catch(e) {
+        console.error('Resposta invalida:', text.substring(0, 200));
+        throw new Error('Resposta nao e JSON');
+      }
       if (data.sucesso && data.orcamentos) {
         orcamentosCache = data.orcamentos;
         renderOrcamentos(orcamentosCache);
       } else {
+        console.warn('Resposta sem orcamentos:', data);
         renderOrcamentos([]);
       }
     })
     .catch(function(error) {
       console.error('Erro ao carregar orcamentos:', error);
-      renderOrcamentos([]);
-      mostrarFeedback('Erro ao carregar orcamentos', 'erro');
+      if (lista) lista.innerHTML = '<p class="orc-vazio">Erro ao carregar: ' + error.message + '. <button class="btn-secundario btn-sm" onclick="loadOrcamentos()">Tentar novamente</button></p>';
     });
 }
 
@@ -652,9 +672,17 @@ function abrirOrcamento(numero) {
   var modal = document.getElementById('modal-orcamento');
   if (modal) modal.style.display = 'flex';
 
-  fetch(url)
-    .then(function(resp) { return resp.json(); })
-    .then(function(data) {
+  fetch(url, { redirect: 'follow' })
+    .then(function(resp) {
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      return resp.text();
+    })
+    .then(function(text) {
+      var data;
+      try { data = JSON.parse(text); } catch(e) {
+        console.error('Resposta invalida:', text.substring(0, 200));
+        throw new Error('Resposta nao e JSON');
+      }
       if (data.sucesso && data.orcamento) {
         renderOrcamentoDetail(data.orcamento);
       } else {
@@ -663,7 +691,7 @@ function abrirOrcamento(numero) {
     })
     .catch(function(error) {
       console.error('Erro ao buscar orcamento:', error);
-      if (detail) detail.innerHTML = '<p class="orc-vazio">Erro ao carregar orcamento.</p>';
+      if (detail) detail.innerHTML = '<p class="orc-vazio">Erro ao carregar orcamento: ' + error.message + '</p>';
     });
 }
 
@@ -756,20 +784,28 @@ function aprovarOrcamento(numero) {
 
   fetch(GOOGLE_SCRIPT_URL, {
     method: 'POST',
-    mode: 'no-cors',
     redirect: 'follow',
+    headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify(payload)
   })
   .then(function(response) {
-    if (response.type === 'opaque' || response.ok) {
+    return response.text();
+  })
+  .then(function(text) {
+    var result = {};
+    try { result = JSON.parse(text); } catch(e) { result = { sucesso: true }; }
+
+    if (result.sucesso !== false) {
       mostrarFeedback('Orcamento aprovado! Preenchendo formulario...', 'sucesso');
       fecharModalOrcamento();
 
       // Fetch full quote to fill form
       var url = GOOGLE_SCRIPT_URL + '?action=buscar_orcamento&numero=' + encodeURIComponent(numero);
-      fetch(url)
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
+      fetch(url, { redirect: 'follow' })
+        .then(function(r) { return r.text(); })
+        .then(function(t) {
+          var data;
+          try { data = JSON.parse(t); } catch(e) { data = {}; }
           if (data.sucesso && data.orcamento) {
             preencherFormularioComOrcamento(data.orcamento);
           }
@@ -779,12 +815,15 @@ function aprovarOrcamento(numero) {
           navigateTo('formulario');
         });
     } else {
-      mostrarFeedback('Erro ao aprovar orcamento', 'erro');
+      mostrarFeedback('Erro ao aprovar: ' + (result.erro || 'desconhecido'), 'erro');
     }
   })
   .catch(function(error) {
     console.error('Erro ao aprovar:', error);
-    mostrarFeedback('Erro ao aprovar orcamento', 'erro');
+    // POST may have succeeded despite CORS error
+    mostrarFeedback('Aprovacao enviada. Verificando...', 'info');
+    fecharModalOrcamento();
+    setTimeout(function() { loadOrcamentos(); }, 3000);
   });
 }
 
