@@ -73,6 +73,28 @@ function buildOrcamentosHTML() {
               '<input type="number" id="orc-validade" value="7" min="1" max="90">' +
             '</div>' +
           '</div>' +
+          '<div class="orc-add-peca">' +
+            '<h4>Adicionar Pecas</h4>' +
+            '<div class="form-row">' +
+              '<div class="form-group">' +
+                '<label>Modelo</label>' +
+                '<select id="orc-modelo-select" onchange="atualizarPecasOrcamento()">' +
+                  '<option value="">Selecione...</option>' +
+                '</select>' +
+              '</div>' +
+              '<div class="form-group form-group-lg">' +
+                '<label>Peca</label>' +
+                '<input type="text" id="orc-peca-input" list="orc-pecas-list" placeholder="Digite ou selecione...">' +
+                '<datalist id="orc-pecas-list"></datalist>' +
+              '</div>' +
+              '<div class="form-group form-group-sm">' +
+                '<button type="button" class="btn-primario btn-sm" onclick="adicionarPecaOrcamento()">+ Adicionar</button>' +
+              '</div>' +
+            '</div>' +
+            '<div style="margin-bottom:0.5rem;">' +
+              '<button type="button" class="btn-secundario btn-sm" onclick="navigateTo(\'catalogo\'); fecharModalNovoOrc();">Buscar no Catalogo</button>' +
+            '</div>' +
+          '</div>' +
           '<div class="secao-form-titulo">Pecas Selecionadas</div>' +
           '<div id="orc-lista-pecas" class="lista-pecas"></div>' +
           '<div class="form-total">Total: <strong id="orc-total">R$ 0,00</strong></div>' +
@@ -165,6 +187,9 @@ function gerarNumeroOrc() {
 
 // --- Open new quote modal ---
 function novoOrcamento() {
+  // Populate model select for in-modal part adding
+  popularModelosOrcamento();
+
   // Populate from selectedParts
   renderOrcPecas();
   calcularOrcTotais();
@@ -180,6 +205,91 @@ function novoOrcamento() {
 
   var modal = document.getElementById('modal-novo-orcamento');
   if (modal) modal.style.display = 'flex';
+}
+
+// --- Populate model select in the modal ---
+function popularModelosOrcamento() {
+  var select = document.getElementById('orc-modelo-select');
+  if (!select) return;
+  select.innerHTML = '<option value="">Selecione...</option>';
+  Object.keys(CATALOGO_MODELOS).forEach(function(modelId) {
+    var model = CATALOGO_MODELOS[modelId];
+    var opt = document.createElement('option');
+    opt.value = modelId;
+    opt.textContent = model.nome;
+    select.appendChild(opt);
+  });
+}
+
+// --- Update datalist with parts for selected model ---
+function atualizarPecasOrcamento() {
+  var select = document.getElementById('orc-modelo-select');
+  var datalist = document.getElementById('orc-pecas-list');
+  var input = document.getElementById('orc-peca-input');
+  if (!select || !datalist) return;
+
+  datalist.innerHTML = '';
+  if (input) input.value = '';
+
+  var modelId = select.value;
+  if (!modelId || !CATALOGO_MODELOS[modelId]) return;
+
+  var pecas = CATALOGO_MODELOS[modelId].pecas;
+  pecas.forEach(function(p) {
+    var opt = document.createElement('option');
+    var precoStr = p.preco != null ? ' - R$ ' + formatarValor(p.preco) : '';
+    opt.value = p.nome;
+    opt.textContent = p.nome + precoStr;
+    datalist.appendChild(opt);
+  });
+}
+
+// --- Add a part from the modal search to selectedParts ---
+function adicionarPecaOrcamento() {
+  var select = document.getElementById('orc-modelo-select');
+  var input = document.getElementById('orc-peca-input');
+  if (!select || !input) return;
+
+  var modelId = select.value;
+  var pecaNome = input.value.trim();
+
+  if (!modelId) { mostrarFeedback('Selecione um modelo', 'erro'); return; }
+  if (!pecaNome) { mostrarFeedback('Digite ou selecione uma peca', 'erro'); return; }
+
+  var model = CATALOGO_MODELOS[modelId];
+  if (!model) { mostrarFeedback('Modelo nao encontrado', 'erro'); return; }
+
+  var pecaEncontrada = null;
+  for (var i = 0; i < model.pecas.length; i++) {
+    if (model.pecas[i].nome.toLowerCase() === pecaNome.toLowerCase()) {
+      pecaEncontrada = model.pecas[i];
+      break;
+    }
+  }
+
+  if (!pecaEncontrada) {
+    mostrarFeedback('Peca "' + pecaNome + '" nao encontrada no modelo ' + model.nome, 'erro');
+    return;
+  }
+
+  selectedParts.push({
+    modelId: modelId,
+    idx: i,
+    nome: pecaEncontrada.nome,
+    preco: pecaEncontrada.preco,
+    peso: pecaEncontrada.peso
+  });
+
+  updateSelectionBadge();
+  input.value = '';
+  atualizarListaPecasModal();
+  mostrarFeedback(pecaEncontrada.nome + ' adicionado', 'sucesso');
+}
+
+// --- Refresh the parts list and totals inside the modal ---
+function atualizarListaPecasModal() {
+  renderOrcPecas();
+  calcularOrcTotais();
 }
 
 function fecharModalNovoOrc() {
@@ -262,7 +372,7 @@ function salvarOrcamento() {
   var obs = document.getElementById('orc-observacoes').value.trim();
 
   if (!nome) { mostrarFeedback('Informe o nome do cliente', 'erro'); return; }
-  if (selectedParts.length === 0) { mostrarFeedback('Adicione ao menos uma peca', 'erro'); return; }
+  if (selectedParts.length === 0) { mostrarFeedback('Adicione ao menos uma peca ao orcamento', 'erro'); return; }
 
   var numero = gerarNumeroOrc();
   var hoje = new Date();
@@ -377,11 +487,17 @@ function enviarOrcamento(orcamento, comPDF) {
       selectedParts = [];
       updateSelectionBadge();
 
+      // Navigate to orcamentos list and reload
+      navigateTo('orcamentos');
+      setTimeout(function() {
+        loadOrcamentos();
+      }, 2000);
+
       if (comPDF) {
         // Request PDF generation
         setTimeout(function() {
           solicitarPDFOrcamento(orcamento.numero);
-        }, 2000);
+        }, 2500);
       }
     } else {
       mostrarFeedback('Erro ao salvar orcamento', 'erro');

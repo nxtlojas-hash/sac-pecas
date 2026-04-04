@@ -36,6 +36,8 @@ function navigateTo(view, params) {
     renderHome();
   } else if (view === 'catalogo' && params && params.model) {
     openCatalogo(params.model);
+  } else if (view === 'orcamentos') {
+    if (typeof loadOrcamentos === 'function') loadOrcamentos();
   } else if (view === 'admin') {
     if (typeof initAdmin === 'function') initAdmin();
   }
