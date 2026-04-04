@@ -69,12 +69,10 @@ function renderHome() {
   Object.keys(CATALOGO_MODELOS).forEach(function(modelId) {
     const model = CATALOGO_MODELOS[modelId];
     const count = model.pecas.length;
-    const icon = MODEL_ICONS[modelId] || '\uD83D\uDEE0\uFE0F';
-
     const card = document.createElement('div');
     card.className = 'modelo-card';
     card.innerHTML =
-      '<div class="modelo-icon">' + icon + '</div>' +
+      '<div class="modelo-img"><img src="img/modelos/' + modelId + '.png" alt="' + model.nome + '" onerror="this.style.display=\'none\';this.parentElement.innerHTML=\'<span class=modelo-icon-fallback>' + (MODEL_ICONS[modelId] || '\uD83D\uDEE0\uFE0F') + '</span>\';"></div>' +
       '<div class="modelo-nome">' + model.nome + '</div>' +
       '<div class="modelo-count">' + count + ' pecas</div>';
 
