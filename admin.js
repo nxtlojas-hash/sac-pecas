@@ -221,8 +221,7 @@ function openAdminPartModal(peca, modelId, idx) {
 
   var modelsCheckboxes = ADMIN_MODELS.map(function(m) {
     var checked = isEdit && modelId === m.id ? ' checked' : '';
-    var disabled = isEdit ? ' disabled' : '';
-    return '<label><input type="checkbox" name="admin-modelos" value="' + m.id + '"' + checked + disabled + '> ' + m.nome + '</label>';
+    return '<label><input type="checkbox" name="admin-modelos" value="' + m.id + '"' + checked + '> ' + m.nome + '</label>';
   }).join('');
 
   modal.querySelector('.modal-content').innerHTML =
@@ -341,16 +340,30 @@ function saveAdminPart(isEdit, editModelId, editIdx) {
   }
 
   if (isEdit) {
-    // Update existing part
+    // Update existing part in original model
     var peca = CATALOGO_MODELOS[editModelId].pecas[editIdx];
     peca.nome = nome;
     peca.preco = preco;
     peca.peso = peso;
     if (imgPath) peca.img = imgPath;
-
-    // Save to Google Sheets
     savePartToSheets('editar', editModelId, editIdx, peca);
-    mostrarFeedback('Peca "' + nome + '" atualizada com sucesso!', 'sucesso');
+
+    // Add to newly selected models (that didn't have this part)
+    selectedModels.forEach(function(mid) {
+      if (mid === editModelId) return; // skip original
+      if (!CATALOGO_MODELOS[mid]) return;
+      // Check if part already exists in this model
+      var exists = CATALOGO_MODELOS[mid].pecas.some(function(p) {
+        return p.nome.toLowerCase() === nome.toLowerCase();
+      });
+      if (!exists) {
+        var newPeca = { nome: nome, preco: preco, peso: peso, img: imgPath || peca.img };
+        CATALOGO_MODELOS[mid].pecas.push(newPeca);
+        savePartToSheets('adicionar', mid, CATALOGO_MODELOS[mid].pecas.length - 1, newPeca);
+      }
+    });
+
+    mostrarFeedback('Peca "' + nome + '" atualizada em ' + selectedModels.length + ' modelo(s)!', 'sucesso');
   } else {
     // Add new part to selected models
     selectedModels.forEach(function(mid) {
