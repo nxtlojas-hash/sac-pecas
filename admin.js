@@ -456,19 +456,23 @@ function confirmDeletePart(modelId, idx) {
     return;
   }
 
-  // Save deletion to Google Sheets
-  savePartToSheets('excluir', modelId, idx, peca);
-
-  // Remove from memory
+  // Remove from memory immediately
   CATALOGO_MODELOS[modelId].pecas.splice(idx, 1);
-
-  mostrarFeedback('Peca "' + peca.nome + '" excluida do modelo ' + modelNome, 'sucesso');
   refreshAdminTable();
-
-  // Refresh catalog if open
-  if (catalogoModelId) {
+  if (typeof catalogoModelId !== 'undefined' && catalogoModelId && typeof openCatalogo === 'function') {
     openCatalogo(catalogoModelId);
   }
+
+  // Save deletion to Google Sheets and confirm
+  savePartToSheets('excluir', modelId, idx, peca).then(function(resp) {
+    if (resp && resp.sucesso) {
+      mostrarFeedback('Peca "' + peca.nome + '" excluida do modelo ' + modelNome + ' (Sheets atualizado)', 'sucesso');
+    } else {
+      mostrarFeedback('Peca removida localmente. Erro ao excluir no Sheets: ' + (resp && resp.erro ? resp.erro : 'sem resposta'), 'erro');
+    }
+  }).catch(function(err) {
+    mostrarFeedback('Peca removida localmente, mas erro ao sincronizar: ' + err.message, 'erro');
+  });
 }
 
 // --- Save to Google Sheets ---
