@@ -39,7 +39,8 @@ function buildFormHTML() {
         '<div class="form-group">' +
           '<label>Tipo</label>' +
           '<div class="checkbox-group">' +
-            '<label><input type="checkbox" id="tipoVenda" checked> Venda</label>' +
+            '<label><input type="checkbox" id="tipoVendaSAC"> Venda de Pecas SAC</label>' +
+            '<label><input type="checkbox" id="tipoVendaSumare"> Venda de Pecas Sumare</label>' +
             '<label><input type="checkbox" id="tipoGarantia"> Garantia</label>' +
           '</div>' +
         '</div>' +
@@ -816,7 +817,8 @@ function registrarVenda(event) {
   event.preventDefault();
   if (envioEmAndamento) return;
 
-  var tipoVenda = document.getElementById('tipoVenda').checked;
+  var tipoVendaSAC = document.getElementById('tipoVendaSAC').checked;
+  var tipoVendaSumare = document.getElementById('tipoVendaSumare').checked;
   var tipoGarantia = document.getElementById('tipoGarantia').checked;
   var origemSac = document.getElementById('origemSac').value;
   var protocoloSac = document.getElementById('protocoloSac').value.trim();
@@ -842,7 +844,7 @@ function registrarVenda(event) {
   var observacoes = document.getElementById('observacoes').value.trim();
 
   // Validations
-  if (!tipoVenda && !tipoGarantia) { mostrarFeedback('Selecione o tipo de atendimento', 'erro'); return; }
+  if (!tipoVendaSAC && !tipoVendaSumare && !tipoGarantia) { mostrarFeedback('Selecione o tipo de atendimento', 'erro'); return; }
   if (!data) { mostrarFeedback('Informe a data', 'erro'); return; }
   if (!vendedor) { mostrarFeedback('Informe o vendedor (SAC)', 'erro'); return; }
   if (!nomeCliente) { mostrarFeedback('Informe o nome do cliente', 'erro'); return; }
@@ -853,7 +855,7 @@ function registrarVenda(event) {
     if (tipoCliente !== 'J' && docDigitos.length === 11 && !validarCPF(docDigitos)) { mostrarFeedback('CPF invalido', 'erro'); return; }
   }
   if (pecasAdicionadas.length === 0) { mostrarFeedback('Adicione ao menos uma peca', 'erro'); return; }
-  if (tipoVenda && !formaPagamento) { mostrarFeedback('Selecione a forma de pagamento', 'erro'); return; }
+  if ((tipoVendaSAC || tipoVendaSumare) && !formaPagamento) { mostrarFeedback('Selecione a forma de pagamento', 'erro'); return; }
 
   envioEmAndamento = true;
   var btnSubmit = document.getElementById('btnRegistrar');
@@ -865,7 +867,8 @@ function registrarVenda(event) {
   var pesoTotalGramas = pecasAdicionadas.reduce(function(s, p) { return s + (p.pesoGramas || 0); }, 0);
 
   var tipoAtendimento = [];
-  if (tipoVenda) tipoAtendimento.push('Venda');
+  if (tipoVendaSAC) tipoAtendimento.push('Venda SAC');
+  if (tipoVendaSumare) tipoAtendimento.push('Venda Sumare');
   if (tipoGarantia) tipoAtendimento.push('Garantia');
 
   var venda = {
