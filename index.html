@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NXT PECAS V2 - SAC</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="logo-nxt.png" type="image/png">
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-inner">
+      <img src="logo-nxt.png" alt="NXT" class="header-logo">
+      <div class="header-text">
+        <h1>NXT PECAS V2</h1>
+        <span class="header-subtitle">SAC - Consulta, Orcamento e Registro</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation -->
+  <nav class="nav-tabs" id="nav-tabs">
+    <button class="nav-tab active" data-view="home">Inicio</button>
+    <button class="nav-tab" data-view="catalogo">Catalogo</button>
+    <button class="nav-tab" data-view="formulario">Registrar</button>
+    <button class="nav-tab" data-view="orcamentos">Orcamentos <span class="badge" id="badge-orcamentos" style="display:none;">0</span></button>
+  </nav>
+
+  <!-- Views -->
+  <main class="main-content">
+
+    <!-- Home View -->
+    <section class="view active" id="view-home">
+      <div class="grid-modelos" id="grid-modelos"></div>
+    </section>
+
+    <!-- Catalogo View -->
+    <section class="view" id="view-catalogo">
+      <div class="catalogo-header">
+        <button class="btn-voltar" id="btn-voltar" title="Voltar">&#8592; Voltar</button>
+        <h2 class="catalogo-titulo" id="catalogo-titulo"></h2>
+        <div class="catalogo-filtros">
+          <input type="text" class="search-input" id="search-input" placeholder="Buscar peca...">
+          <label class="toggle-revenda">
+            <input type="checkbox" id="toggle-revenda"> Revenda (-15%)
+          </label>
+        </div>
+      </div>
+      <div class="catalogo-stats" id="catalogo-stats"></div>
+      <div class="grid-pecas" id="grid-pecas"></div>
+    </section>
+
+    <!-- Formulario View -->
+    <section class="view" id="view-formulario">
+      <div id="formulario-container">
+        <p style="text-align:center;color:#8e8ea0;padding:2rem;">Formulario em construcao...</p>
+      </div>
+    </section>
+
+    <!-- Orcamentos View -->
+    <section class="view" id="view-orcamentos">
+      <div id="orcamentos-container">
+        <p style="text-align:center;color:#8e8ea0;padding:2rem;">Orcamentos em construcao...</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Modal Zoom -->
+  <div class="modal-overlay" id="modal-zoom" style="display:none;">
+    <div class="modal-content">
+      <button class="modal-close" id="modal-close">&times;</button>
+      <img src="" alt="" class="modal-img" id="modal-img">
+      <div class="modal-info" id="modal-info"></div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast" style="display:none;"></div>
+
+  <!-- Scripts -->
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+  <script src="catalogo.js"></script>
+  <script src="formulario.js"></script>
+  <script src="orcamento.js"></script>
+
+</body>
+</html>
