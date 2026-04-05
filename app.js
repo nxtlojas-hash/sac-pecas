@@ -96,9 +96,98 @@ function renderHome() {
       '</button>' +
       '<button class="btn-secundario" onclick="abrirControleEstoque()" style="font-size:1rem;padding:0.75rem 2rem;">' +
         '\uD83D\uDCE6 Controle de Estoque' +
+      '</button>' +
+      '<button class="btn-secundario" onclick="abrirGuiaUso()" style="font-size:1rem;padding:0.75rem 2rem;">' +
+        '\uD83D\uDCD6 Guia de Uso' +
       '</button>';
     grid.parentNode.insertBefore(btnSection, grid.nextSibling);
   }
+}
+
+// --- Guide modal ---
+function abrirGuiaUso() {
+  var existing = document.getElementById('modal-guia-uso');
+  if (existing) existing.remove();
+
+  var modal = document.createElement('div');
+  modal.id = 'modal-guia-uso';
+  modal.className = 'modal-overlay';
+  modal.style.display = 'flex';
+  modal.innerHTML =
+    '<div class="modal-content" style="max-width:700px;max-height:90vh;overflow-y:auto;">' +
+      '<button class="modal-close" onclick="document.getElementById(\'modal-guia-uso\').remove()">&times;</button>' +
+      '<h2 style="color:var(--cor-primaria);text-align:center;margin-bottom:1rem;">Guia de Uso - NXT SAC Pecas V2</h2>' +
+
+      '<div class="guia-section">' +
+        '<h3>1. Consultar Pecas (Catalogo)</h3>' +
+        '<p>Clique no modelo da moto na tela inicial para ver todas as pecas com foto, preco e peso.</p>' +
+        '<ul>' +
+          '<li>Use o campo "Buscar peca..." para filtrar por nome</li>' +
+          '<li>Clique na foto para ampliar (zoom)</li>' +
+          '<li>Marque "Revenda (-15%)" para ver preco de revenda</li>' +
+          '<li>Badges de estoque: <span style="color:#22c55e;">verde</span> = disponivel, <span style="color:#f59e0b;">amarelo</span> = parcial, <span style="color:#ef4444;">vermelho</span> = indisponivel</li>' +
+        '</ul>' +
+      '</div>' +
+
+      '<div class="guia-section">' +
+        '<h3>2. Registrar Venda/Garantia</h3>' +
+        '<p><strong>Pelo Catalogo (recomendado):</strong> clique "Registrar" na peca desejada. Ela e adicionada ao formulario com preco e peso. Continue adicionando mais pecas pelo catalogo.</p>' +
+        '<p><strong>Manualmente:</strong> aba "Registrar", preencha tipo (SAC/Sumare/Garantia), cliente, pecas, frete e pagamento.</p>' +
+        '<p>O sistema salva na planilha e envia para o Bling automaticamente.</p>' +
+      '</div>' +
+
+      '<div class="guia-section">' +
+        '<h3>3. Orcamentos</h3>' +
+        '<ul>' +
+          '<li><strong>Criar:</strong> aba Orcamentos > Novo Orcamento > adicione pecas > Salvar ou Salvar + PDF</li>' +
+          '<li><strong>Resgatar:</strong> busque por numero (ORC-...), nome, telefone ou data</li>' +
+          '<li><strong>Aprovar:</strong> abra o orcamento > "Aprovar > Registrar" > formulario preenchido automaticamente</li>' +
+          '<li><strong>PDF:</strong> gerado no Google Drive, link salvo na planilha</li>' +
+          '<li><strong>Status:</strong> Pendente (amarelo), Aprovado (verde), Expirado (vermelho)</li>' +
+        '</ul>' +
+      '</div>' +
+
+      '<div class="guia-section">' +
+        '<h3>4. Controle de Estoque</h3>' +
+        '<ul>' +
+          '<li><strong>Ver:</strong> badges no catalogo ou botao "Controle de Estoque"</li>' +
+          '<li><strong>Editar:</strong> Admin > aba Estoque > clique no numero > digite > Enter</li>' +
+          '<li><strong>Baixa automatica:</strong> ao registrar venda, estoque e decrementado</li>' +
+          '<li>Nao bloqueia a venda se estoque for zero (apenas alerta)</li>' +
+        '</ul>' +
+      '</div>' +
+
+      '<div class="guia-section">' +
+        '<h3>5. Admin - Gerenciar Pecas</h3>' +
+        '<ul>' +
+          '<li><strong>Nova peca:</strong> Admin > Nova Peca > preencha nome, modelo(s), preco, peso, foto</li>' +
+          '<li><strong>Editar:</strong> icone de lapis na tabela ou no card do catalogo</li>' +
+          '<li><strong>Excluir:</strong> icone de lixeira na tabela</li>' +
+          '<li>Pecas podem pertencer a multiplos modelos</li>' +
+          '<li>Todas alteracoes sao salvas no Google Sheets</li>' +
+        '</ul>' +
+      '</div>' +
+
+      '<div class="guia-section">' +
+        '<h3>Resumo Rapido</h3>' +
+        '<table style="width:100%;font-size:0.82rem;border-collapse:collapse;">' +
+          '<tr style="border-bottom:1px solid var(--cor-borda);"><td style="padding:0.4rem;"><strong>Identificar peca</strong></td><td style="padding:0.4rem;">Inicio > modelo > catalogo</td></tr>' +
+          '<tr style="border-bottom:1px solid var(--cor-borda);"><td style="padding:0.4rem;"><strong>Saber preco/peso</strong></td><td style="padding:0.4rem;">Catalogo ou Tabela de Precos</td></tr>' +
+          '<tr style="border-bottom:1px solid var(--cor-borda);"><td style="padding:0.4rem;"><strong>Registrar venda</strong></td><td style="padding:0.4rem;">Catalogo > "Registrar" > completar formulario</td></tr>' +
+          '<tr style="border-bottom:1px solid var(--cor-borda);"><td style="padding:0.4rem;"><strong>Fazer orcamento</strong></td><td style="padding:0.4rem;">Orcamentos > Novo > pecas > Salvar</td></tr>' +
+          '<tr style="border-bottom:1px solid var(--cor-borda);"><td style="padding:0.4rem;"><strong>Resgatar orcamento</strong></td><td style="padding:0.4rem;">Orcamentos > buscar nome/numero</td></tr>' +
+          '<tr style="border-bottom:1px solid var(--cor-borda);"><td style="padding:0.4rem;"><strong>Aprovar orcamento</strong></td><td style="padding:0.4rem;">Abrir > Aprovar > vira registro</td></tr>' +
+          '<tr style="border-bottom:1px solid var(--cor-borda);"><td style="padding:0.4rem;"><strong>Ver estoque</strong></td><td style="padding:0.4rem;">Badges no catalogo</td></tr>' +
+          '<tr><td style="padding:0.4rem;"><strong>Atualizar estoque</strong></td><td style="padding:0.4rem;">Admin > Estoque > editar quantidade</td></tr>' +
+        '</table>' +
+      '</div>' +
+    '</div>';
+
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal) modal.remove();
+  });
+
+  document.body.appendChild(modal);
 }
 
 // --- Navigate to stock control ---
