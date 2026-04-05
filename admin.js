@@ -845,28 +845,36 @@ function salvarEstoqueItem(item) {
     action: 'atualizar_estoque',
     modelo: item.modelo,
     peca: item.peca,
-    sumare: item.sumare,
-    jaragua: item.jaragua
+    sumare: parseInt(item.sumare) || 0,
+    jaragua: parseInt(item.jaragua) || 0
   };
+
+  console.log('Estoque: salvando item', JSON.stringify(payload));
 
   fetch(GOOGLE_SCRIPT_URL, {
     method: 'POST',
+    redirect: 'follow',
     headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify(payload)
   }).then(function(resp) {
+    console.log('Estoque: response status', resp.status, resp.url);
     return resp.text();
   }).then(function(text) {
+    console.log('Estoque: response body', text.substring(0, 500));
     try {
       var data = JSON.parse(text);
       if (data && data.sucesso) {
         mostrarFeedback('Estoque atualizado: ' + item.peca, 'sucesso');
       } else {
-        mostrarFeedback('Erro ao salvar estoque: ' + (data.erro || ''), 'erro');
+        console.warn('Estoque: erro na resposta', data);
+        mostrarFeedback('Erro ao salvar estoque: ' + (data.erro || 'resposta inesperada'), 'erro');
       }
     } catch (e) {
-      console.warn('Estoque: resposta nao-JSON', text);
+      console.warn('Estoque: resposta nao-JSON', text.substring(0, 200));
+      mostrarFeedback('Erro ao salvar estoque: resposta invalida do servidor', 'erro');
     }
   }).catch(function(err) {
+    console.error('Estoque: fetch error', err);
     mostrarFeedback('Erro ao salvar estoque: ' + err.message, 'erro');
   });
 

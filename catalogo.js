@@ -34,22 +34,33 @@ function carregarEstoqueModelo(modelId) {
   if (typeof GOOGLE_SCRIPT_URL === 'undefined' || GOOGLE_SCRIPT_URL.indexOf('SUBSTITUIR') !== -1) return;
 
   var url = GOOGLE_SCRIPT_URL + '?action=listar_estoque';
+  console.log('Catalogo: carregando estoque de', url);
   fetch(url, { redirect: 'follow' })
-    .then(function(res) { return res.text(); })
+    .then(function(res) {
+      console.log('Catalogo: estoque response status', res.status);
+      return res.text();
+    })
     .then(function(text) {
+      console.log('Catalogo: estoque response length', text.length);
       var data;
-      try { data = JSON.parse(text); } catch (e) { return; }
+      try { data = JSON.parse(text); } catch (e) {
+        console.warn('Catalogo: resposta nao-JSON', text.substring(0, 200));
+        return;
+      }
       if (data && data.sucesso && data.estoque) {
+        console.log('Catalogo: recebidos', data.estoque.length, 'itens de estoque');
         // Indexar por modelo+peca
         data.estoque.forEach(function(item) {
-          var key = item.modelo.toLowerCase();
+          var key = (item.modelo || '').toLowerCase();
           if (!estoqueCache[key]) estoqueCache[key] = {};
-          estoqueCache[key][item.peca.toLowerCase()] = {
-            sumare: item.sumare || 0,
-            jaragua: item.jaragua || 0
+          estoqueCache[key][(item.peca || '').toLowerCase()] = {
+            sumare: parseInt(item.sumare) || 0,
+            jaragua: parseInt(item.jaragua) || 0
           };
         });
         renderEstoqueBadges(modelId);
+      } else {
+        console.warn('Catalogo: resposta sem estoque', data);
       }
     })
     .catch(function(err) {
@@ -165,12 +176,14 @@ function renderCatalogo() {
 // --- Event: Search ---
 document.getElementById('search-input').addEventListener('input', function() {
   renderCatalogo();
+  if (catalogoModelId) renderEstoqueBadges(catalogoModelId);
 });
 
 // --- Event: Toggle Revenda ---
 document.getElementById('toggle-revenda').addEventListener('change', function() {
   isRevenda = this.checked;
   renderCatalogo();
+  if (catalogoModelId) renderEstoqueBadges(catalogoModelId);
 });
 
 // --- Event: Back button ---

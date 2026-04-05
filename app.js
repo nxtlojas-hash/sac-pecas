@@ -84,18 +84,30 @@ function renderHome() {
     grid.appendChild(card);
   });
 
-  // Price table button
+  // Price table button and stock control button
   var btnSection = document.getElementById('home-tabela-section');
   if (!btnSection) {
     btnSection = document.createElement('div');
     btnSection.id = 'home-tabela-section';
-    btnSection.style.cssText = 'text-align:center;padding:1.5rem 0;';
+    btnSection.style.cssText = 'text-align:center;padding:1.5rem 0;display:flex;flex-wrap:wrap;justify-content:center;gap:0.75rem;';
     btnSection.innerHTML =
       '<button class="btn-secundario" onclick="abrirTabelaPrecos()" style="font-size:1rem;padding:0.75rem 2rem;">' +
         '\uD83D\uDCCA Tabela Completa de Precos' +
+      '</button>' +
+      '<button class="btn-secundario" onclick="abrirControleEstoque()" style="font-size:1rem;padding:0.75rem 2rem;">' +
+        '\uD83D\uDCE6 Controle de Estoque' +
       '</button>';
     grid.parentNode.insertBefore(btnSection, grid.nextSibling);
   }
+}
+
+// --- Navigate to stock control ---
+function abrirControleEstoque() {
+  navigateTo('admin');
+  setTimeout(function() {
+    var tab = document.querySelector('[data-admin-tab="estoque"]');
+    if (tab) tab.click();
+  }, 300);
 }
 
 // --- Full price table ---
