@@ -1229,7 +1229,7 @@ function novaVenda() {
   });
 }
 
-// --- PDF Separacao (simple print-based) ---
+// --- PDF Separacao (modelo referencia V1.6) ---
 function gerarPDFSeparacao() {
   if (!ultimaVendaPDF) {
     mostrarFeedback('Nenhum pedido para gerar PDF', 'erro');
@@ -1239,53 +1239,243 @@ function gerarPDFSeparacao() {
   var venda = ultimaVendaPDF;
   var transpLabel = {
     'correios': 'Correios', 'rodonaves': 'Rodonaves', 'atual_cargas': 'Atual Cargas',
-    'em_maos': 'Em Maos', 'loja': 'Loja', 'outro': 'Outro'
+    'em_maos': 'Em M\u00e3os', 'loja': 'Loja', 'outro': 'Outro'
   };
+  var transNome = transpLabel[venda.frete.transportadora] || venda.frete.transportadora || '';
 
+  var agora = new Date();
+  var timestamp = agora.toLocaleDateString('pt-BR') + ', ' + agora.toLocaleTimeString('pt-BR');
+
+  var urgenciaLabel = { 'normal': 'NORMAL', 'baixa': 'BAIXA', 'alta': 'ALTA', 'urgente': 'URGENTE' };
+  var urgenciaCor = { 'normal': '#6b7280', 'baixa': '#3b82f6', 'alta': '#f59e0b', 'urgente': '#ef4444' };
+  var urgText = urgenciaLabel[venda.urgencia] || 'NORMAL';
+  var urgColor = urgenciaCor[venda.urgencia] || '#6b7280';
+
+  // Calcular volumes (1 volume por peca)
+  var totalVolumes = venda.pecas.reduce(function(s, p) { return s + (p.quantidade || 1); }, 0);
+  var pesoVolumeStr = (venda.pesoVolume || '0gr') + ' / ' + totalVolumes + ' volume' + (totalVolumes > 1 ? 's' : '');
+
+  // Formatacao CPF/CNPJ para exibicao
+  var cpfExib = venda.cliente.cpfCnpj || '';
+
+  // Formatacao CEP
+  var cepExib = venda.cliente.cep || '';
+  if (cepExib.length === 8) cepExib = cepExib.replace(/^(\d{5})(\d{3})$/, '$1-$2');
+
+  // Endereco completo
+  var endCompleto = (venda.cliente.endereco || '');
+  if (venda.cliente.numero) endCompleto += ', ' + venda.cliente.numero;
+
+  // Cidade/UF
+  var cidadeUf = (venda.cliente.cidade || '') + (venda.cliente.uf ? '/' + venda.cliente.uf : '');
+
+  // Pecas rows
   var pecasRows = '';
   venda.pecas.forEach(function(p, i) {
     pecasRows += '<tr>' +
-      '<td style="text-align:center">' + (i + 1) + '</td>' +
+      '<td style="text-align:center;width:30px;">' + (i + 1) + '</td>' +
       '<td>' + p.descricao + '</td>' +
-      '<td style="text-align:center">' + p.modelo + '</td>' +
-      '<td style="text-align:center">' + (p.cor || '-') + '</td>' +
-      '<td style="text-align:center">' + p.quantidade + '</td>' +
-      '<td style="text-align:center">' + (p.peso || '-') + '</td>' +
-      '<td style="text-align:right">R$ ' + formatarValor(p.precoUnitario) + '</td>' +
-      '<td style="text-align:right">R$ ' + formatarValor(p.total) + '</td>' +
-      '<td class="check-col"></td>' +
+      '<td style="text-align:center">' + (p.modelo || '') + '</td>' +
+      '<td style="text-align:center">' + (p.cor || '') + '</td>' +
+      '<td style="text-align:center">' + (p.categoria || '') + '</td>' +
+      '<td style="text-align:center;width:35px;">' + p.quantidade + '</td>' +
+      '<td style="text-align:center;width:35px;"></td>' +
     '</tr>';
   });
 
+  // Logo NXT em SVG inline (verde/amarelo)
+  var logoSvg = '<svg width="120" height="45" viewBox="0 0 120 45" xmlns="http://www.w3.org/2000/svg">' +
+    '<defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#a3e635"/><stop offset="100%" stop-color="#c6ff00"/></linearGradient></defs>' +
+    '<path d="M5 8 L20 8 L30 37 L15 37 Z" fill="url(#g1)"/>' +
+    '<path d="M22 8 L37 8 L27 37 L12 37 Z" fill="url(#g1)" opacity="0.7"/>' +
+    '<text x="42" y="32" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="30" fill="white" letter-spacing="2">NXT</text>' +
+    '</svg>';
+
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
-    '<title>Separacao - ' + venda.id + '</title>' +
+    '<title>Separa\u00e7\u00e3o - ' + venda.id + '</title>' +
     '<style>' +
-      '@page { size: A4; margin: 15mm; }' +
-      'body { font-family: Arial, sans-serif; font-size: 12px; color: #222; }' +
-      '.header { background: #1a1a2e; color: #c6ff00; padding: 12px; border-radius: 6px; margin-bottom: 12px; display:flex; justify-content:space-between; }' +
-      '.header h2 { margin: 0; font-size: 16px; }' +
-      '.section { margin-bottom: 10px; }' +
-      '.section-title { background: #1a1a2e; color: #c6ff00; padding: 5px 10px; font-weight: bold; border-radius: 4px 4px 0 0; }' +
-      '.section-body { border: 1px solid #ddd; border-top: none; padding: 8px; }' +
-      'table { width: 100%; border-collapse: collapse; }' +
-      'th, td { border: 1px solid #ddd; padding: 5px 8px; font-size: 11px; }' +
-      'th { background: #f5f5f5; }' +
-      '.check-col { width: 30px; }' +
-      '.total-row { font-weight: bold; background: #f0fff0; }' +
+      '@page { size: A4; margin: 12mm 15mm; }' +
+      '@media print { .page-break { page-break-before: always; } }' +
+      '* { margin: 0; padding: 0; box-sizing: border-box; }' +
+      'body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #222; }' +
+
+      /* Header */
+      '.doc-header { background: #1a1a2e; color: white; padding: 14px 18px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }' +
+      '.doc-header .logo { display: flex; align-items: center; gap: 10px; }' +
+      '.doc-header .title { color: #c6ff00; font-size: 11px; font-weight: 700; letter-spacing: 1px; margin-top: 4px; }' +
+      '.doc-header .info { text-align: right; }' +
+      '.doc-header .pca-id { font-size: 16px; font-weight: 900; color: #c6ff00; }' +
+      '.doc-header .info-line { font-size: 10px; color: #ccc; margin-top: 2px; }' +
+      '.badge-urg { display: inline-block; padding: 3px 14px; border-radius: 4px; font-size: 11px; font-weight: 700; color: white; margin-top: 5px; }' +
+
+      /* Sections */
+      '.section { margin-bottom: 12px; }' +
+      '.section-title { background: #1a1a2e; color: white; padding: 6px 12px; font-weight: 700; font-size: 12px; border-radius: 4px 4px 0 0; }' +
+      '.section-body { border: 1px solid #ddd; border-top: none; }' +
+
+      /* Client table */
+      '.client-table { width: 100%; border-collapse: collapse; }' +
+      '.client-table td { padding: 6px 10px; border: 1px solid #eee; vertical-align: top; }' +
+      '.client-table .lbl { font-size: 8px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 2px; }' +
+      '.client-table .val { font-size: 12px; color: #111; }' +
+
+      /* Parts table */
+      '.parts-table { width: 100%; border-collapse: collapse; }' +
+      '.parts-table th { background: #f5f5f5; padding: 6px 8px; font-size: 10px; text-transform: uppercase; color: #555; border: 1px solid #ddd; font-weight: 700; }' +
+      '.parts-table td { padding: 5px 8px; font-size: 11px; border: 1px solid #ddd; }' +
+
+      /* Envio table */
+      '.envio-table { width: 100%; border-collapse: collapse; }' +
+      '.envio-table td { padding: 6px 10px; border: 1px solid #eee; vertical-align: top; width: 50%; }' +
+      '.envio-table .lbl { font-size: 8px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 2px; }' +
+      '.envio-table .val { font-size: 12px; color: #111; }' +
+
+      /* Obs */
+      '.obs-body { border: 1px solid #ddd; border-top: none; padding: 10px 12px; min-height: 50px; font-size: 11px; color: #333; }' +
+
+      /* Signatures */
+      '.signatures { display: flex; justify-content: space-between; margin-top: 40px; padding: 0 30px; }' +
+      '.sig-block { text-align: center; width: 40%; }' +
+      '.sig-line { border-top: 1px solid #333; padding-top: 6px; font-size: 10px; color: #555; }' +
+
+      /* Footer */
+      '.doc-footer { text-align: center; font-size: 9px; color: #999; margin-top: 15px; }' +
+
+      /* PAGE 2 - Etiqueta */
+      '.etiqueta-wrap { margin-top: 30px; text-align: center; }' +
+      '.etiqueta-cut { font-size: 10px; color: #999; letter-spacing: 3px; margin-bottom: 10px; }' +
+      '.etiqueta { border: 2px dashed #999; border-radius: 8px; max-width: 650px; margin: 0 auto; overflow: hidden; }' +
+      '.etiqueta-header { background: #1a1a2e; color: white; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; }' +
+      '.etiqueta-header .et-title { color: #c6ff00; font-size: 14px; font-weight: 900; letter-spacing: 2px; }' +
+      '.etiqueta-header .et-id { font-size: 11px; color: #ccc; }' +
+      '.etiqueta-body { display: flex; padding: 16px; gap: 0; }' +
+      '.etiqueta-body .col { flex: 1; padding: 8px 12px; }' +
+      '.etiqueta-body .col:first-child { border-right: 1px solid #ddd; }' +
+      '.etiqueta-body .col-lbl { font-size: 8px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px; }' +
+      '.etiqueta-body .col-name { font-size: 14px; font-weight: 700; color: #111; margin-bottom: 6px; }' +
+      '.etiqueta-body .col-line { font-size: 11px; color: #333; margin-bottom: 2px; }' +
+      '.etiqueta-footer { display: flex; border-top: 1px solid #ddd; }' +
+      '.etiqueta-footer .ef-cell { flex: 1; padding: 8px 12px; border-right: 1px solid #ddd; text-align: center; }' +
+      '.etiqueta-footer .ef-cell:last-child { border-right: none; }' +
+      '.etiqueta-footer .ef-lbl { font-size: 7px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 1px; }' +
+      '.etiqueta-footer .ef-val { font-size: 12px; font-weight: 700; color: #111; margin-top: 2px; }' +
     '</style></head><body>' +
-    '<div class="header"><div><h2>NXT MOTOS - SEPARACAO</h2><p>' + venda.id + '</p></div><div style="text-align:right"><p>' + formatarData(venda.dataVenda) + '</p><p>Vendedor: ' + venda.vendedor + '</p></div></div>' +
-    '<div class="section"><div class="section-title">CLIENTE</div><div class="section-body">' +
-      '<p><strong>Nome:</strong> ' + venda.cliente.nome + ' | <strong>Tel:</strong> ' + formatarTelefoneExibicao(venda.cliente.telefone) + '</p>' +
-      (venda.cliente.endereco ? '<p><strong>End:</strong> ' + venda.cliente.endereco + (venda.cliente.numero ? ', ' + venda.cliente.numero : '') + ' - ' + (venda.cliente.bairro || '') + ' - ' + (venda.cliente.cidade || '') + '/' + (venda.cliente.uf || '') + '</p>' : '') +
-    '</div></div>' +
-    '<div class="section"><div class="section-title">PECAS</div>' +
-    '<table><thead><tr><th>#</th><th>Peca</th><th>Modelo</th><th>Cor</th><th>Qtd</th><th>Peso</th><th>Unit.</th><th>Total</th><th>OK</th></tr></thead><tbody>' +
-    pecasRows +
-    '<tr class="total-row"><td colspan="5">TOTAL</td><td>' + (venda.pesoVolume || '-') + '</td><td></td><td style="text-align:right">R$ ' + formatarValor(venda.totalPecas) + '</td><td></td></tr>' +
-    '</tbody></table></div>' +
-    (venda.frete.valor > 0 ? '<p><strong>Frete:</strong> ' + (transpLabel[venda.frete.transportadora] || '') + ' - R$ ' + formatarValor(venda.frete.valor) + '</p>' : '') +
-    '<p><strong>Total Geral: R$ ' + formatarValor(venda.totalGeral) + '</strong></p>' +
-    (venda.observacoes ? '<p><strong>Obs:</strong> ' + venda.observacoes + '</p>' : '') +
+
+    /* ===== PAGE 1 - PEDIDO DE SEPARACAO ===== */
+    '<div class="doc-header">' +
+      '<div class="logo">' + logoSvg + '<div class="title">PEDIDO DE SEPARA\u00c7\u00c3O - EXPEDI\u00c7\u00c3O</div></div>' +
+      '<div class="info">' +
+        '<div class="pca-id">' + venda.id + '</div>' +
+        (venda.protocoloSac ? '<div class="info-line">Protocolo: <strong>' + venda.protocoloSac + '</strong></div>' : '') +
+        '<div class="info-line">Data: ' + formatarData(venda.dataVenda) + '</div>' +
+        (venda.prevEmbarque ? '<div class="info-line">Prev. Embarque: ' + formatarData(venda.prevEmbarque) + '</div>' : '') +
+        '<div><span class="badge-urg" style="background:' + urgColor + '">' + urgText + '</span></div>' +
+      '</div>' +
+    '</div>' +
+
+    /* CLIENTE */
+    '<div class="section">' +
+      '<div class="section-title">CLIENTE</div>' +
+      '<div class="section-body">' +
+        '<table class="client-table">' +
+          '<tr>' +
+            '<td style="width:55%"><span class="lbl">Nome</span><span class="val">' + venda.cliente.nome + '</span></td>' +
+            '<td><span class="lbl">CPF</span><span class="val">' + cpfExib + '</span></td>' +
+          '</tr>' +
+          '<tr>' +
+            '<td><span class="lbl">Telefone</span><span class="val">' + formatarTelefoneExibicao(venda.cliente.telefone) + '</span></td>' +
+            '<td><span class="lbl">Endere\u00e7o</span><span class="val">' + endCompleto + '</span></td>' +
+          '</tr>' +
+          '<tr>' +
+            '<td><span class="lbl">Bairro</span><span class="val">' + (venda.cliente.bairro || '') + '</span></td>' +
+            '<td><span class="lbl">Cidade/UF</span><span class="val">' + cidadeUf + '</span></td>' +
+          '</tr>' +
+          '<tr>' +
+            '<td colspan="2"><span class="lbl">CEP</span><span class="val">' + cepExib + '</span></td>' +
+          '</tr>' +
+        '</table>' +
+      '</div>' +
+    '</div>' +
+
+    /* PECAS PARA SEPARACAO */
+    '<div class="section">' +
+      '<div class="section-title">PE\u00c7AS PARA SEPARA\u00c7\u00c3O</div>' +
+      '<table class="parts-table">' +
+        '<thead><tr><th>#</th><th>Descri\u00e7\u00e3o da Pe\u00e7a</th><th>Modelo</th><th>Cor</th><th>Categoria</th><th>Qtd</th><th>OK</th></tr></thead>' +
+        '<tbody>' + pecasRows + '</tbody>' +
+      '</table>' +
+    '</div>' +
+
+    /* ENVIO */
+    '<div class="section">' +
+      '<div class="section-title">ENVIO</div>' +
+      '<div class="section-body">' +
+        '<table class="envio-table">' +
+          '<tr>' +
+            '<td><span class="lbl">Transportadora</span><span class="val">' + transNome + '</span></td>' +
+            '<td><span class="lbl">Peso / Volume</span><span class="val">' + pesoVolumeStr + '</span></td>' +
+          '</tr>' +
+          '<tr>' +
+            '<td><span class="lbl">Vendedor (SAC)</span><span class="val">' + venda.vendedor + '</span></td>' +
+            '<td><span class="lbl">Tipo</span><span class="val">' + venda.tipoAtendimento + '</span></td>' +
+          '</tr>' +
+        '</table>' +
+      '</div>' +
+    '</div>' +
+
+    /* OBSERVACOES */
+    '<div class="section">' +
+      '<div class="section-title" style="background:#f59e0b;color:#000;">OBSERVA\u00c7\u00d5ES</div>' +
+      '<div class="obs-body">' + (venda.observacoes || '') + '</div>' +
+    '</div>' +
+
+    /* ASSINATURAS */
+    '<div class="signatures">' +
+      '<div class="sig-block"><div class="sig-line">Separado por / Data</div></div>' +
+      '<div class="sig-block"><div class="sig-line">Conferido por / Data</div></div>' +
+    '</div>' +
+
+    /* FOOTER P1 */
+    '<div class="doc-footer">NXT Pe\u00e7as V2.0 - Documento gerado em ' + timestamp + '</div>' +
+
+    /* ===== PAGE 2 - ETIQUETA DE ENVIO ===== */
+    '<div class="page-break"></div>' +
+    '<div class="etiqueta-wrap">' +
+      '<div class="etiqueta-cut">Recorte pela linha tracejada</div>' +
+      '<div class="etiqueta">' +
+        '<div class="etiqueta-header">' +
+          '<div style="display:flex;align-items:center;gap:8px;">' + logoSvg + '<span class="et-title">ETIQUETA DE ENVIO</span></div>' +
+          '<div class="et-id">' + venda.id + (venda.protocoloSac ? ' | ' + venda.protocoloSac : '') + '</div>' +
+        '</div>' +
+        '<div class="etiqueta-body">' +
+          '<div class="col">' +
+            '<div class="col-lbl">R E M E T E N T E</div>' +
+            '<div class="col-name">NXT MOTOS</div>' +
+            '<div class="col-line">Rua Manoel Francisco da Costa, 3900</div>' +
+            '<div class="col-line">Jo\u00e3o Pessoa - Cond. \u00c2ngelo Pereira</div>' +
+            '<div class="col-line">Jaragu\u00e1 do Sul - SC</div>' +
+            '<div class="col-line">CEP: 89257-407</div>' +
+          '</div>' +
+          '<div class="col">' +
+            '<div class="col-lbl">D E S T I N A T \u00c1 R I O</div>' +
+            '<div class="col-name">' + venda.cliente.nome + '</div>' +
+            (endCompleto ? '<div class="col-line">' + endCompleto + '</div>' : '') +
+            (venda.cliente.bairro ? '<div class="col-line">' + venda.cliente.bairro + '</div>' : '') +
+            (cidadeUf ? '<div class="col-line">' + cidadeUf.replace('/', ' - ') + '</div>' : '') +
+            (cepExib ? '<div class="col-line"><strong>CEP: ' + cepExib + '</strong></div>' : '') +
+            '<div class="col-line">Tel: ' + formatarTelefoneExibicao(venda.cliente.telefone) + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="etiqueta-footer">' +
+          '<div class="ef-cell"><div class="ef-lbl">Transportadora</div><div class="ef-val">' + transNome + '</div></div>' +
+          '<div class="ef-cell"><div class="ef-lbl">Peso / Volume</div><div class="ef-val">' + pesoVolumeStr + '</div></div>' +
+          '<div class="ef-cell"><div class="ef-lbl">Data</div><div class="ef-val">' + formatarData(venda.dataVenda) + '</div></div>' +
+          '<div class="ef-cell"><div class="ef-lbl">Atendente</div><div class="ef-val">' + venda.vendedor + '</div></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="doc-footer" style="margin-top:12px;">NXT Pe\u00e7as V2.0 - Etiqueta gerada em ' + timestamp + '</div>' +
+    '</div>' +
+
     '</body></html>';
 
   var win = window.open('', '_blank');
