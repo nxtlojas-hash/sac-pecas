@@ -1281,10 +1281,10 @@ function gerarPDFSeparacao() {
     if (imgSrc && !imgSrc.startsWith('http') && !imgSrc.startsWith('data:')) {
       imgSrc = baseUrl + imgSrc;
     }
-    var imgHtml = imgSrc ? '<img src="' + imgSrc + '" style="width:60px;height:60px;object-fit:contain;border-radius:4px;">' : '<span style="color:#ccc;font-size:9px;">Sem foto</span>';
+    var imgHtml = imgSrc ? '<img src="' + imgSrc + '" style="width:85px;height:85px;object-fit:contain;border-radius:4px;">' : '<span style="color:#ccc;font-size:9px;">Sem foto</span>';
     pecasRows += '<tr>' +
       '<td style="text-align:center;width:30px;vertical-align:middle;">' + (i + 1) + '</td>' +
-      '<td style="text-align:center;width:70px;padding:4px;vertical-align:middle;">' + imgHtml + '</td>' +
+      '<td style="text-align:center;width:95px;padding:4px;vertical-align:middle;">' + imgHtml + '</td>' +
       '<td style="vertical-align:middle;">' + p.descricao + '</td>' +
       '<td style="text-align:center;vertical-align:middle;">' + (p.modelo || '') + '</td>' +
       '<td style="text-align:center;vertical-align:middle;">' + (p.cor || '') + '</td>' +
