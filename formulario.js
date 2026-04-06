@@ -1294,10 +1294,11 @@ function gerarPDFSeparacao() {
     '</tr>';
   });
 
-  // Logo NXT - usar imagem real do projeto
-  var logoImg = '<img src="' + baseUrl + 'logo-nxt.png" alt="NXT" style="height:40px;width:auto;">';
+  // Logo NXT - usar imagem real do projeto (com base tag, caminho relativo funciona)
+  var logoImg = '<img src="logo-nxt.png" alt="NXT" style="height:40px;width:auto;">';
 
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
+    '<base href="' + baseUrl + '">' +
     '<title>Separa\u00e7\u00e3o - ' + venda.id + '</title>' +
     '<style>' +
       '@page { size: A4; margin: 12mm 15mm; }' +
@@ -1305,20 +1306,26 @@ function gerarPDFSeparacao() {
       '* { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }' +
       'body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #222; }' +
 
+      /* Fundo escuro via box-shadow (funciona em print sem habilitar backgrounds) */
+      '.bg-dark { background: #1a1a2e !important; box-shadow: inset 0 0 0 9999px #1a1a2e; color: white; }' +
+      '.bg-obs { background: #f59e0b !important; box-shadow: inset 0 0 0 9999px #f59e0b; color: #000; }' +
+
       /* Header */
-      '.doc-header { background: #1a1a2e !important; color: white; padding: 14px 18px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }' +
+      '.doc-header { padding: 14px 18px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }' +
       '.doc-header .logo { display: flex; align-items: center; gap: 10px; }' +
       '.doc-header .title { color: #c6ff00; font-size: 11px; font-weight: 700; letter-spacing: 1px; margin-top: 4px; }' +
       '.doc-header .info { text-align: right; }' +
       '.doc-header .pca-id { font-size: 16px; font-weight: 900; color: #c6ff00; }' +
       '.doc-header .info-line { font-size: 10px; color: #ccc; margin-top: 2px; }' +
-      '.badge-urg { display: inline-block; padding: 3px 14px; border-radius: 4px; font-size: 11px; font-weight: 700; color: white; margin-top: 5px; }' +
-      '.badge-urg.urg-urgente { padding: 6px 20px; font-size: 15px; border-radius: 5px; }' +
-      '.badge-urg.urg-alta { padding: 5px 18px; font-size: 13px; }' +
+      '.badge-urg { display: inline-block; padding: 4px 16px; border-radius: 4px; font-size: 12px; font-weight: 700; color: white; margin-top: 5px; }' +
+      '.badge-urg.urg-urgente { padding: 7px 22px; font-size: 16px; border-radius: 5px; background: #ef4444 !important; box-shadow: inset 0 0 0 9999px #ef4444; }' +
+      '.badge-urg.urg-alta { padding: 5px 18px; font-size: 14px; background: #f59e0b !important; box-shadow: inset 0 0 0 9999px #f59e0b; }' +
+      '.badge-urg.urg-normal { background: #6b7280 !important; box-shadow: inset 0 0 0 9999px #6b7280; }' +
+      '.badge-urg.urg-baixa { background: #3b82f6 !important; box-shadow: inset 0 0 0 9999px #3b82f6; }' +
 
       /* Sections */
       '.section { margin-bottom: 12px; }' +
-      '.section-title { background: #1a1a2e !important; color: white; padding: 6px 12px; font-weight: 700; font-size: 12px; border-radius: 4px 4px 0 0; }' +
+      '.section-title { padding: 6px 12px; font-weight: 700; font-size: 12px; border-radius: 4px 4px 0 0; }' +
       '.section-body { border: 1px solid #ddd; border-top: none; }' +
 
       /* Client table */
@@ -1353,7 +1360,7 @@ function gerarPDFSeparacao() {
       '.etiqueta-wrap { margin-top: 30px; text-align: center; }' +
       '.etiqueta-cut { font-size: 10px; color: #999; letter-spacing: 3px; margin-bottom: 10px; }' +
       '.etiqueta { border: 2px dashed #999; border-radius: 8px; max-width: 650px; margin: 0 auto; overflow: hidden; }' +
-      '.etiqueta-header { background: #1a1a2e !important; color: white; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; }' +
+      '.etiqueta-header { padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; }' +
       '.etiqueta-header .et-title { color: #c6ff00; font-size: 14px; font-weight: 900; letter-spacing: 2px; }' +
       '.etiqueta-header .et-id { font-size: 11px; color: #ccc; }' +
       '.etiqueta-body { display: flex; padding: 16px; gap: 0; }' +
@@ -1370,20 +1377,20 @@ function gerarPDFSeparacao() {
     '</style></head><body>' +
 
     /* ===== PAGE 1 - PEDIDO DE SEPARACAO ===== */
-    '<div class="doc-header">' +
+    '<div class="doc-header bg-dark">' +
       '<div class="logo">' + logoImg + '<div class="title">PEDIDO DE SEPARA\u00c7\u00c3O - EXPEDI\u00c7\u00c3O</div></div>' +
       '<div class="info">' +
         '<div class="pca-id">' + venda.id + '</div>' +
         (venda.protocoloSac ? '<div class="info-line">Protocolo: <strong>' + venda.protocoloSac + '</strong></div>' : '') +
         '<div class="info-line">Data: ' + formatarData(venda.dataVenda) + '</div>' +
         (venda.prevEmbarque ? '<div class="info-line">Prev. Embarque: ' + formatarData(venda.prevEmbarque) + '</div>' : '') +
-        '<div><span class="badge-urg urg-' + venda.urgencia + '" style="background:' + urgColor + ' !important">' + urgText + '</span></div>' +
+        '<div><span class="badge-urg urg-' + venda.urgencia + '">' + urgText + '</span></div>' +
       '</div>' +
     '</div>' +
 
     /* CLIENTE */
     '<div class="section">' +
-      '<div class="section-title">CLIENTE</div>' +
+      '<div class="section-title bg-dark">CLIENTE</div>' +
       '<div class="section-body">' +
         '<table class="client-table">' +
           '<tr>' +
@@ -1407,7 +1414,7 @@ function gerarPDFSeparacao() {
 
     /* PECAS PARA SEPARACAO */
     '<div class="section">' +
-      '<div class="section-title">PE\u00c7AS PARA SEPARA\u00c7\u00c3O</div>' +
+      '<div class="section-title bg-dark">PE\u00c7AS PARA SEPARA\u00c7\u00c3O</div>' +
       '<table class="parts-table">' +
         '<thead><tr><th>#</th><th>Foto</th><th>Descri\u00e7\u00e3o da Pe\u00e7a</th><th>Modelo</th><th>Cor</th><th>Categoria</th><th>Qtd</th><th>OK</th></tr></thead>' +
         '<tbody>' + pecasRows + '</tbody>' +
@@ -1416,7 +1423,7 @@ function gerarPDFSeparacao() {
 
     /* ENVIO */
     '<div class="section">' +
-      '<div class="section-title">ENVIO</div>' +
+      '<div class="section-title bg-dark">ENVIO</div>' +
       '<div class="section-body">' +
         '<table class="envio-table">' +
           '<tr>' +
@@ -1433,7 +1440,7 @@ function gerarPDFSeparacao() {
 
     /* OBSERVACOES */
     '<div class="section">' +
-      '<div class="section-title" style="background:#f59e0b;color:#000;">OBSERVA\u00c7\u00d5ES</div>' +
+      '<div class="section-title bg-obs">OBSERVA\u00c7\u00d5ES</div>' +
       '<div class="obs-body">' + (venda.observacoes || '') + '</div>' +
     '</div>' +
 
@@ -1451,7 +1458,7 @@ function gerarPDFSeparacao() {
     '<div class="etiqueta-wrap">' +
       '<div class="etiqueta-cut">Recorte pela linha tracejada</div>' +
       '<div class="etiqueta">' +
-        '<div class="etiqueta-header">' +
+        '<div class="etiqueta-header bg-dark">' +
           '<div style="display:flex;align-items:center;gap:8px;">' + logoImg + '<span class="et-title">ETIQUETA DE ENVIO</span></div>' +
           '<div class="et-id">' + venda.id + (venda.protocoloSac ? ' | ' + venda.protocoloSac : '') + '</div>' +
         '</div>' +
