@@ -1292,21 +1292,23 @@ function gerarPDFSeparacao() {
     '<style>' +
       '@page { size: A4; margin: 12mm 15mm; }' +
       '@media print { .page-break { page-break-before: always; } }' +
-      '* { margin: 0; padding: 0; box-sizing: border-box; }' +
+      '* { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }' +
       'body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #222; }' +
 
       /* Header */
-      '.doc-header { background: #1a1a2e; color: white; padding: 14px 18px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }' +
+      '.doc-header { background: #1a1a2e !important; color: white; padding: 14px 18px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }' +
       '.doc-header .logo { display: flex; align-items: center; gap: 10px; }' +
       '.doc-header .title { color: #c6ff00; font-size: 11px; font-weight: 700; letter-spacing: 1px; margin-top: 4px; }' +
       '.doc-header .info { text-align: right; }' +
       '.doc-header .pca-id { font-size: 16px; font-weight: 900; color: #c6ff00; }' +
       '.doc-header .info-line { font-size: 10px; color: #ccc; margin-top: 2px; }' +
       '.badge-urg { display: inline-block; padding: 3px 14px; border-radius: 4px; font-size: 11px; font-weight: 700; color: white; margin-top: 5px; }' +
+      '.badge-urg.urg-urgente { padding: 6px 20px; font-size: 15px; border-radius: 5px; }' +
+      '.badge-urg.urg-alta { padding: 5px 18px; font-size: 13px; }' +
 
       /* Sections */
       '.section { margin-bottom: 12px; }' +
-      '.section-title { background: #1a1a2e; color: white; padding: 6px 12px; font-weight: 700; font-size: 12px; border-radius: 4px 4px 0 0; }' +
+      '.section-title { background: #1a1a2e !important; color: white; padding: 6px 12px; font-weight: 700; font-size: 12px; border-radius: 4px 4px 0 0; }' +
       '.section-body { border: 1px solid #ddd; border-top: none; }' +
 
       /* Client table */
@@ -1341,7 +1343,7 @@ function gerarPDFSeparacao() {
       '.etiqueta-wrap { margin-top: 30px; text-align: center; }' +
       '.etiqueta-cut { font-size: 10px; color: #999; letter-spacing: 3px; margin-bottom: 10px; }' +
       '.etiqueta { border: 2px dashed #999; border-radius: 8px; max-width: 650px; margin: 0 auto; overflow: hidden; }' +
-      '.etiqueta-header { background: #1a1a2e; color: white; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; }' +
+      '.etiqueta-header { background: #1a1a2e !important; color: white; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; }' +
       '.etiqueta-header .et-title { color: #c6ff00; font-size: 14px; font-weight: 900; letter-spacing: 2px; }' +
       '.etiqueta-header .et-id { font-size: 11px; color: #ccc; }' +
       '.etiqueta-body { display: flex; padding: 16px; gap: 0; }' +
@@ -1365,7 +1367,7 @@ function gerarPDFSeparacao() {
         (venda.protocoloSac ? '<div class="info-line">Protocolo: <strong>' + venda.protocoloSac + '</strong></div>' : '') +
         '<div class="info-line">Data: ' + formatarData(venda.dataVenda) + '</div>' +
         (venda.prevEmbarque ? '<div class="info-line">Prev. Embarque: ' + formatarData(venda.prevEmbarque) + '</div>' : '') +
-        '<div><span class="badge-urg" style="background:' + urgColor + '">' + urgText + '</span></div>' +
+        '<div><span class="badge-urg urg-' + venda.urgencia + '" style="background:' + urgColor + ' !important">' + urgText + '</span></div>' +
       '</div>' +
     '</div>' +
 
