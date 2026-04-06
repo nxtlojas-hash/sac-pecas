@@ -905,7 +905,8 @@ function registrarVenda(event) {
         precoUnitario: p.precoUnitario,
         total: p.total,
         peso: p.peso,
-        pesoGramas: p.pesoGramas
+        pesoGramas: p.pesoGramas,
+        img: p.img || ''
       };
     }),
     pagamento: {
@@ -1269,23 +1270,32 @@ function gerarPDFSeparacao() {
   // Cidade/UF
   var cidadeUf = (venda.cliente.cidade || '') + (venda.cliente.uf ? '/' + venda.cliente.uf : '');
 
+  // Base URL para imagens
+  var baseUrl = window.location.href.replace(/[^\/]*$/, '');
+
   // Pecas rows
   var pecasRows = '';
   venda.pecas.forEach(function(p, i) {
+    var imgSrc = p.img || '';
+    // Se a imagem for relativa, montar URL absoluta
+    if (imgSrc && !imgSrc.startsWith('http') && !imgSrc.startsWith('data:')) {
+      imgSrc = baseUrl + imgSrc;
+    }
+    var imgHtml = imgSrc ? '<img src="' + imgSrc + '" style="width:60px;height:60px;object-fit:contain;border-radius:4px;">' : '<span style="color:#ccc;font-size:9px;">Sem foto</span>';
     pecasRows += '<tr>' +
-      '<td style="text-align:center;width:30px;">' + (i + 1) + '</td>' +
-      '<td>' + p.descricao + '</td>' +
-      '<td style="text-align:center">' + (p.modelo || '') + '</td>' +
-      '<td style="text-align:center">' + (p.cor || '') + '</td>' +
-      '<td style="text-align:center">' + (p.categoria || '') + '</td>' +
-      '<td style="text-align:center;width:35px;">' + p.quantidade + '</td>' +
-      '<td style="text-align:center;width:35px;"></td>' +
+      '<td style="text-align:center;width:30px;vertical-align:middle;">' + (i + 1) + '</td>' +
+      '<td style="text-align:center;width:70px;padding:4px;vertical-align:middle;">' + imgHtml + '</td>' +
+      '<td style="vertical-align:middle;">' + p.descricao + '</td>' +
+      '<td style="text-align:center;vertical-align:middle;">' + (p.modelo || '') + '</td>' +
+      '<td style="text-align:center;vertical-align:middle;">' + (p.cor || '') + '</td>' +
+      '<td style="text-align:center;vertical-align:middle;">' + (p.categoria || '') + '</td>' +
+      '<td style="text-align:center;width:35px;vertical-align:middle;">' + p.quantidade + '</td>' +
+      '<td style="text-align:center;width:35px;vertical-align:middle;"></td>' +
     '</tr>';
   });
 
   // Logo NXT - usar imagem real do projeto
-  var logoBaseUrl = window.location.href.replace(/[^\/]*$/, '');
-  var logoImg = '<img src="' + logoBaseUrl + 'logo-nxt.png" alt="NXT" style="height:40px;width:auto;">';
+  var logoImg = '<img src="' + baseUrl + 'logo-nxt.png" alt="NXT" style="height:40px;width:auto;">';
 
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
     '<title>Separa\u00e7\u00e3o - ' + venda.id + '</title>' +
@@ -1399,7 +1409,7 @@ function gerarPDFSeparacao() {
     '<div class="section">' +
       '<div class="section-title">PE\u00c7AS PARA SEPARA\u00c7\u00c3O</div>' +
       '<table class="parts-table">' +
-        '<thead><tr><th>#</th><th>Descri\u00e7\u00e3o da Pe\u00e7a</th><th>Modelo</th><th>Cor</th><th>Categoria</th><th>Qtd</th><th>OK</th></tr></thead>' +
+        '<thead><tr><th>#</th><th>Foto</th><th>Descri\u00e7\u00e3o da Pe\u00e7a</th><th>Modelo</th><th>Cor</th><th>Categoria</th><th>Qtd</th><th>OK</th></tr></thead>' +
         '<tbody>' + pecasRows + '</tbody>' +
       '</table>' +
     '</div>' +
