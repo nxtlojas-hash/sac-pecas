@@ -1283,13 +1283,9 @@ function gerarPDFSeparacao() {
     '</tr>';
   });
 
-  // Logo NXT em SVG inline (verde/amarelo)
-  var logoSvg = '<svg width="120" height="45" viewBox="0 0 120 45" xmlns="http://www.w3.org/2000/svg">' +
-    '<defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#a3e635"/><stop offset="100%" stop-color="#c6ff00"/></linearGradient></defs>' +
-    '<path d="M5 8 L20 8 L30 37 L15 37 Z" fill="url(#g1)"/>' +
-    '<path d="M22 8 L37 8 L27 37 L12 37 Z" fill="url(#g1)" opacity="0.7"/>' +
-    '<text x="42" y="32" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="30" fill="white" letter-spacing="2">NXT</text>' +
-    '</svg>';
+  // Logo NXT - usar imagem real do projeto
+  var logoBaseUrl = window.location.href.replace(/[^\/]*$/, '');
+  var logoImg = '<img src="' + logoBaseUrl + 'logo-nxt.png" alt="NXT" style="height:40px;width:auto;">';
 
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
     '<title>Separa\u00e7\u00e3o - ' + venda.id + '</title>' +
@@ -1363,7 +1359,7 @@ function gerarPDFSeparacao() {
 
     /* ===== PAGE 1 - PEDIDO DE SEPARACAO ===== */
     '<div class="doc-header">' +
-      '<div class="logo">' + logoSvg + '<div class="title">PEDIDO DE SEPARA\u00c7\u00c3O - EXPEDI\u00c7\u00c3O</div></div>' +
+      '<div class="logo">' + logoImg + '<div class="title">PEDIDO DE SEPARA\u00c7\u00c3O - EXPEDI\u00c7\u00c3O</div></div>' +
       '<div class="info">' +
         '<div class="pca-id">' + venda.id + '</div>' +
         (venda.protocoloSac ? '<div class="info-line">Protocolo: <strong>' + venda.protocoloSac + '</strong></div>' : '') +
@@ -1444,7 +1440,7 @@ function gerarPDFSeparacao() {
       '<div class="etiqueta-cut">Recorte pela linha tracejada</div>' +
       '<div class="etiqueta">' +
         '<div class="etiqueta-header">' +
-          '<div style="display:flex;align-items:center;gap:8px;">' + logoSvg + '<span class="et-title">ETIQUETA DE ENVIO</span></div>' +
+          '<div style="display:flex;align-items:center;gap:8px;">' + logoImg + '<span class="et-title">ETIQUETA DE ENVIO</span></div>' +
           '<div class="et-id">' + venda.id + (venda.protocoloSac ? ' | ' + venda.protocoloSac : '') + '</div>' +
         '</div>' +
         '<div class="etiqueta-body">' +
