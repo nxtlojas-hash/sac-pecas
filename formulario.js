@@ -1490,7 +1490,28 @@ function gerarPDFSeparacao() {
   if (win) {
     win.document.write(html);
     win.document.close();
-    win.print();
+    // Aguardar imagens carregarem antes de imprimir
+    var imgs = win.document.querySelectorAll('img');
+    if (imgs.length === 0) {
+      win.print();
+    } else {
+      var loaded = 0;
+      var total = imgs.length;
+      var onReady = function() {
+        loaded++;
+        if (loaded >= total) win.print();
+      };
+      imgs.forEach(function(img) {
+        if (img.complete) {
+          onReady();
+        } else {
+          img.addEventListener('load', onReady);
+          img.addEventListener('error', onReady);
+        }
+      });
+      // Fallback: imprimir apos 3s se imagens nao carregarem
+      setTimeout(function() { if (loaded < total) win.print(); }, 3000);
+    }
   }
 }
 
