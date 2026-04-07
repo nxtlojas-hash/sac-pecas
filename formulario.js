@@ -1,4 +1,4 @@
-/* ===== NXT PECAS V2 - Formulario de Registro ===== */
+/* ===== NXT PECAS V2.1 - Formulario de Registro ===== */
 
 const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbytZgFvvhTvYRgufyvFTGbMb27sxHnIQp256XQ6r7VZuX2B0RTdO3MIpbf4EcF8KgnYlw/exec';
 
@@ -159,6 +159,10 @@ function buildFormHTML() {
             '<option value="">Selecione o modelo...</option>' +
             modelsOptions +
           '</select>' +
+        '</div>' +
+        '<div class="form-group" id="outroModeloGroup" style="display:none;">' +
+          '<label for="outroModeloNome">Especifique o modelo</label>' +
+          '<input type="text" id="outroModeloNome" placeholder="Digite o nome do modelo...">' +
         '</div>' +
         '<div class="form-group form-group-lg">' +
           '<label for="descricaoPeca">Peca</label>' +
@@ -413,10 +417,17 @@ function setupFormListeners() {
     });
   });
 
-  // Modelo change -> populate datalist
+  // Modelo change -> populate datalist + toggle "Outro" field
   var modeloSelect = document.getElementById('modeloMoto');
   if (modeloSelect) {
     modeloSelect.addEventListener('change', function() {
+      var outroGroup = document.getElementById('outroModeloGroup');
+      if (outroGroup) {
+        outroGroup.style.display = this.value === 'outro' ? '' : 'none';
+        if (this.value !== 'outro') {
+          document.getElementById('outroModeloNome').value = '';
+        }
+      }
       popularDatalistPecas(this.value);
       document.getElementById('descricaoPeca').value = '';
       limparPreviewPeca();
@@ -606,11 +617,15 @@ function adicionarPeca() {
   if (!descricao) { mostrarFeedback('Informe a peca', 'erro'); return; }
   if (!modelId) { mostrarFeedback('Selecione o modelo', 'erro'); return; }
 
+  // Validar nome do modelo quando "Outro"
+  var outroNome = document.getElementById('outroModeloNome') ? document.getElementById('outroModeloNome').value.trim() : '';
+  if (modelId === 'outro' && !outroNome) { mostrarFeedback('Especifique o nome do modelo', 'erro'); return; }
+
   var preco = parseMoeda(precoTexto);
   if (isNaN(preco) || preco <= 0) { mostrarFeedback('Informe o preco da peca', 'erro'); return; }
 
   var pesoGramas = parseWeight(pesoTexto);
-  var modelNome = CATALOGO_MODELOS[modelId] ? CATALOGO_MODELOS[modelId].nome : modelId;
+  var modelNome = modelId === 'outro' ? outroNome : (CATALOGO_MODELOS[modelId] ? CATALOGO_MODELOS[modelId].nome : modelId);
 
   // Get image from preview
   var imgSrc = '';
@@ -1451,7 +1466,7 @@ function gerarPDFSeparacao() {
     '</div>' +
 
     /* FOOTER P1 */
-    '<div class="doc-footer">NXT Pe\u00e7as V2.0 - Documento gerado em ' + timestamp + '</div>' +
+    '<div class="doc-footer">NXT Pe\u00e7as V2.1 - Documento gerado em ' + timestamp + '</div>' +
 
     /* ===== PAGE 2 - ETIQUETA DE ENVIO ===== */
     '<div class="page-break"></div>' +
@@ -1488,7 +1503,7 @@ function gerarPDFSeparacao() {
           '<div class="ef-cell"><div class="ef-lbl">Atendente</div><div class="ef-val">' + venda.vendedor + '</div></div>' +
         '</div>' +
       '</div>' +
-      '<div class="doc-footer" style="margin-top:12px;">NXT Pe\u00e7as V2.0 - Etiqueta gerada em ' + timestamp + '</div>' +
+      '<div class="doc-footer" style="margin-top:12px;">NXT Pe\u00e7as V2.1 - Etiqueta gerada em ' + timestamp + '</div>' +
     '</div>' +
 
     '</body></html>';

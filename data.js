@@ -436,5 +436,17 @@ const CATALOGO_MODELOS = {
   "juna": {
     "nome": "Juna",
     "pecas": []
+  },
+  "y1": {
+    "nome": "Y1",
+    "pecas": []
+  },
+  "yzl": {
+    "nome": "YZL",
+    "pecas": []
+  },
+  "outro": {
+    "nome": "Outro",
+    "pecas": []
   }
 };

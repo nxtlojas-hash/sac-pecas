@@ -1,4 +1,4 @@
-/* ===== NXT PECAS V2 - App Core ===== */
+/* ===== NXT PECAS V2.1 - App Core ===== */
 
 // --- Global State ---
 let currentView = 'home';
@@ -18,7 +18,10 @@ const MODEL_ICONS = {
   'hyphen': '\u2796',
   'vega': '\u2B50',
   'kimbo': '\uD83E\uDD81',
-  'juna': '\uD83D\uDEF4'
+  'juna': '\uD83D\uDEF4',
+  'y1': '\uD83D\uDEE3\uFE0F',
+  'yzl': '\uD83D\uDEE3\uFE0F',
+  'outro': '\u2753'
 };
 
 // --- Navigation ---
