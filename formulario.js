@@ -383,6 +383,22 @@ function setupFormListeners() {
     });
   }
 
+  // Handler trocar tipo de cliente F/J - limpa campo documento para evitar máscara desincronizada
+  var tipoClienteSelect = document.getElementById('tipoCliente');
+  if (tipoClienteSelect) {
+    tipoClienteSelect.addEventListener('change', function() {
+      var docInput = document.getElementById('cpfCnpjCliente');
+      if (docInput) {
+        docInput.value = '';
+        docInput.classList.remove('campo-invalido', 'campo-valido');
+        var aviso = document.getElementById('avisoDocumento');
+        if (aviso) aviso.classList.remove('visivel');
+        docInput.maxLength = this.value === 'J' ? 18 : 14;
+        docInput.placeholder = this.value === 'J' ? '00.000.000/0000-00' : '000.000.000-00';
+      }
+    });
+  }
+
   // Mascara CEP + auto-fill
   var cepInput = document.getElementById('cepCliente');
   if (cepInput) {
