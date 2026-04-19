@@ -44,6 +44,7 @@ var ABA_ORCAMENTOS = 'Orcamentos';
 var ABA_REGISTROS = 'Registros';
 var ABA_PECAS = 'Pecas';
 var ABA_ESTOQUE = 'Estoque';
+var ABA_ASSISTENCIAS = 'AssistenciasTecnicas';
 
 // ========================================
 // MAPEAMENTO FISCAL (Tabela Claudia Pecas)
@@ -779,6 +780,9 @@ function doPost(e) {
 
       case 'baixa_estoque':
         return jsonResponse(baixaEstoque(body));
+
+      case 'registrar_os':
+        return jsonResponse(registrarOS(body));
 
       default:
         return jsonResponse({ sucesso: false, erro: 'Acao POST desconhecida: ' + action });
@@ -1558,4 +1562,94 @@ function baixaEstoque(body) {
   }
 
   return { sucesso: true, mensagem: 'Peca nao encontrada no estoque, baixa ignorada' };
+}
+
+// ========================================
+// ASSISTÊNCIA TÉCNICA - OS
+// ========================================
+
+function garantirAbaAssistencias() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var aba = ss.getSheetByName(ABA_ASSISTENCIAS);
+  if (!aba) {
+    aba = ss.insertSheet(ABA_ASSISTENCIAS);
+    var cabecalho = [
+      'DATA ABERTURA', 'NUMERO OS', 'NOME CLIENTE', 'TELEFONE CLIENTE',
+      'CIDADE', 'MODELO', 'NUMERO CHASSI', 'DATA COMPRA',
+      'NOTA FISCAL COMPRA', 'TIPO', 'ASSISTENCIA', 'PROBLEMA RELATADO',
+      'OBSERVACOES', 'STATUS', 'NF ASSISTENCIA RECEBIDA', 'PAGAMENTO FEITO'
+    ];
+    aba.getRange(1, 1, 1, cabecalho.length).setValues([cabecalho]).setFontWeight('bold');
+    aba.setFrozenRows(1);
+  }
+  return aba;
+}
+
+function obterProximoNumeroOS() {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var aba = garantirAbaAssistencias();
+    return obterProximoNumeroOSSemLock_(aba);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// Helper interno — lógica de numeração sem lock aninhado
+function obterProximoNumeroOSSemLock_(aba) {
+  var ultimaLinha = aba.getLastRow();
+  var anoAtual = new Date().getFullYear();
+  var prefixo = 'OS-' + anoAtual + '-';
+
+  var maiorSeq = 0;
+  if (ultimaLinha > 1) {
+    var numeros = aba.getRange(2, 2, ultimaLinha - 1, 1).getValues();
+    for (var i = 0; i < numeros.length; i++) {
+      var num = String(numeros[i][0] || '');
+      if (num.indexOf(prefixo) === 0) {
+        var seq = parseInt(num.substring(prefixo.length), 10);
+        if (!isNaN(seq) && seq > maiorSeq) maiorSeq = seq;
+      }
+    }
+  }
+
+  return prefixo + String(maiorSeq + 1).padStart(4, '0');
+}
+
+function registrarOS(dados) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+
+  try {
+    var aba = garantirAbaAssistencias();
+    var numeroOS = obterProximoNumeroOSSemLock_(aba);
+
+    var linha = [
+      new Date(),
+      numeroOS,
+      dados.nomeCliente || '',
+      dados.telefoneCliente || '',
+      dados.cidade || '',
+      dados.modelo || '',
+      dados.numeroChassi || '',
+      dados.dataCompra || '',
+      dados.notaFiscalCompra || '',
+      dados.tipo || '',
+      dados.assistencia || '',
+      dados.problemaRelatado || '',
+      dados.observacoes || '',
+      'Em andamento',
+      'Não',
+      'Não'
+    ];
+
+    aba.appendRow(linha);
+
+    return { sucesso: true, numeroOS: numeroOS };
+  } catch (err) {
+    return { sucesso: false, erro: err.message };
+  } finally {
+    lock.releaseLock();
+  }
 }
