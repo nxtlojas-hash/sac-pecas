@@ -1475,6 +1475,24 @@ function gerarPDFSeparacao() {
       '<div class="obs-body">' + (venda.observacoes || '') + '</div>' +
     '</div>' +
 
+    /* DADOS DA COLETA */
+    '<div class="section">' +
+      '<div class="section-title bg-dark">DADOS DA COLETA</div>' +
+      '<div class="section-body">' +
+        '<table class="envio-table">' +
+          '<tr><td colspan="2"><span class="lbl">Transportadora</span><span class="val" style="border-bottom:1px solid #000;display:inline-block;min-width:240px;">&nbsp;</span></td></tr>' +
+          '<tr>' +
+            '<td><span class="lbl">Confer\u00eancia de NFe</span><span class="val" style="border-bottom:1px solid #000;display:inline-block;min-width:160px;">&nbsp;</span></td>' +
+            '<td><span class="lbl">Confer\u00eancia de Carga</span><span class="val" style="border-bottom:1px solid #000;display:inline-block;min-width:160px;">&nbsp;</span></td>' +
+          '</tr>' +
+          '<tr>' +
+            '<td><span class="lbl">Assinatura do Motorista</span><span class="val" style="border-bottom:1px solid #000;display:inline-block;min-width:160px;">&nbsp;</span></td>' +
+            '<td><span class="lbl">Assinatura do Conferente</span><span class="val" style="border-bottom:1px solid #000;display:inline-block;min-width:160px;">&nbsp;</span></td>' +
+          '</tr>' +
+        '</table>' +
+      '</div>' +
+    '</div>' +
+
     /* ASSINATURAS */
     '<div class="signatures">' +
       '<div class="sig-block"><div class="sig-line">Separado por / Data</div></div>' +
