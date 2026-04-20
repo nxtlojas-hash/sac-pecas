@@ -391,6 +391,62 @@ function buscarOuCriarContato(cliente) {
   return resultado.data.id;
 }
 
+/**
+ * Rateia o valor da mão de obra proporcionalmente entre os produtos.
+ * Retorna nova lista de peças sem mão de obra, com preços unitários inflados.
+ * Ajusta o último item para absorver residual de centavos.
+ *
+ * @param {Array} pecas — array com {descricao, precoUnitario, quantidade, isMaoDeObra?}
+ * @returns {Array} novas peças (sem mão de obra), com precoUnitario possivelmente ajustado
+ */
+function ratearMaoDeObra(pecas) {
+  if (!pecas || pecas.length === 0) return [];
+
+  var produtos = [];
+  var valorMaoObra = 0;
+
+  for (var i = 0; i < pecas.length; i++) {
+    if (pecas[i].isMaoDeObra) {
+      valorMaoObra += (parseFloat(pecas[i].precoUnitario) || 0) * (parseInt(pecas[i].quantidade) || 1);
+    } else {
+      produtos.push(Object.assign({}, pecas[i]));
+    }
+  }
+
+  if (valorMaoObra <= 0) return produtos;
+
+  if (produtos.length === 0) {
+    throw new Error('Pedido não pode conter apenas mão de obra');
+  }
+
+  var totalProdutos = 0;
+  for (var j = 0; j < produtos.length; j++) {
+    totalProdutos += (parseFloat(produtos[j].precoUnitario) || 0) * (parseInt(produtos[j].quantidade) || 1);
+  }
+
+  if (totalProdutos <= 0) {
+    throw new Error('Total dos produtos zero — não é possível ratear');
+  }
+
+  var fator = (totalProdutos + valorMaoObra) / totalProdutos;
+  var totalAlvo = Math.round((totalProdutos + valorMaoObra) * 100) / 100;
+  var totalCalculado = 0;
+
+  for (var k = 0; k < produtos.length - 1; k++) {
+    var novoPreco = Math.round(produtos[k].precoUnitario * fator * 100) / 100;
+    produtos[k].precoUnitario = novoPreco;
+    totalCalculado += novoPreco * (parseInt(produtos[k].quantidade) || 1);
+  }
+
+  var ultimo = produtos[produtos.length - 1];
+  var qtdUltimo = parseInt(ultimo.quantidade) || 1;
+  var valorRestante = totalAlvo - totalCalculado;
+  var novoPrecoUltimo = Math.round((valorRestante / qtdUltimo) * 100) / 100;
+  ultimo.precoUnitario = novoPrecoUltimo;
+
+  return produtos;
+}
+
 function enviarPedidoBling(dados) {
   // 1. Buscar ou criar contato
   var contatoId = buscarOuCriarContato({
@@ -411,6 +467,14 @@ function enviarPedidoBling(dados) {
   // 2. Montar itens do pedido (com mapeamento fiscal da Claudia Pecas)
   var itens = [];
   var pecas = dados.pecas || [];
+
+  // 2.0 Rateio de mão de obra — absorve valor do serviço nos produtos
+  // Pedidos sem mão de obra passam intocados.
+  try {
+    pecas = ratearMaoDeObra(pecas);
+  } catch (err) {
+    throw new Error('Erro no rateio de mão de obra: ' + err.message);
+  }
 
   for (var i = 0; i < pecas.length; i++) {
     var peca = pecas[i];
