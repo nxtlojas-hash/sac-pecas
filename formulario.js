@@ -611,7 +611,7 @@ function preencherDadosPeca() {
     precoInput.readOnly = false;
     precoInput.focus();
   } else {
-    precoInput.placeholder = '';
+    precoInput.placeholder = '0,00';
     precoInput.readOnly = false;
   }
 
