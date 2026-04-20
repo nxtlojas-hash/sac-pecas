@@ -1304,13 +1304,19 @@ function gerarPDFSeparacao() {
   // Base URL para imagens
   var baseUrl = window.location.href.replace(/[^\/]*$/, '');
 
+  // Helper para URL-encodar caracteres especiais (espaços, $, vírgula, acentos)
+  // preservando os separadores de path
+  function encodePath(p) {
+    return p.split('/').map(function(seg) { return encodeURIComponent(seg); }).join('/');
+  }
+
   // Pecas rows
   var pecasRows = '';
   venda.pecas.forEach(function(p, i) {
-    var imgSrc = p.img || '';
-    // Se a imagem for relativa, montar URL absoluta
-    if (imgSrc && !imgSrc.startsWith('http') && !imgSrc.startsWith('data:')) {
-      imgSrc = baseUrl + imgSrc;
+    var rawImg = p.img || '';
+    var imgSrc = rawImg;
+    if (rawImg && !rawImg.startsWith('http') && !rawImg.startsWith('data:')) {
+      imgSrc = baseUrl + encodePath(rawImg);
     }
     var imgHtml = imgSrc ? '<img src="' + imgSrc + '" style="width:85px;height:85px;object-fit:cover;border-radius:4px;">' : '<span style="color:#ccc;font-size:9px;">Sem foto</span>';
     pecasRows += '<tr>' +
