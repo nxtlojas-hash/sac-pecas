@@ -435,14 +435,31 @@ function ratearMaoDeObra(pecas) {
   for (var k = 0; k < produtos.length - 1; k++) {
     var novoPreco = Math.round(produtos[k].precoUnitario * fator * 100) / 100;
     produtos[k].precoUnitario = novoPreco;
-    totalCalculado += novoPreco * (parseInt(produtos[k].quantidade) || 1);
+    totalCalculado += Math.round(novoPreco * (parseInt(produtos[k].quantidade) || 1) * 100) / 100;
   }
+
+  totalCalculado = Math.round(totalCalculado * 100) / 100;
 
   var ultimo = produtos[produtos.length - 1];
   var qtdUltimo = parseInt(ultimo.quantidade) || 1;
-  var valorRestante = totalAlvo - totalCalculado;
+  var valorRestante = Math.round((totalAlvo - totalCalculado) * 100) / 100;
   var novoPrecoUltimo = Math.round((valorRestante / qtdUltimo) * 100) / 100;
-  ultimo.precoUnitario = novoPrecoUltimo;
+  var somaUltimo = Math.round(novoPrecoUltimo * qtdUltimo * 100) / 100;
+  var residual = Math.round((valorRestante - somaUltimo) * 100) / 100;
+
+  if (qtdUltimo === 1 || residual === 0) {
+    // Caso simples: 1 unidade absorve o residual diretamente
+    ultimo.precoUnitario = Math.round(valorRestante * 100) / 100;
+  } else {
+    // Quantidade > 1 e há residual de centavos.
+    // Divide o último item em duas linhas: (qtd-1) ao preço base + 1 ao preço ajustado
+    ultimo.quantidade = qtdUltimo - 1;
+    ultimo.precoUnitario = novoPrecoUltimo;
+    var ultimoExtra = Object.assign({}, ultimo);
+    ultimoExtra.quantidade = 1;
+    ultimoExtra.precoUnitario = Math.round((novoPrecoUltimo + residual) * 100) / 100;
+    produtos.push(ultimoExtra);
+  }
 
   return produtos;
 }

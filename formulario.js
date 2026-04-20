@@ -980,7 +980,8 @@ function registrarVenda(event) {
         total: p.total,
         peso: p.peso,
         pesoGramas: p.pesoGramas,
-        img: p.img || ''
+        img: p.img || '',
+        isMaoDeObra: p.isMaoDeObra || false
       };
     }),
     pagamento: {
