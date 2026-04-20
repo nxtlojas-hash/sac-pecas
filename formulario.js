@@ -534,31 +534,49 @@ function popularDatalistPecas(modelId) {
   if (!datalist) return;
   datalist.innerHTML = '';
 
-  if (!modelId || !CATALOGO_MODELOS[modelId]) return;
+  if (modelId && CATALOGO_MODELOS[modelId]) {
+    var pecas = CATALOGO_MODELOS[modelId].pecas;
+    pecas.forEach(function(p) {
+      var opt = document.createElement('option');
+      opt.value = p.nome;
+      datalist.appendChild(opt);
+    });
+  }
 
-  var pecas = CATALOGO_MODELOS[modelId].pecas;
-  pecas.forEach(function(p) {
-    var opt = document.createElement('option');
-    opt.value = p.nome;
-    datalist.appendChild(opt);
-  });
+  // Itens globais (ex: Mão de obra) — disponíveis em qualquer modelo
+  if (typeof ITENS_GLOBAIS !== 'undefined') {
+    ITENS_GLOBAIS.forEach(function(item) {
+      var opt = document.createElement('option');
+      opt.value = item.nome;
+      datalist.appendChild(opt);
+    });
+  }
 }
 
 // --- Find part data from current model ---
 function encontrarPecaSelecionada() {
   var modelId = document.getElementById('modeloMoto').value;
   var nome = document.getElementById('descricaoPeca').value.trim();
-  if (!modelId || !nome || !CATALOGO_MODELOS[modelId]) return null;
+  if (!nome) return null;
 
-  var pecas = CATALOGO_MODELOS[modelId].pecas;
-  var found = null;
-  for (var i = 0; i < pecas.length; i++) {
-    if (pecas[i].nome.toLowerCase() === nome.toLowerCase()) {
-      found = pecas[i];
-      break;
+  // Primeiro, procurar nos itens globais (independente de modelo)
+  if (typeof ITENS_GLOBAIS !== 'undefined') {
+    for (var g = 0; g < ITENS_GLOBAIS.length; g++) {
+      if (ITENS_GLOBAIS[g].nome.toLowerCase() === nome.toLowerCase()) {
+        return Object.assign({}, ITENS_GLOBAIS[g]);
+      }
     }
   }
-  return found;
+
+  if (!modelId || !CATALOGO_MODELOS[modelId]) return null;
+
+  var pecas = CATALOGO_MODELOS[modelId].pecas;
+  for (var i = 0; i < pecas.length; i++) {
+    if (pecas[i].nome.toLowerCase() === nome.toLowerCase()) {
+      return pecas[i];
+    }
+  }
+  return null;
 }
 
 // --- Auto-fill price, weight, image ---
@@ -584,6 +602,17 @@ function preencherDadosPeca() {
     precoInput.value = formatarValor(preco);
   } else {
     precoInput.value = '';
+  }
+
+  // Se o item é de preço editável (ex: Mão de obra), deixar campo vazio e focado
+  if (peca.precoEditavel) {
+    precoInput.value = '';
+    precoInput.placeholder = 'Informe o valor (R$)';
+    precoInput.readOnly = false;
+    precoInput.focus();
+  } else {
+    precoInput.placeholder = '';
+    precoInput.readOnly = false;
   }
 
   // Weight
@@ -641,6 +670,11 @@ function adicionarPeca() {
   if (isNaN(preco) || preco <= 0) { mostrarFeedback('Informe o preco da peca', 'erro'); return; }
 
   var pesoGramas = parseWeight(pesoTexto);
+
+  // Detectar se é item global isMaoDeObra
+  var pecaBase = encontrarPecaSelecionada();
+  var isMaoDeObra = !!(pecaBase && pecaBase.isMaoDeObra);
+
   var modelNome = modelId === 'outro' ? outroNome : (CATALOGO_MODELOS[modelId] ? CATALOGO_MODELOS[modelId].nome : modelId);
 
   // Get image from preview
@@ -662,7 +696,8 @@ function adicionarPeca() {
     total: preco * qtd,
     peso: pesoTexto,
     pesoGramas: pesoGramas * qtd,
-    img: imgSrc
+    img: imgSrc,
+    isMaoDeObra: isMaoDeObra
   };
 
   pecasAdicionadas.push(peca);
@@ -889,6 +924,14 @@ function registrarVenda(event) {
     if (tipoCliente !== 'J' && docDigitos.length === 11 && !validarCPF(docDigitos)) { mostrarFeedback('CPF invalido', 'erro'); return; }
   }
   if (pecasAdicionadas.length === 0) { mostrarFeedback('Adicione ao menos uma peca', 'erro'); return; }
+
+  // Mão de obra não pode ir sozinha para o Bling (rateio precisa de produto base)
+  var produtosNoCarrinho = pecasAdicionadas.filter(function(p) { return !p.isMaoDeObra; });
+  var maoDeObraNoCarrinho = pecasAdicionadas.filter(function(p) { return p.isMaoDeObra; });
+  if (maoDeObraNoCarrinho.length > 0 && produtosNoCarrinho.length === 0) {
+    mostrarFeedback('Adicione ao menos uma peça junto com a mão de obra', 'erro');
+    return;
+  }
   if ((tipoVendaSAC || tipoVendaSumare) && !formaPagamento) { mostrarFeedback('Selecione a forma de pagamento', 'erro'); return; }
 
   envioEmAndamento = true;
