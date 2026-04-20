@@ -49,6 +49,8 @@ function navigateTo(view, params) {
     if (typeof loadOrcamentos === 'function') loadOrcamentos();
   } else if (view === 'admin') {
     if (typeof initAdmin === 'function') initAdmin();
+  } else if (view === 'assistencia') {
+    if (typeof initAssistencia === 'function') initAssistencia();
   }
 }
 
@@ -102,6 +104,9 @@ function renderHome() {
       '</button>' +
       '<button class="btn-secundario" onclick="abrirGuiaUso()" style="font-size:1rem;padding:0.75rem 2rem;">' +
         '\uD83D\uDCD6 Guia de Uso' +
+      '</button>' +
+      '<button class="btn-secundario" onclick="navigateTo(\'assistencia\')" style="font-size:1rem;padding:0.75rem 2rem;background:var(--cor-primaria);color:#fff;">' +
+        '\uD83D\uDD27 Abrir OS Assistencia' +
       '</button>';
     grid.parentNode.insertBefore(btnSection, grid.nextSibling);
   }

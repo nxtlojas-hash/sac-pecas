@@ -450,3 +450,15 @@ const CATALOGO_MODELOS = {
     "pecas": []
   }
 };
+
+// Itens globais — disponíveis para qualquer modelo
+const ITENS_GLOBAIS = [
+  {
+    nome: "Mão de obra",
+    preco: 0,
+    peso: "0gr",
+    img: "",
+    precoEditavel: true,
+    isMaoDeObra: true
+  }
+];

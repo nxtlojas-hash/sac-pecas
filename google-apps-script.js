@@ -44,6 +44,7 @@ var ABA_ORCAMENTOS = 'Orcamentos';
 var ABA_REGISTROS = 'Registros';
 var ABA_PECAS = 'Pecas';
 var ABA_ESTOQUE = 'Estoque';
+var ABA_ASSISTENCIAS = 'AssistenciasTecnicas';
 
 // ========================================
 // MAPEAMENTO FISCAL (Tabela Claudia Pecas)
@@ -390,6 +391,79 @@ function buscarOuCriarContato(cliente) {
   return resultado.data.id;
 }
 
+/**
+ * Rateia o valor da mão de obra proporcionalmente entre os produtos.
+ * Retorna nova lista de peças sem mão de obra, com preços unitários inflados.
+ * Ajusta o último item para absorver residual de centavos.
+ *
+ * @param {Array} pecas — array com {descricao, precoUnitario, quantidade, isMaoDeObra?}
+ * @returns {Array} novas peças (sem mão de obra), com precoUnitario possivelmente ajustado
+ */
+function ratearMaoDeObra(pecas) {
+  if (!pecas || pecas.length === 0) return [];
+
+  var produtos = [];
+  var valorMaoObra = 0;
+
+  for (var i = 0; i < pecas.length; i++) {
+    if (pecas[i].isMaoDeObra) {
+      valorMaoObra += (parseFloat(pecas[i].precoUnitario) || 0) * (parseInt(pecas[i].quantidade) || 1);
+    } else {
+      produtos.push(Object.assign({}, pecas[i]));
+    }
+  }
+
+  if (valorMaoObra <= 0) return produtos;
+
+  if (produtos.length === 0) {
+    throw new Error('Pedido não pode conter apenas mão de obra');
+  }
+
+  var totalProdutos = 0;
+  for (var j = 0; j < produtos.length; j++) {
+    totalProdutos += (parseFloat(produtos[j].precoUnitario) || 0) * (parseInt(produtos[j].quantidade) || 1);
+  }
+
+  if (totalProdutos <= 0) {
+    throw new Error('Total dos produtos zero — não é possível ratear');
+  }
+
+  var fator = (totalProdutos + valorMaoObra) / totalProdutos;
+  var totalAlvo = Math.round((totalProdutos + valorMaoObra) * 100) / 100;
+  var totalCalculado = 0;
+
+  for (var k = 0; k < produtos.length - 1; k++) {
+    var novoPreco = Math.round(produtos[k].precoUnitario * fator * 100) / 100;
+    produtos[k].precoUnitario = novoPreco;
+    totalCalculado += Math.round(novoPreco * (parseInt(produtos[k].quantidade) || 1) * 100) / 100;
+  }
+
+  totalCalculado = Math.round(totalCalculado * 100) / 100;
+
+  var ultimo = produtos[produtos.length - 1];
+  var qtdUltimo = parseInt(ultimo.quantidade) || 1;
+  var valorRestante = Math.round((totalAlvo - totalCalculado) * 100) / 100;
+  var novoPrecoUltimo = Math.round((valorRestante / qtdUltimo) * 100) / 100;
+  var somaUltimo = Math.round(novoPrecoUltimo * qtdUltimo * 100) / 100;
+  var residual = Math.round((valorRestante - somaUltimo) * 100) / 100;
+
+  if (qtdUltimo === 1 || residual === 0) {
+    // Caso simples: 1 unidade absorve o residual diretamente
+    ultimo.precoUnitario = Math.round(valorRestante * 100) / 100;
+  } else {
+    // Quantidade > 1 e há residual de centavos.
+    // Divide o último item em duas linhas: (qtd-1) ao preço base + 1 ao preço ajustado
+    ultimo.quantidade = qtdUltimo - 1;
+    ultimo.precoUnitario = novoPrecoUltimo;
+    var ultimoExtra = Object.assign({}, ultimo);
+    ultimoExtra.quantidade = 1;
+    ultimoExtra.precoUnitario = Math.round((novoPrecoUltimo + residual) * 100) / 100;
+    produtos.push(ultimoExtra);
+  }
+
+  return produtos;
+}
+
 function enviarPedidoBling(dados) {
   // 1. Buscar ou criar contato
   var contatoId = buscarOuCriarContato({
@@ -410,6 +484,14 @@ function enviarPedidoBling(dados) {
   // 2. Montar itens do pedido (com mapeamento fiscal da Claudia Pecas)
   var itens = [];
   var pecas = dados.pecas || [];
+
+  // 2.0 Rateio de mão de obra — absorve valor do serviço nos produtos
+  // Pedidos sem mão de obra passam intocados.
+  try {
+    pecas = ratearMaoDeObra(pecas);
+  } catch (err) {
+    throw new Error('Erro no rateio de mão de obra: ' + err.message);
+  }
 
   for (var i = 0; i < pecas.length; i++) {
     var peca = pecas[i];
@@ -779,6 +861,9 @@ function doPost(e) {
 
       case 'baixa_estoque':
         return jsonResponse(baixaEstoque(body));
+
+      case 'registrar_os':
+        return jsonResponse(registrarOS(body));
 
       default:
         return jsonResponse({ sucesso: false, erro: 'Acao POST desconhecida: ' + action });
@@ -1558,4 +1643,94 @@ function baixaEstoque(body) {
   }
 
   return { sucesso: true, mensagem: 'Peca nao encontrada no estoque, baixa ignorada' };
+}
+
+// ========================================
+// ASSISTÊNCIA TÉCNICA - OS
+// ========================================
+
+function garantirAbaAssistencias() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var aba = ss.getSheetByName(ABA_ASSISTENCIAS);
+  if (!aba) {
+    aba = ss.insertSheet(ABA_ASSISTENCIAS);
+    var cabecalho = [
+      'DATA ABERTURA', 'NUMERO OS', 'NOME CLIENTE', 'TELEFONE CLIENTE',
+      'CIDADE', 'MODELO', 'NUMERO CHASSI', 'DATA COMPRA',
+      'NOTA FISCAL COMPRA', 'TIPO', 'ASSISTENCIA', 'PROBLEMA RELATADO',
+      'OBSERVACOES', 'STATUS', 'NF ASSISTENCIA RECEBIDA', 'PAGAMENTO FEITO'
+    ];
+    aba.getRange(1, 1, 1, cabecalho.length).setValues([cabecalho]).setFontWeight('bold');
+    aba.setFrozenRows(1);
+  }
+  return aba;
+}
+
+function obterProximoNumeroOS() {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var aba = garantirAbaAssistencias();
+    return obterProximoNumeroOSSemLock_(aba);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// Helper interno — lógica de numeração sem lock aninhado
+function obterProximoNumeroOSSemLock_(aba) {
+  var ultimaLinha = aba.getLastRow();
+  var anoAtual = new Date().getFullYear();
+  var prefixo = 'OS-' + anoAtual + '-';
+
+  var maiorSeq = 0;
+  if (ultimaLinha > 1) {
+    var numeros = aba.getRange(2, 2, ultimaLinha - 1, 1).getValues();
+    for (var i = 0; i < numeros.length; i++) {
+      var num = String(numeros[i][0] || '');
+      if (num.indexOf(prefixo) === 0) {
+        var seq = parseInt(num.substring(prefixo.length), 10);
+        if (!isNaN(seq) && seq > maiorSeq) maiorSeq = seq;
+      }
+    }
+  }
+
+  return prefixo + String(maiorSeq + 1).padStart(4, '0');
+}
+
+function registrarOS(dados) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+
+  try {
+    var aba = garantirAbaAssistencias();
+    var numeroOS = obterProximoNumeroOSSemLock_(aba);
+
+    var linha = [
+      new Date(),
+      numeroOS,
+      dados.nomeCliente || '',
+      dados.telefoneCliente || '',
+      dados.cidade || '',
+      dados.modelo || '',
+      dados.numeroChassi || '',
+      dados.dataCompra || '',
+      dados.notaFiscalCompra || '',
+      dados.tipo || '',
+      dados.assistencia || '',
+      dados.problemaRelatado || '',
+      dados.observacoes || '',
+      'Em andamento',
+      'Não',
+      'Não'
+    ];
+
+    aba.appendRow(linha);
+
+    return { sucesso: true, numeroOS: numeroOS };
+  } catch (err) {
+    return { sucesso: false, erro: err.message };
+  } finally {
+    lock.releaseLock();
+  }
 }
