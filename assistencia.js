@@ -214,7 +214,11 @@
   function mostrarFeedbackOS(msg, tipo) {
     var el = document.getElementById('osFeedback');
     if (!el) return;
-    el.innerHTML = '<div class="toast toast-' + (tipo || 'info') + '" style="display:block;position:static;">' + msg + '</div>';
+    var bg, fg;
+    if (tipo === 'erro') { bg = '#ef4444'; fg = '#fff'; }
+    else if (tipo === 'sucesso') { bg = '#22c55e'; fg = '#fff'; }
+    else { bg = '#3b82f6'; fg = '#fff'; }
+    el.innerHTML = '<div style="background:' + bg + ';color:' + fg + ';padding:0.75rem 1rem;border-radius:6px;text-align:center;font-weight:600;">' + msg + '</div>';
   }
 
   // --- PDF ---
