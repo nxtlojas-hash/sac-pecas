@@ -193,7 +193,7 @@
           mostrarFeedbackOS('OS ' + resp.numeroOS + ' aberta com sucesso!', 'sucesso');
           gerarPDFAssistencia(Object.assign({}, dados, { numeroOS: resp.numeroOS, dataAbertura: new Date() }));
         } else {
-          mostrarFeedbackOS('Erro: ' + (resp && resp.erro ? resp.erro : 'resposta inválida do servidor'), 'erro');
+          mostrarFeedbackOS('Erro: ' + (resp && resp.erro ? escapeHtml(resp.erro) : 'resposta inválida do servidor'), 'erro');
         }
       })
       .catch(function(err) {
@@ -231,7 +231,7 @@
 
     var html = '' +
     '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">' +
-    '<title>' + dados.numeroOS + ' - ' + dados.nomeCliente + '</title>' +
+    '<title>' + escapeHtml(dados.numeroOS) + ' - ' + escapeHtml(dados.nomeCliente) + '</title>' +
     '<style>' +
     '@page { size: A4; margin: 12mm; }' +
     'body { font-family: Arial, sans-serif; font-size: 11pt; color: #111; margin: 0; }' +
@@ -295,7 +295,7 @@
     '<div class="section">' +
       '<div class="section-title">ATENDIMENTO</div>' +
       '<div class="section-body">' +
-        '<div class="row"><div><span class="lbl">Tipo:</span> <strong>' + dados.tipo.toUpperCase() + '</strong></div></div>' +
+        '<div class="row"><div><span class="lbl">Tipo:</span> <strong>' + escapeHtml(dados.tipo).toUpperCase() + '</strong></div></div>' +
         '<div class="row"><div><span class="lbl">Assistência:</span> ' + escapeHtml(dados.assistencia) + '</div></div>' +
       '</div>' +
     '</div>' +
