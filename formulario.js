@@ -1305,6 +1305,54 @@ function novaVenda() {
   });
 }
 
+// Pré-carrega URLs de imagens e retorna mapa {url: dataUrl}.
+// Usa <img> + canvas para converter em base64. Necessário porque
+// window.open('','_blank') (about:blank) bloqueia <img src="file:///..">
+// em browsers modernos. Imagens que não carregarem ficam mapeadas para ''.
+function preCarregarImagensComoDataUrl(urls, callback) {
+  var unicas = {};
+  for (var i = 0; i < urls.length; i++) { if (urls[i]) unicas[urls[i]] = true; }
+  var lista = Object.keys(unicas);
+  if (lista.length === 0) { callback({}); return; }
+
+  var resultado = {};
+  var pendentes = lista.length;
+  function done(url, dataUrl) {
+    resultado[url] = dataUrl || '';
+    if (--pendentes === 0) callback(resultado);
+  }
+
+  lista.forEach(function(url) {
+    var img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = function() {
+      try {
+        var canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || 200;
+        canvas.height = img.naturalHeight || 200;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        // JPEG com qualidade 0.85 — bom equilíbrio tamanho/qualidade
+        done(url, canvas.toDataURL('image/jpeg', 0.85));
+      } catch (e) {
+        // toDataURL pode lançar se a imagem for "tainted" (cross-origin sem CORS)
+        // Tentar PNG como fallback
+        try {
+          var canvas2 = document.createElement('canvas');
+          canvas2.width = img.naturalWidth || 200;
+          canvas2.height = img.naturalHeight || 200;
+          canvas2.getContext('2d').drawImage(img, 0, 0);
+          done(url, canvas2.toDataURL());
+        } catch (e2) {
+          done(url, '');
+        }
+      }
+    };
+    img.onerror = function() { done(url, ''); };
+    img.src = url;
+  });
+}
+
 // --- PDF Separacao (modelo referencia V1.6) ---
 function gerarPDFSeparacao() {
   if (!ultimaVendaPDF) {
@@ -1354,29 +1402,50 @@ function gerarPDFSeparacao() {
     return p.split('/').map(function(seg) { return encodeURIComponent(seg); }).join('/');
   }
 
-  // Pecas rows
-  var pecasRows = '';
-  venda.pecas.forEach(function(p, i) {
+  // Coletar todas as URLs absolutas que precisam ser pré-carregadas
+  var urlsParaCarregar = [];
+  venda.pecas.forEach(function(p) {
     var rawImg = p.img || '';
-    var imgSrc = rawImg;
-    if (rawImg && !rawImg.startsWith('http') && !rawImg.startsWith('data:')) {
-      imgSrc = baseUrl + encodePath(rawImg);
+    if (rawImg) {
+      if (!rawImg.startsWith('http') && !rawImg.startsWith('data:')) {
+        urlsParaCarregar.push(baseUrl + encodePath(rawImg));
+      } else {
+        urlsParaCarregar.push(rawImg);
+      }
     }
-    var imgHtml = imgSrc ? '<img src="' + imgSrc + '" style="width:85px;height:85px;object-fit:cover;border-radius:4px;">' : '<span style="color:#ccc;font-size:9px;">Sem foto</span>';
-    pecasRows += '<tr>' +
-      '<td style="text-align:center;width:30px;vertical-align:middle;">' + (i + 1) + '</td>' +
-      '<td style="text-align:center;width:95px;padding:4px;vertical-align:middle;">' + imgHtml + '</td>' +
-      '<td style="vertical-align:middle;">' + p.descricao + '</td>' +
-      '<td style="text-align:center;vertical-align:middle;">' + (p.modelo || '') + '</td>' +
-      '<td style="text-align:center;vertical-align:middle;">' + (p.cor || '') + '</td>' +
-      '<td style="text-align:center;vertical-align:middle;">' + (p.categoria || '') + '</td>' +
-      '<td style="text-align:center;width:35px;vertical-align:middle;">' + p.quantidade + '</td>' +
-      '<td style="text-align:center;width:35px;vertical-align:middle;"></td>' +
-    '</tr>';
   });
+  urlsParaCarregar.push(baseUrl + 'logo-nxt.png');
 
-  // Logo NXT - usar imagem real do projeto (com base tag, caminho relativo funciona)
-  var logoImg = '<img src="logo-nxt.png" alt="NXT" style="height:40px;width:auto;">';
+  preCarregarImagensComoDataUrl(urlsParaCarregar, function(mapa) {
+    // Pecas rows (usando data URLs do mapa)
+    var pecasRows = '';
+    venda.pecas.forEach(function(p, i) {
+      var rawImg = p.img || '';
+      var imgSrc = '';
+      if (rawImg) {
+        if (!rawImg.startsWith('http') && !rawImg.startsWith('data:')) {
+          var absoluteUrl = baseUrl + encodePath(rawImg);
+          imgSrc = mapa[absoluteUrl] || '';
+        } else {
+          imgSrc = mapa[rawImg] || rawImg;
+        }
+      }
+      var imgHtml = imgSrc ? '<img src="' + imgSrc + '" style="width:85px;height:85px;object-fit:cover;border-radius:4px;">' : '<span style="color:#ccc;font-size:9px;">Sem foto</span>';
+      pecasRows += '<tr>' +
+        '<td style="text-align:center;width:30px;vertical-align:middle;">' + (i + 1) + '</td>' +
+        '<td style="text-align:center;width:95px;padding:4px;vertical-align:middle;">' + imgHtml + '</td>' +
+        '<td style="vertical-align:middle;">' + p.descricao + '</td>' +
+        '<td style="text-align:center;vertical-align:middle;">' + (p.modelo || '') + '</td>' +
+        '<td style="text-align:center;vertical-align:middle;">' + (p.cor || '') + '</td>' +
+        '<td style="text-align:center;vertical-align:middle;">' + (p.categoria || '') + '</td>' +
+        '<td style="text-align:center;width:35px;vertical-align:middle;">' + p.quantidade + '</td>' +
+        '<td style="text-align:center;width:35px;vertical-align:middle;"></td>' +
+      '</tr>';
+    });
+
+    // Logo NXT como data URL (fallback para URL direta se pré-carregamento falhar)
+    var logoDataUrl = mapa[baseUrl + 'logo-nxt.png'] || (baseUrl + 'logo-nxt.png');
+    var logoImg = '<img src="' + logoDataUrl + '" alt="NXT" style="height:40px;width:auto;">';
 
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
     '<base href="' + baseUrl + '">' +
@@ -1619,6 +1688,7 @@ function gerarPDFSeparacao() {
       setTimeout(function() { if (loaded < total) win.print(); }, 3000);
     }
   }
+  }); // fim preCarregarImagensComoDataUrl
 }
 
 // --- Navigate to catalog from form ---
