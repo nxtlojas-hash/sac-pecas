@@ -45,6 +45,7 @@ var ABA_REGISTROS = 'Registros';
 var ABA_PECAS = 'Pecas';
 var ABA_ESTOQUE = 'Estoque';
 var ABA_ASSISTENCIAS = 'AssistenciasTecnicas';
+var ABA_CADASTRO_ASSISTENCIAS = 'AssistenciasCadastro';
 
 // ========================================
 // MAPEAMENTO FISCAL (Tabela Claudia Pecas)
@@ -748,6 +749,10 @@ function doGet(e) {
           e.parameter.peca || ''
         ));
 
+      // --- Assistencias Tecnicas (cadastro) ---
+      case 'listar_assistencias':
+        return jsonResponse(listarAssistenciasCadastro());
+
       // --- Bling Auth ---
       case 'status':
         var tokens = getBlingTokens();
@@ -864,6 +869,9 @@ function doPost(e) {
 
       case 'registrar_os':
         return jsonResponse(registrarOS(body));
+
+      case 'salvar_assistencia':
+        return jsonResponse(upsertAssistenciaCadastro(body.nome, body.endereco, body.telefone));
 
       default:
         return jsonResponse({ sucesso: false, erro: 'Acao POST desconhecida: ' + action });
@@ -1652,16 +1660,25 @@ function baixaEstoque(body) {
 function garantirAbaAssistencias() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var aba = ss.getSheetByName(ABA_ASSISTENCIAS);
+  var cabecalho = [
+    'DATA ABERTURA', 'NUMERO OS', 'NOME CLIENTE', 'CPF CLIENTE', 'TELEFONE CLIENTE',
+    'CEP CLIENTE', 'ENDERECO CLIENTE', 'NUMERO CLIENTE', 'BAIRRO CLIENTE',
+    'CIDADE', 'UF CLIENTE',
+    'MODELO', 'NUMERO CHASSI', 'DATA COMPRA', 'NOTA FISCAL COMPRA',
+    'TIPO', 'ASSISTENCIA', 'ENDERECO ASSISTENCIA', 'TELEFONE ASSISTENCIA',
+    'PROBLEMA RELATADO', 'OBSERVACOES',
+    'STATUS', 'NF ASSISTENCIA RECEBIDA', 'PAGAMENTO FEITO'
+  ];
   if (!aba) {
     aba = ss.insertSheet(ABA_ASSISTENCIAS);
-    var cabecalho = [
-      'DATA ABERTURA', 'NUMERO OS', 'NOME CLIENTE', 'TELEFONE CLIENTE',
-      'CIDADE', 'MODELO', 'NUMERO CHASSI', 'DATA COMPRA',
-      'NOTA FISCAL COMPRA', 'TIPO', 'ASSISTENCIA', 'PROBLEMA RELATADO',
-      'OBSERVACOES', 'STATUS', 'NF ASSISTENCIA RECEBIDA', 'PAGAMENTO FEITO'
-    ];
     aba.getRange(1, 1, 1, cabecalho.length).setValues([cabecalho]).setFontWeight('bold');
     aba.setFrozenRows(1);
+  } else {
+    // Migração: se a aba existe mas tem menos colunas que o cabeçalho novo, reescreve o cabeçalho
+    var colsAtuais = aba.getLastColumn();
+    if (colsAtuais < cabecalho.length) {
+      aba.getRange(1, 1, 1, cabecalho.length).setValues([cabecalho]).setFontWeight('bold');
+    }
   }
   return aba;
 }
@@ -1710,14 +1727,22 @@ function registrarOS(dados) {
       new Date(),
       numeroOS,
       dados.nomeCliente || '',
+      dados.cpfCliente || '',
       dados.telefoneCliente || '',
+      dados.cepCliente || '',
+      dados.enderecoCliente || '',
+      dados.numeroCliente || '',
+      dados.bairroCliente || '',
       dados.cidade || '',
+      dados.ufCliente || '',
       dados.modelo || '',
       dados.numeroChassi || '',
       dados.dataCompra || '',
       dados.notaFiscalCompra || '',
       dados.tipo || '',
       dados.assistencia || '',
+      dados.assistenciaEndereco || '',
+      dados.assistenciaTelefone || '',
       dados.problemaRelatado || '',
       dados.observacoes || '',
       'Em andamento',
@@ -1727,9 +1752,120 @@ function registrarOS(dados) {
 
     aba.appendRow(linha);
 
+    // Upsert automático no cadastro de assistências quando há dados preenchidos
+    if (dados.assistencia && (dados.assistenciaEndereco || dados.assistenciaTelefone)) {
+      try {
+        upsertAssistenciaCadastro(dados.assistencia, dados.assistenciaEndereco, dados.assistenciaTelefone);
+      } catch (upErr) {
+        // Falha silenciosa — não bloqueia a OS
+      }
+    }
+
     return { sucesso: true, numeroOS: numeroOS };
   } catch (err) {
     return { sucesso: false, erro: err.message };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ========================================
+// CADASTRO DE ASSISTÊNCIAS (persistência nome+endereço+telefone)
+// ========================================
+
+// Seed inicial (extraído do KMZ oficial)
+var ASSISTENCIAS_SEED_ = [
+  'Jackson Técnico - Campinas',
+  'Batata Racing - Santo André',
+  'Fábio Técnico - Rio Claro',
+  'Cláudio Técnico/Eco Scooter - Osasco/Lapa',
+  'Matiazo Bikes - Artur Nogueira',
+  'Eco Ride - Vila Mariana',
+  'Conserta Bikes Araraquara - Gordinho Bikes',
+  'SOS Motos e Acessórios - Holambra',
+  'Martins Bike - Mogi Mirim',
+  'Romano Motos - Itapira',
+  'Bike Shop Mazotti - Andradina',
+  'E-MOBI - Dracena SP',
+  'Robson Técnico - Indaiatuba',
+  'Vaner Bikes - Espírito Santo do Pinhal SP',
+  'Emerson - Sumaré',
+  'Família Motos',
+  'Anderson Técnico - Extrema MG',
+  'Wanderlei / Ecobike Elétrica - Ipatinga MG',
+  'Bertão E-Bikes',
+  'Saints Eletric',
+  'Pedal Blu Bike Shop - Blumenau',
+  'Augusto Técnico / Cheetos Motos - São Francisco do Sul',
+  'Conserta Bike - Curitiba / São José dos Pinhais PR',
+  'Estação do Patinete / Felipe NXT - Balneário Camboriú',
+  'Hercílio André - Jaraguá do Sul',
+  'NXT Mafra / Rio Negrinho',
+  'Regis / Elos Bike - Caxias do Sul RS',
+  'Sami Amin - Florianópolis'
+];
+
+function garantirAbaCadastroAssistencias() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var aba = ss.getSheetByName(ABA_CADASTRO_ASSISTENCIAS);
+  if (!aba) {
+    aba = ss.insertSheet(ABA_CADASTRO_ASSISTENCIAS);
+    aba.getRange(1, 1, 1, 4).setValues([['NOME', 'ENDERECO', 'TELEFONE', 'ATUALIZADO_EM']]).setFontWeight('bold');
+    aba.setFrozenRows(1);
+    // Seed inicial
+    var seed = ASSISTENCIAS_SEED_.map(function(n) { return [n, '', '', '']; });
+    if (seed.length) aba.getRange(2, 1, seed.length, 4).setValues(seed);
+  }
+  return aba;
+}
+
+function listarAssistenciasCadastro() {
+  var aba = garantirAbaCadastroAssistencias();
+  var lastRow = aba.getLastRow();
+  if (lastRow < 2) return { sucesso: true, assistencias: [] };
+  var data = aba.getRange(2, 1, lastRow - 1, 4).getValues();
+  var lista = data
+    .filter(function(r) { return r[0] && String(r[0]).trim(); })
+    .map(function(r) {
+      return {
+        nome: String(r[0]).trim(),
+        endereco: String(r[1] || '').trim(),
+        telefone: String(r[2] || '').trim(),
+        atualizadoEm: r[3] ? new Date(r[3]).toISOString() : ''
+      };
+    });
+  return { sucesso: true, assistencias: lista };
+}
+
+function upsertAssistenciaCadastro(nome, endereco, telefone) {
+  nome = (nome || '').trim();
+  endereco = (endereco || '').trim();
+  telefone = (telefone || '').trim();
+  if (!nome) return { sucesso: false, erro: 'Nome é obrigatório' };
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var aba = garantirAbaCadastroAssistencias();
+    var lastRow = aba.getLastRow();
+    var agora = new Date();
+
+    if (lastRow >= 2) {
+      var nomes = aba.getRange(2, 1, lastRow - 1, 1).getValues();
+      for (var i = 0; i < nomes.length; i++) {
+        if (String(nomes[i][0]).trim().toLowerCase() === nome.toLowerCase()) {
+          var rowIdx = i + 2;
+          // Só atualiza se veio algo (não apaga dado existente com string vazia)
+          if (endereco) aba.getRange(rowIdx, 2).setValue(endereco);
+          if (telefone) aba.getRange(rowIdx, 3).setValue(telefone);
+          aba.getRange(rowIdx, 4).setValue(agora);
+          return { sucesso: true, acao: 'atualizado', nome: nome };
+        }
+      }
+    }
+
+    aba.appendRow([nome, endereco, telefone, agora]);
+    return { sucesso: true, acao: 'criado', nome: nome };
   } finally {
     lock.releaseLock();
   }
