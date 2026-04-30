@@ -38,7 +38,7 @@
 // CONFIG
 // ========================================
 
-var BLING_API_BASE = 'https://www.bling.com.br/Api/v3';
+var BLING_API_BASE = 'https://api.bling.com.br/Api/v3';
 var PASTA_PDF_ORCAMENTOS = '1rTamTXwXDFWIi_0YLgFD1MdzMigcPlNr';
 var ABA_ORCAMENTOS = 'Orcamentos';
 var ABA_REGISTROS = 'Registros';
@@ -1721,6 +1721,8 @@ function registrarOS(dados) {
 
   try {
     var aba = garantirAbaAssistencias();
+    // Garante a aba de cadastro de assistências também (mesmo que o upsert abaixo não rode)
+    garantirAbaCadastroAssistencias();
     var numeroOS = obterProximoNumeroOSSemLock_(aba);
 
     var linha = [
