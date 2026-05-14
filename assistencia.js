@@ -1,4 +1,4 @@
-/* ===== NXT PECAS V2.2 - Formulário Assistência Técnica ===== */
+/* ===== NXT PECAS V2.3 - Formulário Assistência Técnica + Modal Pós-OS ===== */
 
 (function(){
   // Reaproveita a URL definida em formulario.js (mesmo endpoint do backend)
@@ -416,7 +416,7 @@
               select.insertBefore(opt, select.querySelector('option[value="__outro__"]'));
             }
           }
-          gerarPDFAssistencia(Object.assign({}, dados, { numeroOS: resp.numeroOS, dataAbertura: new Date() }));
+          mostrarModalPosOS(Object.assign({}, dados, { numeroOS: resp.numeroOS, dataAbertura: new Date() }));
         } else {
           mostrarFeedbackOS('Erro: ' + (resp && resp.erro ? escapeHtml(resp.erro) : 'resposta inválida do servidor'), 'erro');
         }
@@ -684,5 +684,282 @@
   function escapeHtml(s) {
     if (s == null) return '';
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ============================================================
+  //  PDF VERSAO CLIENTE — simplificado, sem campos internos
+  // ============================================================
+  function gerarPDFAssistenciaCliente(dados) {
+    var win = window.open('', '_blank');
+    if (!win) {
+      mostrarFeedbackOS('Pop-up bloqueado — libere pop-ups para gerar o PDF', 'erro');
+      return;
+    }
+
+    var baseUrl = window.location.href.replace(/[^\/]*$/, '');
+    var dataAberturaStr = formatarDataBR(dados.dataAbertura || new Date());
+    var telFmt = formatarTelefone(dados.telefoneCliente);
+    var telAssistFmt = formatarTelefone(dados.assistenciaTelefone);
+
+    var logoImg = '<img src="logo-nxt.png" alt="NXT" style="height:36px;width:auto;">';
+    var assistEnd = dados.assistenciaEndereco ? escapeHtml(dados.assistenciaEndereco) : '<span style="color:#999;">A confirmar</span>';
+    var assistTel = telAssistFmt !== '-' ? telAssistFmt : '<span style="color:#999;">A confirmar</span>';
+
+    var html = '' +
+    '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">' +
+    '<base href="' + baseUrl + '">' +
+    '<title>OS ' + escapeHtml(dados.numeroOS) + ' - ' + escapeHtml(dados.nomeCliente) + '</title>' +
+    '<style>' +
+    '@page { size: A4; margin: 14mm 14mm; }' +
+    '* { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }' +
+    'body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #222; }' +
+    '.bg-dark { background: #1a1a2e !important; box-shadow: inset 0 0 0 9999px #1a1a2e; color: #fff; }' +
+    '.doc-header { padding: 12px 16px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }' +
+    '.doc-header .logo-wrap { display: flex; align-items: center; gap: 12px; }' +
+    '.doc-header .title { color: #c6ff00; font-size: 12px; font-weight: 700; letter-spacing: 1.5px; margin-top: 4px; }' +
+    '.doc-header .info { text-align: right; }' +
+    '.doc-header .os-id { font-size: 18px; font-weight: 900; color: #c6ff00; letter-spacing: 1px; }' +
+    '.doc-header .info-line { font-size: 10px; color: #ccc; margin-top: 2px; }' +
+    '.badge-tipo { display: inline-block; padding: 3px 12px; border-radius: 4px; font-size: 11px; font-weight: 700; color: #000; margin-top: 4px; background: #c6ff00 !important; box-shadow: inset 0 0 0 9999px #c6ff00; }' +
+    '.section { margin-bottom: 12px; }' +
+    '.section-title { padding: 6px 12px; font-weight: 700; font-size: 11px; letter-spacing: 1px; border-radius: 4px 4px 0 0; }' +
+    '.section-body { border: 1px solid #ddd; border-top: none; padding: 10px 12px; }' +
+    '.data-table { width: 100%; border-collapse: collapse; }' +
+    '.data-table td { padding: 6px 10px; border: 1px solid #eee; vertical-align: top; }' +
+    '.data-table .lbl { font-size: 8px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 2px; }' +
+    '.data-table .val { font-size: 12px; color: #111; }' +
+    '.problema-box { padding: 10px 12px; font-size: 12px; color: #222; white-space: pre-wrap; background: #fafafa; border-left: 3px solid #c6ff00; }' +
+    '.assist-box { padding: 12px; background: #f9fafb; border-left: 3px solid #1a1a2e; }' +
+    '.assist-box .nome { font-size: 14px; font-weight: 700; color: #111; margin-bottom: 6px; }' +
+    '.assist-box .linha { font-size: 11px; color: #444; margin-top: 3px; }' +
+    '.instructions { background: #fef3c7; border-radius: 6px; padding: 10px 14px; font-size: 11px; color: #78350f; line-height: 1.5; }' +
+    '.instructions strong { color: #78350f; }' +
+    '.doc-footer { text-align: center; font-size: 9px; color: #888; margin-top: 18mm; padding-top: 6mm; border-top: 1px solid #ddd; }' +
+    '</style></head><body>' +
+    '<div class="doc-header bg-dark">' +
+      '<div class="logo-wrap">' + logoImg +
+        '<div class="title">ORDEM DE SERVI&Ccedil;O &mdash; VIA DO CLIENTE</div>' +
+      '</div>' +
+      '<div class="info">' +
+        '<div class="os-id">' + escapeHtml(dados.numeroOS) + '</div>' +
+        '<div class="info-line">Abertura: ' + dataAberturaStr + '</div>' +
+        '<div><span class="badge-tipo">' + escapeHtml((dados.tipo || '').toUpperCase()) + '</span></div>' +
+      '</div>' +
+    '</div>' +
+
+    '<div class="section">' +
+      '<div class="section-title bg-dark">DADOS DO CLIENTE</div>' +
+      '<div class="section-body" style="padding:0;">' +
+        '<table class="data-table">' +
+          '<tr>' +
+            '<td style="width:55%;"><span class="lbl">Nome</span><span class="val">' + escapeHtml(dados.nomeCliente) + '</span></td>' +
+            '<td><span class="lbl">Telefone</span><span class="val">' + telFmt + '</span></td>' +
+          '</tr>' +
+        '</table>' +
+      '</div>' +
+    '</div>' +
+
+    '<div class="section">' +
+      '<div class="section-title bg-dark">SEU EQUIPAMENTO</div>' +
+      '<div class="section-body" style="padding:0;">' +
+        '<table class="data-table">' +
+          '<tr>' +
+            '<td style="width:55%;"><span class="lbl">Modelo</span><span class="val">' + escapeHtml(dados.modelo || '-') + '</span></td>' +
+            '<td><span class="lbl">N&ordm; Chassi / S&eacute;rie</span><span class="val">' + escapeHtml(dados.numeroChassi || '-') + '</span></td>' +
+          '</tr>' +
+          '<tr>' +
+            '<td><span class="lbl">Nota Fiscal</span><span class="val">' + escapeHtml(dados.notaFiscal || '-') + '</span></td>' +
+            '<td><span class="lbl">Data da Compra</span><span class="val">' + (dados.dataCompra ? formatarDataBR(dados.dataCompra) : '-') + '</span></td>' +
+          '</tr>' +
+        '</table>' +
+      '</div>' +
+    '</div>' +
+
+    '<div class="section">' +
+      '<div class="section-title bg-dark">PROBLEMA RELATADO</div>' +
+      '<div class="problema-box">' + escapeHtml(dados.problema || '-') + '</div>' +
+    '</div>' +
+
+    '<div class="section">' +
+      '<div class="section-title bg-dark">ASSIST&Ecirc;NCIA RESPONS&Aacute;VEL</div>' +
+      '<div class="assist-box">' +
+        '<div class="nome">' + escapeHtml(dados.assistencia || '-') + '</div>' +
+        '<div class="linha"><strong>Endere&ccedil;o:</strong> ' + assistEnd + '</div>' +
+        '<div class="linha"><strong>Telefone:</strong> ' + assistTel + '</div>' +
+      '</div>' +
+    '</div>' +
+
+    '<div class="section">' +
+      '<div class="section-title bg-dark">PR&Oacute;XIMOS PASSOS</div>' +
+      '<div class="instructions">' +
+        '<strong>1.</strong> Leve o equipamento at&eacute; a assist&ecirc;ncia respons&aacute;vel ou aguarde contato dela.<br>' +
+        '<strong>2.</strong> Apresente este documento (n&ordm; <strong>' + escapeHtml(dados.numeroOS) + '</strong>) na assist&ecirc;ncia.<br>' +
+        '<strong>3.</strong> A assist&ecirc;ncia avaliar&aacute; o equipamento e entrar&aacute; em contato com o la&uacute;do t&eacute;cnico.<br>' +
+        '<strong>4.</strong> Em caso de d&uacute;vidas, fale com a NXT pelo SAC.' +
+      '</div>' +
+    '</div>' +
+
+    '<div class="doc-footer">NXT Mobilidade El&eacute;trica &bull; OS ' + escapeHtml(dados.numeroOS) + ' &bull; Gerado em ' + dataAberturaStr + '</div>' +
+
+    '</body></html>';
+
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(function() { try { win.print(); } catch(e){} }, 500);
+  }
+
+  // ============================================================
+  //  Mensagens de WhatsApp (Cliente / Assistencia)
+  // ============================================================
+  function enviarWhatsAppClienteOS(dados) {
+    var tel = (dados.telefoneCliente || '').replace(/\D/g, '');
+    if (!tel || tel.length < 10) {
+      mostrarFeedbackOS('Telefone do cliente inválido', 'erro');
+      return;
+    }
+    var primeiroNome = (dados.nomeCliente || '').split(' ')[0] || 'Cliente';
+    var dataStr = formatarDataBR(dados.dataAbertura || new Date());
+    var assistEnd = dados.assistenciaEndereco || 'A confirmar';
+    var assistTel = formatarTelefone(dados.assistenciaTelefone);
+
+    var msg = 'Olá ' + primeiroNome + '!\n\n' +
+      'Sua Ordem de Serviço foi aberta na NXT.\n\n' +
+      '━━━━━━━━━━━━━━━━━\n' +
+      '*ORDEM DE SERVIÇO - NXT*\n' +
+      '━━━━━━━━━━━━━━━━━\n\n' +
+      '*Número:* ' + (dados.numeroOS || '-') + '\n' +
+      '*Data abertura:* ' + dataStr + '\n' +
+      '*Tipo:* ' + (dados.tipo || '-') + '\n\n' +
+      '*SEU EQUIPAMENTO*\n' +
+      'Modelo: ' + (dados.modelo || '-') + '\n' +
+      'Chassi: ' + (dados.numeroChassi || 'N/A') + '\n\n' +
+      '*PROBLEMA RELATADO*\n' +
+      '_' + (dados.problema || '-') + '_\n\n' +
+      '*ASSISTÊNCIA RESPONSÁVEL*\n' +
+      (dados.assistencia || '-') + '\n' +
+      '📍 ' + assistEnd + '\n' +
+      '📞 ' + assistTel + '\n\n' +
+      '⚠️ *Próximos passos:*\n' +
+      '1. Leve o equipamento até a assistência ou aguarde contato dela.\n' +
+      '2. Apresente o número da OS (' + (dados.numeroOS || '') + ').\n' +
+      '3. A assistência fará o laúdo e entrará em contato.\n\n' +
+      '_NXT Lojas - Mobilidade Elétrica_\n' +
+      'www.nxt.eco.br';
+
+    var url = 'https://wa.me/55' + tel + '?text=' + encodeURIComponent(msg);
+    window.open(url, '_blank');
+    mostrarFeedbackOS('WhatsApp aberto com a mensagem do cliente', 'sucesso');
+  }
+
+  function enviarWhatsAppAssistenciaOS(dados) {
+    var tel = (dados.assistenciaTelefone || '').replace(/\D/g, '');
+    if (!tel || tel.length < 10) {
+      mostrarFeedbackOS('Telefone da assistência não cadastrado', 'erro');
+      return;
+    }
+    var dataStr = formatarDataBR(dados.dataAbertura || new Date());
+    var endCliente = (dados.enderecoCliente || '') +
+      (dados.numeroCliente ? ', ' + dados.numeroCliente : '') +
+      (dados.bairroCliente ? ' - ' + dados.bairroCliente : '');
+    var cidadeUf = (dados.cidade || '') + (dados.ufCliente ? '/' + dados.ufCliente : '');
+
+    var msg = '*NOVA OS - NXT*\n\n' +
+      '━━━━━━━━━━━━━━━━━\n\n' +
+      '*Número:* ' + (dados.numeroOS || '-') + '\n' +
+      '*Data abertura:* ' + dataStr + '\n' +
+      '*Tipo:* ' + (dados.tipo || '-') + '\n\n' +
+      '*CLIENTE*\n' +
+      'Nome: ' + (dados.nomeCliente || '-') + '\n' +
+      (dados.cpfCliente ? 'CPF: ' + formatarCPF(dados.cpfCliente) + '\n' : '') +
+      'Telefone: ' + formatarTelefone(dados.telefoneCliente) + '\n' +
+      (endCliente ? 'Endereço: ' + endCliente + '\n' : '') +
+      (cidadeUf ? cidadeUf + (dados.cepCliente ? ' - CEP ' + formatarCEP(dados.cepCliente) : '') + '\n' : '') +
+      '\n*EQUIPAMENTO*\n' +
+      'Modelo: ' + (dados.modelo || '-') + '\n' +
+      'Chassi: ' + (dados.numeroChassi || 'N/A') + '\n' +
+      'NF compra: ' + (dados.notaFiscal || '-') + '\n' +
+      (dados.dataCompra ? 'Data compra: ' + formatarDataBR(dados.dataCompra) + '\n' : '') +
+      '\n*PROBLEMA RELATADO*\n' +
+      '_' + (dados.problema || '-') + '_\n\n' +
+      '━━━━━━━━━━━━━━━━━\n' +
+      'Solicitamos avaliação e contato direto com o cliente.\n\n' +
+      '_NXT Lojas - SAC_';
+
+    var url = 'https://wa.me/55' + tel + '?text=' + encodeURIComponent(msg);
+    window.open(url, '_blank');
+    mostrarFeedbackOS('WhatsApp aberto com a mensagem da assistência', 'sucesso');
+  }
+
+  // ============================================================
+  //  Modal pos-OS com 4 opções de envio
+  // ============================================================
+  function mostrarModalPosOS(dados) {
+    var modal = document.getElementById('osModalPos');
+    if (modal) modal.remove();
+    modal = document.createElement('div');
+    modal.id = 'osModalPos';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:1000;padding:1rem;';
+
+    var telCliente = formatarTelefone(dados.telefoneCliente);
+    var telAssist = formatarTelefone(dados.assistenciaTelefone);
+    var primeiroNome = ((dados.nomeCliente || '').split(' ')[0]) || 'Cliente';
+    var assistDisabled = telAssist === '-';
+
+    modal.innerHTML = '' +
+      '<div style="background:#fff;border-radius:8px;max-width:520px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 20px 40px rgba(0,0,0,0.3);">' +
+        '<div style="background:#1a1a2e;color:#fff;padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;border-radius:8px 8px 0 0;">' +
+          '<div>' +
+            '<div style="font-size:11px;letter-spacing:1.5px;color:#c6ff00;font-weight:700;">OS ABERTA COM SUCESSO</div>' +
+            '<div style="font-size:20px;font-weight:900;margin-top:2px;letter-spacing:1px;">' + escapeHtml(dados.numeroOS) + '</div>' +
+          '</div>' +
+          '<button id="osModalClose" style="background:transparent;border:none;color:#fff;font-size:28px;cursor:pointer;line-height:1;padding:0 0.25rem;">&times;</button>' +
+        '</div>' +
+        '<div style="padding:1.25rem;">' +
+          '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0.75rem;background:#dcfce7;border-radius:6px;color:#166534;font-size:13px;font-weight:600;">' +
+            '<span style="font-size:16px;">&#10003;</span> OS registrada no sistema NXT' +
+          '</div>' +
+
+          '<div style="margin-top:1rem;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden;">' +
+            '<div style="background:#f9fafb;padding:0.65rem 0.9rem;font-weight:700;font-size:11px;color:#374151;letter-spacing:0.5px;border-bottom:1px solid #e5e7eb;">ENVIO AO CLIENTE</div>' +
+            '<div style="padding:0.9rem;">' +
+              '<div style="font-size:13px;color:#666;margin-bottom:0.65rem;">' +
+                '<strong style="color:#111;">' + escapeHtml(primeiroNome) + '</strong> &bull; ' + telCliente +
+              '</div>' +
+              '<div style="display:flex;gap:0.5rem;">' +
+                '<button id="osBtnWaCliente" style="flex:1;padding:0.7rem;background:#25d366;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">&#128241; WhatsApp</button>' +
+                '<button id="osBtnPdfCliente" style="flex:1;padding:0.7rem;background:#1a1a2e;color:#c6ff00;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">&#128190; Salvar PDF</button>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+
+          '<div style="margin-top:0.75rem;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden;">' +
+            '<div style="background:#f9fafb;padding:0.65rem 0.9rem;font-weight:700;font-size:11px;color:#374151;letter-spacing:0.5px;border-bottom:1px solid #e5e7eb;">ENVIO &Agrave; ASSIST&Ecirc;NCIA</div>' +
+            '<div style="padding:0.9rem;">' +
+              '<div style="font-size:13px;color:#666;margin-bottom:0.65rem;">' +
+                '<strong style="color:#111;">' + escapeHtml(dados.assistencia || '-') + '</strong>' +
+                (telAssist !== '-' ? ' &bull; ' + telAssist : ' &bull; <em style="color:#999;">sem telefone</em>') +
+              '</div>' +
+              '<div style="display:flex;gap:0.5rem;">' +
+                '<button id="osBtnWaAssist" ' + (assistDisabled ? 'disabled title="Telefone da assistencia nao cadastrado"' : '') +
+                  ' style="flex:1;padding:0.7rem;background:' + (assistDisabled ? '#9ca3af' : '#25d366') + ';color:#fff;border:none;border-radius:6px;font-weight:600;cursor:' + (assistDisabled ? 'not-allowed' : 'pointer') + ';font-size:13px;">&#128241; WhatsApp</button>' +
+                '<button id="osBtnPdfAssist" style="flex:1;padding:0.7rem;background:#1a1a2e;color:#c6ff00;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">&#128190; Salvar PDF</button>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+
+          '<div style="margin-top:1rem;text-align:center;font-size:11px;color:#999;">Use quantas op&ccedil;&otilde;es precisar. Feche quando terminar.</div>' +
+        '</div>' +
+      '</div>';
+
+    document.body.appendChild(modal);
+
+    document.getElementById('osModalClose').addEventListener('click', function() { modal.remove(); });
+    document.getElementById('osBtnWaCliente').addEventListener('click', function() { enviarWhatsAppClienteOS(dados); });
+    document.getElementById('osBtnPdfCliente').addEventListener('click', function() { gerarPDFAssistenciaCliente(dados); });
+    if (!assistDisabled) {
+      document.getElementById('osBtnWaAssist').addEventListener('click', function() { enviarWhatsAppAssistenciaOS(dados); });
+    }
+    document.getElementById('osBtnPdfAssist').addEventListener('click', function() { gerarPDFAssistencia(dados); });
   }
 })();
