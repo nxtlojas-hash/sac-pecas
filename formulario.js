@@ -1,4 +1,4 @@
-/* ===== NXT PECAS V2.2 - Formulario de Registro ===== */
+/* ===== NXT PECAS V2.4 - Formulario de Registro ===== */
 
 const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbytZgFvvhTvYRgufyvFTGbMb27sxHnIQp256XQ6r7VZuX2B0RTdO3MIpbf4EcF8KgnYlw/exec';
 
@@ -1652,7 +1652,7 @@ function gerarPDFSeparacao() {
     '</div>' +
 
     /* FOOTER P1 */
-    '<div class="doc-footer">NXT Pe\u00e7as V2.1 - Documento gerado em ' + timestamp + '</div>' +
+    '<div class="doc-footer">NXT Pe\u00e7as V2.4 - Documento gerado em ' + timestamp + '</div>' +
 
     /* ===== PAGE 2 - ETIQUETA DE ENVIO ===== */
     '<div class="page-break"></div>' +
@@ -1689,7 +1689,7 @@ function gerarPDFSeparacao() {
           '<div class="ef-cell"><div class="ef-lbl">Atendente</div><div class="ef-val">' + venda.vendedor + '</div></div>' +
         '</div>' +
       '</div>' +
-      '<div class="doc-footer" style="margin-top:12px;">NXT Pe\u00e7as V2.1 - Etiqueta gerada em ' + timestamp + '</div>' +
+      '<div class="doc-footer" style="margin-top:12px;">NXT Pe\u00e7as V2.4 - Etiqueta gerada em ' + timestamp + '</div>' +
     '</div>' +
 
     '</body></html>';
