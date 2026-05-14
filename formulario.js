@@ -1,4 +1,4 @@
-/* ===== NXT PECAS V2.1 - Formulario de Registro ===== */
+/* ===== NXT PECAS V2.2 - Formulario de Registro ===== */
 
 const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbytZgFvvhTvYRgufyvFTGbMb27sxHnIQp256XQ6r7VZuX2B0RTdO3MIpbf4EcF8KgnYlw/exec';
 
@@ -195,11 +195,22 @@ function buildFormHTML() {
           '<input type="text" id="pesoPeca" placeholder="0gr" readonly>' +
         '</div>' +
       '</div>' +
-      '<div class="form-row">' +
+      '<div class="form-row" style="align-items:flex-start;gap:1rem;">' +
         '<div class="form-group">' +
+          '<label style="font-size:0.85rem;color:#666;">Foto do cat&aacute;logo</label>' +
           '<div class="peca-img-preview-wrap" id="previewPecaSelecionada" style="display:none;">' +
             '<img id="imgPecaSelecionada" src="" alt="Preview">' +
           '</div>' +
+          '<div id="semFotoCatalogo" style="color:#999;font-size:0.85rem;padding:0.5rem 0;">Sem foto no cat&aacute;logo</div>' +
+        '</div>' +
+        '<div class="form-group">' +
+          '<label style="font-size:0.85rem;color:#666;">Foto anexada (opcional)</label>' +
+          '<div class="peca-img-preview-wrap" id="previewFotoAnexada" style="display:none;position:relative;">' +
+            '<img id="imgFotoAnexada" src="" alt="Foto anexada">' +
+            '<button type="button" onclick="removerFotoAnexada()" title="Remover foto" style="position:absolute;top:-8px;right:-8px;width:24px;height:24px;border-radius:50%;border:none;background:#ef4444;color:#fff;cursor:pointer;font-weight:700;line-height:1;">&times;</button>' +
+          '</div>' +
+          '<input type="file" id="inputFotoAnexada" accept="image/*" style="display:none;" onchange="anexarFotoManual(event)">' +
+          '<button type="button" class="btn-secundario btn-sm" onclick="document.getElementById(\'inputFotoAnexada\').click()" style="margin-top:0.25rem;">&#128247; Anexar foto</button>' +
         '</div>' +
       '</div>' +
       '<div class="form-row" style="align-items:center;">' +
@@ -623,10 +634,12 @@ function preencherDadosPeca() {
   }
 
   // Image
+  var semFoto = document.getElementById('semFotoCatalogo');
   if (peca.img && previewWrap && previewImg) {
     previewImg.src = peca.img;
     previewImg.alt = peca.nome;
     previewWrap.style.display = 'block';
+    if (semFoto) semFoto.style.display = 'none';
   } else {
     limparPreviewPeca();
   }
@@ -637,8 +650,69 @@ function preencherDadosPeca() {
 function limparPreviewPeca() {
   var wrap = document.getElementById('previewPecaSelecionada');
   var img = document.getElementById('imgPecaSelecionada');
+  var semFoto = document.getElementById('semFotoCatalogo');
   if (wrap) wrap.style.display = 'none';
   if (img) { img.src = ''; img.alt = ''; }
+  if (semFoto) semFoto.style.display = 'block';
+}
+
+// --- Comprimir imagem (canvas: max 800px, JPEG q=0.7) ---
+function comprimirImagem(file, callback) {
+  var MAX_DIM = 800;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var img = new Image();
+    img.onload = function() {
+      var w = img.width, h = img.height;
+      if (w > MAX_DIM || h > MAX_DIM) {
+        if (w >= h) { h = Math.round(h * MAX_DIM / w); w = MAX_DIM; }
+        else { w = Math.round(w * MAX_DIM / h); h = MAX_DIM; }
+      }
+      var canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      var ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      var base64 = canvas.toDataURL('image/jpeg', 0.7);
+      callback(base64);
+    };
+    img.onerror = function() { callback(null); };
+    img.src = e.target.result;
+  };
+  reader.onerror = function() { callback(null); };
+  reader.readAsDataURL(file);
+}
+
+// --- Anexar foto manual ---
+function anexarFotoManual(event) {
+  var file = event.target.files && event.target.files[0];
+  if (!file) return;
+  if (!file.type.indexOf || file.type.indexOf('image/') !== 0) {
+    mostrarFeedback('Arquivo invalido. Selecione uma imagem.', 'erro');
+    event.target.value = '';
+    return;
+  }
+  mostrarFeedback('Processando foto...', 'info');
+  comprimirImagem(file, function(base64) {
+    event.target.value = '';
+    if (!base64) {
+      mostrarFeedback('Erro ao processar imagem', 'erro');
+      return;
+    }
+    var wrap = document.getElementById('previewFotoAnexada');
+    var img = document.getElementById('imgFotoAnexada');
+    if (img) img.src = base64;
+    if (wrap) wrap.style.display = 'block';
+    mostrarFeedback('Foto anexada', 'sucesso');
+  });
+}
+
+function removerFotoAnexada() {
+  var wrap = document.getElementById('previewFotoAnexada');
+  var img = document.getElementById('imgFotoAnexada');
+  if (wrap) wrap.style.display = 'none';
+  if (img) img.src = '';
 }
 
 // --- Subtotal ---
@@ -684,6 +758,14 @@ function adicionarPeca() {
     imgSrc = previewImg.src;
   }
 
+  // Get manually attached image (base64)
+  var imgManual = '';
+  var anexadaImg = document.getElementById('imgFotoAnexada');
+  var anexadaWrap = document.getElementById('previewFotoAnexada');
+  if (anexadaImg && anexadaWrap && anexadaWrap.style.display !== 'none' && anexadaImg.src && anexadaImg.src.indexOf('data:') === 0) {
+    imgManual = anexadaImg.src;
+  }
+
   var peca = {
     id: Date.now(),
     modelId: modelId,
@@ -697,6 +779,7 @@ function adicionarPeca() {
     peso: pesoTexto,
     pesoGramas: pesoGramas * qtd,
     img: imgSrc,
+    imgManual: imgManual,
     isMaoDeObra: isMaoDeObra
   };
 
@@ -716,6 +799,7 @@ function adicionarPeca() {
   document.getElementById('pesoPeca').value = '';
   document.getElementById('subtotalPeca').textContent = 'R$ 0,00';
   limparPreviewPeca();
+  removerFotoAnexada();
 
   mostrarFeedback(descricao + ' adicionado!', 'sucesso');
 }
@@ -981,6 +1065,7 @@ function registrarVenda(event) {
         peso: p.peso,
         pesoGramas: p.pesoGramas,
         img: p.img || '',
+        imgManual: p.imgManual || '',
         isMaoDeObra: p.isMaoDeObra || false
       };
     }),
@@ -1358,14 +1443,31 @@ function gerarPDFSeparacao() {
   var pecasRows = '';
   venda.pecas.forEach(function(p, i) {
     var rawImg = p.img || '';
-    var imgSrc = rawImg;
+    var imgCat = rawImg;
     if (rawImg && !rawImg.startsWith('http') && !rawImg.startsWith('data:')) {
-      imgSrc = baseUrl + encodePath(rawImg);
+      imgCat = baseUrl + encodePath(rawImg);
     }
-    var imgHtml = imgSrc ? '<img src="' + imgSrc + '" style="width:85px;height:85px;object-fit:cover;border-radius:4px;">' : '<span style="color:#ccc;font-size:9px;">Sem foto</span>';
+    var imgManualSrc = p.imgManual || '';
+    var hasCat = !!imgCat;
+    var hasManual = !!imgManualSrc;
+
+    var fotoSize = (hasCat && hasManual) ? 60 : 85;
+    var thumbCat = hasCat ? '<img src="' + imgCat + '" style="width:' + fotoSize + 'px;height:' + fotoSize + 'px;object-fit:cover;border-radius:4px;">' : '';
+    var thumbManual = hasManual ? '<img src="' + imgManualSrc + '" style="width:' + fotoSize + 'px;height:' + fotoSize + 'px;object-fit:cover;border-radius:4px;border:1px solid #c6ff00;">' : '';
+
+    var imgHtml;
+    if (hasCat && hasManual) {
+      imgHtml = '<div style="display:flex;gap:3px;justify-content:center;align-items:center;">' + thumbCat + thumbManual + '</div>';
+    } else if (hasCat || hasManual) {
+      imgHtml = thumbCat + thumbManual;
+    } else {
+      imgHtml = '<span style="color:#ccc;font-size:9px;">Sem foto</span>';
+    }
+
+    var fotoColWidth = (hasCat && hasManual) ? '135px' : '95px';
     pecasRows += '<tr>' +
       '<td style="text-align:center;width:30px;vertical-align:middle;">' + (i + 1) + '</td>' +
-      '<td style="text-align:center;width:95px;padding:4px;vertical-align:middle;">' + imgHtml + '</td>' +
+      '<td style="text-align:center;width:' + fotoColWidth + ';padding:4px;vertical-align:middle;">' + imgHtml + '</td>' +
       '<td style="vertical-align:middle;">' + p.descricao + '</td>' +
       '<td style="text-align:center;vertical-align:middle;">' + (p.modelo || '') + '</td>' +
       '<td style="text-align:center;vertical-align:middle;">' + (p.cor || '') + '</td>' +
