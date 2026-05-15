@@ -1838,3 +1838,35 @@ body {
     font-size: 0.7rem;
   }
 }
+
+/* ═══ Wizard Atendimento (Fase 2c) ═══ */
+.atend-check {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 0.9rem;
+  background: #1c1c1c;
+  border: 1px solid #2a2a2a;
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: all 0.15s;
+}
+
+.atend-check:hover {
+  border-color: var(--cor-primaria);
+  background: #222;
+}
+
+.atend-check input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--cor-primaria);
+  cursor: pointer;
+}
+
+.atend-check:has(input:checked) {
+  border-color: var(--cor-primaria);
+  background: #1f2510;
+}
