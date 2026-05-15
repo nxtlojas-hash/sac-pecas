@@ -890,6 +890,9 @@ function doPost(e) {
       case 'registrar_atendimento':
         return jsonResponse(registrarAtendimento(body));
 
+      case 'vincular_doc_atendimento':
+        return jsonResponse(vincularDocAtendimento(body));
+
       // --- Movimentacoes de Estoque (Fase E1 NXT SAC) ---
       case 'registrar_movimentacao':
         return jsonResponse(registrarMovimentacao(body));
@@ -2395,4 +2398,79 @@ function getColAtendimentoId(sheet) {
     if (String(headers[i]).trim().toLowerCase() === 'atendimentoid') return i + 1;
   }
   return 0;
+}
+
+/**
+ * Vincula um documento (PCA/ORC/OS) a um atendimento existente.
+ * payload: { atendimentoId, tipoDoc: 'venda'|'orcamento'|'os', docId }
+ * 1. Acha doc na aba correspondente
+ * 2. Preenche coluna atendimentoId
+ * 3. Atualiza docsVinculados (coluna R) do atendimento
+ */
+function vincularDocAtendimento(payload) {
+  if (!payload || !payload.atendimentoId || !payload.docId || !payload.tipoDoc) {
+    return { sucesso: false, erro: 'atendimentoId, docId e tipoDoc sao obrigatorios' };
+  }
+
+  var mapAba = {
+    'venda': 'Vendas',
+    'orcamento': 'Orcamentos',
+    'os': 'OSes',
+    'assistencia': 'Assistencias'
+  };
+  var nomeAba = mapAba[payload.tipoDoc];
+  if (!nomeAba) return { sucesso: false, erro: 'tipoDoc invalido' };
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(nomeAba);
+  if (!sheet) return { sucesso: false, erro: 'Aba "' + nomeAba + '" nao existe' };
+
+  var colAt = getColAtendimentoId(sheet);
+  if (colAt === 0) return { sucesso: false, erro: 'Coluna atendimentoId nao existe em ' + nomeAba + '. Rode setupColunaAtendimentoId.' };
+
+  // Acha doc por ID (coluna A)
+  var data = sheet.getDataRange().getValues();
+  var linha = 0;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(payload.docId)) { linha = i + 1; break; }
+  }
+  if (linha === 0) return { sucesso: false, erro: 'Doc ' + payload.docId + ' nao encontrado em ' + nomeAba };
+
+  sheet.getRange(linha, colAt).setValue(payload.atendimentoId);
+
+  // Atualiza docsVinculados do atendimento (coluna R, idx 18)
+  var sheetAt = ss.getSheetByName(SHEET_ATENDIMENTOS);
+  if (sheetAt) {
+    var dadosAt = sheetAt.getDataRange().getValues();
+    for (var j = 1; j < dadosAt.length; j++) {
+      if (String(dadosAt[j][0]) === String(payload.atendimentoId)) {
+        var rDocsVinc = j + 1;
+        // Coluna docsVinculados pode ainda nao existir nesta planilha (legado)
+        var ultimaCol = sheetAt.getLastColumn();
+        var colDV = 0;
+        var headers = sheetAt.getRange(1, 1, 1, ultimaCol).getValues()[0];
+        for (var k = 0; k < headers.length; k++) {
+          if (String(headers[k]).trim().toLowerCase() === 'docsvinculados') { colDV = k + 1; break; }
+        }
+        if (colDV === 0) {
+          // Cria coluna docsVinculados
+          sheetAt.getRange(1, ultimaCol + 1).setValue('docsVinculados');
+          sheetAt.getRange(1, ultimaCol + 1).setFontWeight('bold');
+          colDV = ultimaCol + 1;
+        }
+        var atual = sheetAt.getRange(rDocsVinc, colDV).getValue() || '';
+        var lista = [];
+        if (atual) {
+          try { lista = JSON.parse(atual); if (!Array.isArray(lista)) lista = []; } catch(e) { lista = []; }
+        }
+        if (lista.indexOf(payload.docId) === -1) {
+          lista.push(payload.docId);
+          sheetAt.getRange(rDocsVinc, colDV).setValue(JSON.stringify(lista));
+        }
+        break;
+      }
+    }
+  }
+
+  return { sucesso: true, atendimentoId: payload.atendimentoId, docId: payload.docId };
 }
