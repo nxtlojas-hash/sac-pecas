@@ -38,7 +38,98 @@
   }
 
   function buildFormMovimentarHTML() {
-    return '<p style="color:#9a9a9a;padding:1rem;">Form em construcao...</p>';
+    var modelosOpts = '<option value="">Selecione...</option>';
+    if (typeof CATALOGO_MODELOS !== 'undefined') {
+      Object.keys(CATALOGO_MODELOS).forEach(function(id) {
+        modelosOpts += '<option value="' + id + '">' + CATALOGO_MODELOS[id].nome + '</option>';
+      });
+    }
+
+    return '' +
+      '<form id="estForm" autocomplete="off">' +
+        '<datalist id="estOperadoresList"></datalist>' +
+
+        '<div class="secao-form">' +
+          '<div class="secao-form-titulo">Movimenta&ccedil;&atilde;o</div>' +
+          '<div class="form-row">' +
+            '<div class="form-group">' +
+              '<label for="estTipo">Tipo *</label>' +
+              '<select id="estTipo" required>' +
+                '<option value="">Selecione...</option>' +
+                '<option value="Entrada">Entrada</option>' +
+                '<option value="Saida">Sa&iacute;da</option>' +
+                '<option value="Ajuste">Ajuste</option>' +
+              '</select>' +
+            '</div>' +
+            '<div class="form-group">' +
+              '<label for="estArmazem">Armaz&eacute;m *</label>' +
+              '<select id="estArmazem" required>' +
+                '<option value="">Selecione...</option>' +
+                '<option value="Sumare">Sumar&eacute;</option>' +
+                '<option value="Jaragua">Jaragu&aacute;</option>' +
+              '</select>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="secao-form">' +
+          '<div class="secao-form-titulo">Pe&ccedil;a</div>' +
+          '<div class="form-row">' +
+            '<div class="form-group">' +
+              '<label for="estModelo">Modelo *</label>' +
+              '<select id="estModelo" required>' + modelosOpts + '</select>' +
+            '</div>' +
+            '<div class="form-group">' +
+              '<label for="estPeca">Pe&ccedil;a *</label>' +
+              '<input type="text" id="estPeca" list="estPecasList" placeholder="Digite ou selecione" required>' +
+              '<datalist id="estPecasList"></datalist>' +
+            '</div>' +
+          '</div>' +
+          '<div class="form-row">' +
+            '<div class="form-group">' +
+              '<label for="estQtd">Quantidade *</label>' +
+              '<input type="number" id="estQtd" min="1" step="1" required>' +
+              '<span class="campo-aviso" style="display:none;color:#9a9a9a;font-size:0.85rem;" id="estDicaAjuste">Em Ajuste, use negativo (-N) para reduzir saldo.</span>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="secao-form">' +
+          '<div class="secao-form-titulo">Origem e Operador</div>' +
+          '<div class="form-row">' +
+            '<div class="form-group" style="flex:2 1 320px;">' +
+              '<label for="estOrigem">Origem *</label>' +
+              '<input type="text" id="estOrigem" list="estOrigensList" placeholder="Ex: Desmontagem moto NXT123 / Compra fornecedor / Perda" required>' +
+              '<datalist id="estOrigensList">' +
+                '<option value="Desmontagem moto">' +
+                '<option value="Compra fornecedor">' +
+                '<option value="Devolucao cliente">' +
+                '<option value="Invent&aacute;rio inicial">' +
+                '<option value="Perda">' +
+                '<option value="Encontrado">' +
+                '<option value="Ajuste manual">' +
+              '</datalist>' +
+            '</div>' +
+            '<div class="form-group">' +
+              '<label for="estOperador">Operador *</label>' +
+              '<input type="text" id="estOperador" list="estOperadoresList" placeholder="Quem registrou?" required>' +
+            '</div>' +
+          '</div>' +
+          '<div class="form-row">' +
+            '<div class="form-group" style="flex:1 1 100%;">' +
+              '<label for="estObs">Observa&ccedil;&otilde;es</label>' +
+              '<textarea id="estObs" rows="2" placeholder="Opcional"></textarea>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+
+        '<div style="display:flex;gap:0.75rem;justify-content:flex-end;margin-top:1rem;">' +
+          '<button type="button" class="btn-secundario" id="btnLimparEst">Limpar</button>' +
+          '<button type="button" class="btn-primario" id="btnRegistrarEst">Registrar &#10148;</button>' +
+        '</div>' +
+
+        '<div id="estFeedback" style="margin-top:1rem;"></div>' +
+      '</form>';
   }
 
   function setupFormMovimentar() {
