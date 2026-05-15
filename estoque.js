@@ -26,15 +26,40 @@
     return '<h2 style="color:var(--cor-primaria);margin-bottom:1rem;">&#128230; Estoque de Pe&ccedil;as</h2>' +
       '<div class="tabs-internas" style="display:flex;gap:0.5rem;margin-bottom:1rem;border-bottom:1px solid #2a2a2a;">' +
         '<button class="tab-interna active" data-subtab="movimentar" style="background:none;border:none;color:var(--cor-primaria);padding:0.5rem 1rem;border-bottom:2px solid var(--cor-primaria);cursor:pointer;font-weight:600;">Movimentar</button>' +
+        '<button class="tab-interna" data-subtab="inventario" style="background:none;border:none;color:#9a9a9a;padding:0.5rem 1rem;cursor:pointer;font-weight:600;">Invent&aacute;rio</button>' +
         '<button class="tab-interna" data-subtab="saldo" disabled style="background:none;border:none;color:#5a5a5a;padding:0.5rem 1rem;cursor:not-allowed;">Saldo (em breve)</button>' +
-        '<button class="tab-interna" data-subtab="inventario" disabled style="background:none;border:none;color:#5a5a5a;padding:0.5rem 1rem;cursor:not-allowed;">Invent&aacute;rio (em breve)</button>' +
       '</div>' +
-      '<div id="subtab-movimentar"></div>';
+      '<div id="subtab-content"></div>';
   }
 
   function setupListeners() {
-    document.getElementById('subtab-movimentar').innerHTML = buildFormMovimentarHTML();
-    setupFormMovimentar();
+    document.querySelectorAll('.tab-interna').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        if (btn.disabled) return;
+        document.querySelectorAll('.tab-interna').forEach(function(b) {
+          b.classList.remove('active');
+          b.style.color = '#9a9a9a';
+          b.style.borderBottom = '';
+        });
+        btn.classList.add('active');
+        btn.style.color = 'var(--cor-primaria)';
+        btn.style.borderBottom = '2px solid var(--cor-primaria)';
+        renderSubtab(btn.dataset.subtab);
+      });
+    });
+    renderSubtab('movimentar');
+  }
+
+  function renderSubtab(name) {
+    var container = document.getElementById('subtab-content');
+    if (!container) return;
+    if (name === 'movimentar') {
+      container.innerHTML = buildFormMovimentarHTML();
+      setupFormMovimentar();
+    } else if (name === 'inventario') {
+      container.innerHTML = buildInventarioHTML();
+      setupInventario();
+    }
   }
 
   function buildFormMovimentarHTML() {
@@ -282,6 +307,275 @@
     if (!el) return;
     var bg = tipo === 'erro' ? '#ef4444' : tipo === 'sucesso' ? '#22c55e' : '#3b82f6';
     el.innerHTML = '<div style="background:' + bg + ';color:#fff;padding:0.75rem 1rem;border-radius:6px;text-align:center;font-weight:600;">' + msg + '</div>';
+  }
+
+  // ============================================================
+  // Sub-tab Inventario (Fase E3) - contagem em lote por armazem
+  // ============================================================
+
+  function buildInventarioHTML() {
+    return '' +
+      '<form id="invForm" autocomplete="off">' +
+        '<datalist id="estOperadoresList"></datalist>' +
+        '<div class="secao-form">' +
+          '<div class="secao-form-titulo">Configura&ccedil;&atilde;o do Invent&aacute;rio</div>' +
+          '<div class="form-row">' +
+            '<div class="form-group">' +
+              '<label for="invArmazem">Armaz&eacute;m *</label>' +
+              '<select id="invArmazem" required>' +
+                '<option value="">Selecione...</option>' +
+                '<option value="Sumare">Sumar&eacute;</option>' +
+                '<option value="Jaragua">Jaragu&aacute;</option>' +
+              '</select>' +
+            '</div>' +
+            '<div class="form-group">' +
+              '<label for="invOperador">Operador *</label>' +
+              '<input type="text" id="invOperador" list="estOperadoresList" placeholder="Quem est&aacute; contando?" required>' +
+            '</div>' +
+          '</div>' +
+          '<div class="form-row">' +
+            '<div class="form-group" style="flex:1 1 100%;">' +
+              '<label for="invObservacao">Observa&ccedil;&atilde;o (opcional)</label>' +
+              '<input type="text" id="invObservacao" placeholder="Ex: Invent&aacute;rio fim do trim. Q2">' +
+            '</div>' +
+          '</div>' +
+          '<div class="form-row" style="margin-top:0.5rem;">' +
+            '<button type="button" class="btn-secundario" id="btnCarregarInv">&#128270; Carregar pe&ccedil;as</button>' +
+            '<span style="color:#9a9a9a;font-size:0.85rem;margin-left:1rem;align-self:center;">Selecione armaz&eacute;m + operador, depois carregue a lista de pe&ccedil;as.</span>' +
+          '</div>' +
+        '</div>' +
+
+        '<div id="invListaContainer" style="display:none;">' +
+          '<div class="secao-form">' +
+            '<div class="secao-form-titulo">Contagem F&iacute;sica</div>' +
+            '<div style="padding:0.5rem 1rem;color:#9a9a9a;font-size:0.85rem;">' +
+              'Digite a quantidade <strong>contada fisicamente</strong> em cada pe&ccedil;a. Linhas com diferen&ccedil;a ser&atilde;o destacadas.' +
+            '</div>' +
+            '<div id="invLista" style="max-height:60vh;overflow-y:auto;"></div>' +
+          '</div>' +
+          '<div style="display:flex;gap:0.75rem;justify-content:flex-end;margin-top:1rem;align-items:center;">' +
+            '<span id="invResumo" style="color:#9a9a9a;font-size:0.9rem;margin-right:auto;"></span>' +
+            '<button type="button" class="btn-secundario" id="btnLimparInv">Limpar</button>' +
+            '<button type="button" class="btn-primario" id="btnConfirmarInv">Confirmar invent&aacute;rio &#10148;</button>' +
+          '</div>' +
+        '</div>' +
+
+        '<div id="invFeedback" style="margin-top:1rem;"></div>' +
+      '</form>';
+  }
+
+  var invPecas = []; // [{modelo, peca, atual}]
+
+  function setupInventario() {
+    populateOperadoresDatalist();
+    document.getElementById('btnCarregarInv').addEventListener('click', carregarInventario);
+    document.getElementById('btnLimparInv').addEventListener('click', limparInventario);
+    document.getElementById('btnConfirmarInv').addEventListener('click', confirmarInventario);
+  }
+
+  function carregarInventario() {
+    var armazem = document.getElementById('invArmazem').value;
+    var operador = document.getElementById('invOperador').value.trim();
+    if (!armazem) return mostrarFeedbackInv('Selecione o armazem', 'erro');
+    if (!operador) return mostrarFeedbackInv('Informe o operador', 'erro');
+
+    mostrarFeedbackInv('Carregando saldos...', 'info');
+
+    // 1. Pega saldos da aba Estoque
+    var url = resolverUrl() + '?action=listar_estoque';
+    fetch(url)
+      .then(function(r) { return r.json(); })
+      .then(function(resp) {
+        if (!resp || !resp.sucesso) {
+          return mostrarFeedbackInv('Erro carregando estoque', 'erro');
+        }
+        // 2. Monta lista de TODAS as pecas do catalogo
+        invPecas = [];
+        var saldoMap = {};
+        (resp.estoque || []).forEach(function(it) {
+          var key = String(it.modelo).toLowerCase() + '|' + String(it.peca).toLowerCase();
+          saldoMap[key] = (armazem === 'Sumare') ? (it.sumare || 0) : (it.jaragua || 0);
+        });
+        if (typeof CATALOGO_MODELOS !== 'undefined') {
+          Object.keys(CATALOGO_MODELOS).forEach(function(modelId) {
+            var nome = CATALOGO_MODELOS[modelId].nome;
+            var pecas = CATALOGO_MODELOS[modelId].pecas || [];
+            pecas.forEach(function(p) {
+              var key = nome.toLowerCase() + '|' + p.nome.toLowerCase();
+              invPecas.push({
+                modelo: nome,
+                peca: p.nome,
+                atual: saldoMap[key] || 0
+              });
+            });
+          });
+        }
+
+        renderListaInventario();
+        document.getElementById('invListaContainer').style.display = '';
+        mostrarFeedbackInv('Lista carregada com ' + invPecas.length + ' pe&ccedil;as. Comece a contar.', 'sucesso');
+      })
+      .catch(function(err) {
+        mostrarFeedbackInv('Erro de rede: ' + err.message, 'erro');
+      });
+  }
+
+  function renderListaInventario() {
+    var div = document.getElementById('invLista');
+    if (!div) return;
+    var html = '<table style="width:100%;border-collapse:collapse;">' +
+      '<thead style="position:sticky;top:0;background:#1c1c1c;z-index:1;">' +
+      '<tr style="border-bottom:1px solid #2a2a2a;">' +
+        '<th style="padding:0.5rem;text-align:left;font-size:0.75rem;color:#9a9a9a;text-transform:uppercase;">Modelo</th>' +
+        '<th style="padding:0.5rem;text-align:left;font-size:0.75rem;color:#9a9a9a;text-transform:uppercase;">Pe&ccedil;a</th>' +
+        '<th style="padding:0.5rem;text-align:center;font-size:0.75rem;color:#9a9a9a;text-transform:uppercase;">Saldo</th>' +
+        '<th style="padding:0.5rem;text-align:center;font-size:0.75rem;color:#9a9a9a;text-transform:uppercase;">Contado</th>' +
+        '<th style="padding:0.5rem;text-align:center;font-size:0.75rem;color:#9a9a9a;text-transform:uppercase;">Dif.</th>' +
+      '</tr>' +
+      '</thead><tbody>';
+
+    invPecas.forEach(function(it, idx) {
+      html += '<tr data-idx="' + idx + '" style="border-bottom:1px solid #222;">' +
+        '<td style="padding:0.5rem;font-size:0.85rem;">' + escapeHtmlEst(it.modelo) + '</td>' +
+        '<td style="padding:0.5rem;font-size:0.85rem;">' + escapeHtmlEst(it.peca) + '</td>' +
+        '<td style="padding:0.5rem;text-align:center;color:#9a9a9a;">' + it.atual + '</td>' +
+        '<td style="padding:0.5rem;text-align:center;">' +
+          '<input type="number" min="0" step="1" data-idx="' + idx + '" class="inv-contado" style="width:80px;background:#161616;color:#fff;border:1px solid #2a2a2a;border-radius:4px;padding:0.25rem;text-align:center;">' +
+        '</td>' +
+        '<td class="inv-dif" data-idx="' + idx + '" style="padding:0.5rem;text-align:center;font-weight:700;">-</td>' +
+      '</tr>';
+    });
+    html += '</tbody></table>';
+    div.innerHTML = html;
+
+    // Listeners de cada input contado
+    div.querySelectorAll('.inv-contado').forEach(function(inp) {
+      inp.addEventListener('input', atualizarDifLinha);
+    });
+
+    atualizarResumoInv();
+  }
+
+  function atualizarDifLinha(e) {
+    var idx = parseInt(e.target.dataset.idx);
+    var contado = parseInt(e.target.value);
+    var atual = invPecas[idx].atual;
+    var difCell = document.querySelector('.inv-dif[data-idx="' + idx + '"]');
+    var row = e.target.closest('tr');
+    if (isNaN(contado)) {
+      difCell.textContent = '-';
+      difCell.style.color = '#9a9a9a';
+      row.style.background = '';
+    } else {
+      var dif = contado - atual;
+      difCell.textContent = (dif > 0 ? '+' : '') + dif;
+      if (dif === 0) {
+        difCell.style.color = '#9a9a9a';
+        row.style.background = '';
+      } else if (dif > 0) {
+        difCell.style.color = '#22c55e';
+        row.style.background = 'rgba(34,197,94,0.08)';
+      } else {
+        difCell.style.color = '#ef4444';
+        row.style.background = 'rgba(239,68,68,0.08)';
+      }
+    }
+    atualizarResumoInv();
+  }
+
+  function atualizarResumoInv() {
+    var preenchidos = 0;
+    var comDif = 0;
+    document.querySelectorAll('.inv-contado').forEach(function(inp) {
+      if (inp.value.trim() !== '') preenchidos++;
+      var idx = parseInt(inp.dataset.idx);
+      var contado = parseInt(inp.value);
+      if (!isNaN(contado) && contado !== invPecas[idx].atual) comDif++;
+    });
+    var resumo = document.getElementById('invResumo');
+    if (resumo) {
+      resumo.textContent = preenchidos + '/' + invPecas.length + ' contados, ' + comDif + ' com diferenca';
+    }
+  }
+
+  function limparInventario() {
+    document.querySelectorAll('.inv-contado').forEach(function(inp) {
+      inp.value = '';
+      inp.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    mostrarFeedbackInv('', '');
+  }
+
+  function confirmarInventario() {
+    var armazem = document.getElementById('invArmazem').value;
+    var operador = document.getElementById('invOperador').value.trim();
+    var observacao = document.getElementById('invObservacao').value.trim();
+
+    var contagens = [];
+    document.querySelectorAll('.inv-contado').forEach(function(inp) {
+      var contado = parseInt(inp.value);
+      if (isNaN(contado)) return;
+      var idx = parseInt(inp.dataset.idx);
+      contagens.push({
+        modelo: invPecas[idx].modelo,
+        peca: invPecas[idx].peca,
+        contado: contado
+      });
+    });
+
+    if (contagens.length === 0) {
+      return mostrarFeedbackInv('Preencha pelo menos 1 pe&ccedil;a contada', 'erro');
+    }
+
+    if (!confirm('Confirmar inventário? ' + contagens.length + ' peças contadas. Peças com diferença serão ajustadas.')) return;
+
+    var btn = document.getElementById('btnConfirmarInv');
+    btn.disabled = true;
+    btn.textContent = 'Processando...';
+    mostrarFeedbackInv('Processando ' + contagens.length + ' contagens...', 'info');
+
+    fetch(resolverUrl(), {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'registrar_inventario_lote',
+        armazem: armazem,
+        operador: operador,
+        observacao: observacao,
+        contagens: contagens
+      }),
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(resp) {
+        if (resp && resp.sucesso) {
+          saveOperador(operador);
+          mostrarFeedbackInv('Invent&aacute;rio conclu&iacute;do: ' + resp.totalAjustes + ' ajustes feitos, ' + resp.totalUnidadesMovidas + ' un movidas.', 'sucesso');
+          document.getElementById('invListaContainer').style.display = 'none';
+          invPecas = [];
+        } else {
+          mostrarFeedbackInv('Erro: ' + (resp && resp.erro ? resp.erro : 'resposta invalida'), 'erro');
+        }
+      })
+      .catch(function(err) {
+        mostrarFeedbackInv('Erro de rede: ' + err.message, 'erro');
+      })
+      .finally(function() {
+        btn.disabled = false;
+        btn.innerHTML = 'Confirmar invent&aacute;rio &#10148;';
+      });
+  }
+
+  function mostrarFeedbackInv(msg, tipo) {
+    var el = document.getElementById('invFeedback');
+    if (!el) return;
+    if (!msg) { el.innerHTML = ''; return; }
+    var bg = tipo === 'erro' ? '#ef4444' : tipo === 'sucesso' ? '#22c55e' : '#3b82f6';
+    el.innerHTML = '<div style="background:' + bg + ';color:#fff;padding:0.75rem 1rem;border-radius:6px;text-align:center;font-weight:600;">' + msg + '</div>';
+  }
+
+  function escapeHtmlEst(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
 })();
