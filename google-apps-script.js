@@ -2036,3 +2036,141 @@ function setupMovimentacoesEstoque() {
     return 'Aba existe mas cabecalhos divergem. Veja Logger.';
   }
 }
+
+function gerarProximoIdMovimentacao() {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var ano = new Date().getFullYear();
+    var prefix = 'MOV-' + ano + '-';
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName(SHEET_MOVIMENTACOES);
+    if (!sheet) throw new Error('Aba MovimentacoesEstoque nao encontrada. Rode setupMovimentacoesEstoque primeiro.');
+
+    var ultLinha = sheet.getLastRow();
+    if (ultLinha < 2) return prefix + '0001';
+
+    var dados = sheet.getRange(2, 1, ultLinha - 1, 1).getValues();
+    var maior = 0;
+    for (var i = 0; i < dados.length; i++) {
+      var v = String(dados[i][0] || '');
+      if (v.indexOf(prefix) === 0) {
+        var n = parseInt(v.substring(prefix.length), 10);
+        if (!isNaN(n) && n > maior) maior = n;
+      }
+    }
+    var prox = maior + 1;
+    var num = ('0000' + prox).slice(-4);
+    return prefix + num;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * Registra uma movimentacao e atualiza o saldo na aba Estoque.
+ * payload: { tipo, armazem, modelo, peca, quantidade, origem, operador, observacoes, docVinculado }
+ * tipo: "Entrada" | "Saida" | "Ajuste"
+ * armazem: "Sumare" | "Jaragua"
+ * quantidade: numero POSITIVO. O sinal e aplicado baseado no tipo:
+ *   - Entrada: +qtd
+ *   - Saida:   -qtd
+ *   - Ajuste:  +/- qtd (recebe sinal do payload, pode ser negativo)
+ */
+function registrarMovimentacao(payload) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var erro = validarPayloadMovimentacao(payload);
+    if (erro) return { sucesso: false, erro: erro };
+
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheetMov = ss.getSheetByName(SHEET_MOVIMENTACOES);
+    if (!sheetMov) {
+      return { sucesso: false, erro: 'Aba MovimentacoesEstoque nao existe. Rode setupMovimentacoesEstoque.' };
+    }
+
+    var qtdSignal = aplicarSinalQuantidade(payload.tipo, payload.quantidade);
+    var id = gerarProximoIdMovimentacao();
+    var agora = new Date();
+
+    sheetMov.appendRow([
+      id,
+      agora,
+      payload.tipo,
+      payload.armazem,
+      payload.modelo,
+      payload.peca,
+      qtdSignal,
+      payload.origem || '',
+      payload.operador || '',
+      payload.observacoes || '',
+      payload.docVinculado || ''
+    ]);
+
+    var novoSaldo = atualizarSaldoEstoque(payload.armazem, payload.modelo, payload.peca, qtdSignal);
+
+    return {
+      sucesso: true,
+      id: id,
+      saldoAtual: novoSaldo,
+      armazem: payload.armazem
+    };
+  } catch (err) {
+    return { sucesso: false, erro: String(err) };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function validarPayloadMovimentacao(p) {
+  if (!p) return 'payload vazio';
+  if (['Entrada', 'Saida', 'Ajuste'].indexOf(p.tipo) === -1) return 'tipo invalido (esperado: Entrada, Saida ou Ajuste)';
+  if (['Sumare', 'Jaragua'].indexOf(p.armazem) === -1) return 'armazem invalido (esperado: Sumare ou Jaragua)';
+  if (!p.modelo) return 'modelo obrigatorio';
+  if (!p.peca) return 'peca obrigatoria';
+  if (p.quantidade == null || isNaN(parseFloat(p.quantidade))) return 'quantidade obrigatoria';
+  if (parseFloat(p.quantidade) === 0) return 'quantidade nao pode ser zero';
+  if (!p.origem) return 'origem obrigatoria';
+  if (!p.operador) return 'operador obrigatorio';
+  return null;
+}
+
+function aplicarSinalQuantidade(tipo, qtd) {
+  var n = parseFloat(qtd);
+  if (tipo === 'Entrada') return Math.abs(n);
+  if (tipo === 'Saida') return -Math.abs(n);
+  // Ajuste: respeita sinal do input (positivo ou negativo)
+  return n;
+}
+
+/**
+ * Atualiza saldo de uma peca em um armazem.
+ * Cria linha se a peca nao existir na aba Estoque.
+ * Retorna o novo saldo do armazem.
+ */
+function atualizarSaldoEstoque(armazem, modelo, peca, delta) {
+  var sheet = getOrCreateAbaEstoque();
+  var data = sheet.getDataRange().getValues();
+  var col = (armazem === 'Sumare') ? 2 : 3; // C=Sumare(2), D=Jaragua(3) - zero-indexed
+  var modeloLower = String(modelo).toLowerCase();
+  var pecaLower = String(peca).toLowerCase();
+  var timestamp = new Date().toISOString();
+
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]).toLowerCase() === modeloLower &&
+        String(data[i][1]).toLowerCase() === pecaLower) {
+      var atual = parseInt(data[i][col]) || 0;
+      var novo = atual + parseInt(delta);
+      sheet.getRange(i + 1, col + 1).setValue(novo);
+      sheet.getRange(i + 1, 5).setValue(timestamp);
+      return novo;
+    }
+  }
+
+  // Peca nao existe — cria nova linha
+  var nova = [modelo, peca, 0, 0, timestamp];
+  nova[col] = parseInt(delta);
+  sheet.appendRow(nova);
+  return nova[col];
+}
