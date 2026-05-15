@@ -33,7 +33,7 @@ A operação real informa que:
 
 ## Não-objetivos
 
-- Sem múltiplos armazéns ou lojas (estoque é único, pool central)
+- Sem novos armazéns além dos atuais (Sumaré e Jaraguá já existem na aba `Estoque`)
 - Sem controle de validade, lote ou número de série
 - Sem custo médio, FIFO ou contabilidade fiscal
 - Sem aprovação/workflow de movimentação (operador registra direto)
@@ -79,13 +79,14 @@ A operação real informa que:
 | A | `id` | string | sim | `MOV-2026-NNNN` (sequencial via LockService) |
 | B | `dataHora` | datetime | sim | Timestamp ISO |
 | C | `tipo` | string | sim | `Entrada` / `Saida` / `Ajuste` |
-| D | `modelo` | string | sim | Modelo da peça (Jaya, Akasha, etc) |
-| E | `peca` | string | sim | Nome da peça (Espelho Esq, Para-choque, etc) |
-| F | `quantidade` | number | sim | Sinal positivo (Entrada/Ajuste+) ou negativo (Saída/Ajuste-) |
-| G | `origem` | string | sim | Texto livre — "Desmontagem moto NXT123", "Compra fornecedor X", "Inventário inicial", "Baixa venda PCA-XXX", "Perda", "Encontrado" |
-| H | `operador` | string | sim | Quem registrou (texto livre) |
-| I | `observacoes` | text | não | Notas adicionais |
-| J | `docVinculado` | string | não | ID do doc relacionado (ex: `PCA-2026-0042` quando for baixa de venda) |
+| D | `armazem` | string | sim | `Sumare` / `Jaragua` (armazém onde a movimentação aconteceu) |
+| E | `modelo` | string | sim | Modelo da peça (Jaya, Akasha, etc) |
+| F | `peca` | string | sim | Nome da peça (Espelho Esq, Para-choque, etc) |
+| G | `quantidade` | number | sim | Sinal positivo (Entrada/Ajuste+) ou negativo (Saída/Ajuste-) |
+| H | `origem` | string | sim | Texto livre — "Desmontagem moto NXT123", "Compra fornecedor X", "Inventário inicial", "Baixa venda PCA-XXX", "Perda", "Encontrado" |
+| I | `operador` | string | sim | Quem registrou (texto livre) |
+| J | `observacoes` | text | não | Notas adicionais |
+| K | `docVinculado` | string | não | ID do doc relacionado (ex: `PCA-2026-0042` quando for baixa de venda) |
 
 ### Aba `Estoque` (existente — sem mudança estrutural)
 
@@ -107,6 +108,7 @@ Nova aba "Estoque" no nav principal, com sub-tabs internas:
 Form único pra Entrada, Saída manual ou Ajuste:
 
 - **Tipo** (select): Entrada / Saída / Ajuste
+- **Armazém** (select): Sumaré / Jaraguá
 - **Modelo** (select do catálogo)
 - **Peça** (select dinâmico baseado no modelo)
 - **Quantidade** (number — frontend converte para sinal correto baseado em Tipo)
