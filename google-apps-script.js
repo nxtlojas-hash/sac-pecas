@@ -894,6 +894,9 @@ function doPost(e) {
       case 'registrar_movimentacao':
         return jsonResponse(registrarMovimentacao(body));
 
+      case 'registrar_inventario_lote':
+        return jsonResponse(registrarInventarioLote(body));
+
       default:
         return jsonResponse({ sucesso: false, erro: 'Acao POST desconhecida: ' + action });
     }
@@ -2244,4 +2247,91 @@ function listarMovimentacoes(filtros) {
   if (resultado.length > limite) resultado = resultado.slice(0, limite);
 
   return { sucesso: true, movimentacoes: resultado, total: resultado.length };
+}
+
+/**
+ * Registra inventario em lote: gera 1 ajuste por peca com diferenca diferente de zero.
+ * payload: {
+ *   armazem: 'Sumare' | 'Jaragua',
+ *   operador: string,
+ *   observacao: string,
+ *   contagens: [{ modelo, peca, contado }]  // contado = qtd fisica real
+ * }
+ * Para cada peca: le saldo atual no armazem, calcula diferenca = contado - atual.
+ * Se diferenca != 0, cria 1 movimentacao tipo Ajuste com qtd = diferenca.
+ * Origem padrao: "Inventario YYYY-MM-DD" + observacao
+ * Retorna { sucesso, totalAjustes, totalUnidadesMovidas, ajustes: [{modelo, peca, antes, depois, diferenca, movId}] }
+ */
+function registrarInventarioLote(payload) {
+  if (!payload || ['Sumare', 'Jaragua'].indexOf(payload.armazem) === -1) {
+    return { sucesso: false, erro: 'armazem invalido' };
+  }
+  if (!payload.operador) return { sucesso: false, erro: 'operador obrigatorio' };
+  if (!Array.isArray(payload.contagens) || payload.contagens.length === 0) {
+    return { sucesso: false, erro: 'contagens deve ser array nao vazio' };
+  }
+
+  var dataStr = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'yyyy-MM-dd');
+  var origemBase = 'Inventario ' + dataStr;
+  if (payload.observacao) origemBase += ' - ' + payload.observacao;
+
+  var sheet = getOrCreateAbaEstoque();
+  var data = sheet.getDataRange().getValues();
+  var colArm = (payload.armazem === 'Sumare') ? 2 : 3;
+
+  var ajustes = [];
+  var totalUnidades = 0;
+
+  for (var idx = 0; idx < payload.contagens.length; idx++) {
+    var item = payload.contagens[idx];
+    if (!item.modelo || !item.peca) continue;
+    var contado = parseInt(item.contado);
+    if (isNaN(contado) || contado < 0) continue;
+
+    // Acha saldo atual na aba Estoque (case-insensitive)
+    var modeloLower = String(item.modelo).toLowerCase();
+    var pecaLower = String(item.peca).toLowerCase();
+    var atual = 0;
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][0]).toLowerCase() === modeloLower &&
+          String(data[i][1]).toLowerCase() === pecaLower) {
+        atual = parseInt(data[i][colArm]) || 0;
+        break;
+      }
+    }
+
+    var diferenca = contado - atual;
+    if (diferenca === 0) continue;
+
+    // Chama registrarMovimentacao reaproveitando a logica
+    var resp = registrarMovimentacao({
+      tipo: 'Ajuste',
+      armazem: payload.armazem,
+      modelo: item.modelo,
+      peca: item.peca,
+      quantidade: diferenca,
+      origem: origemBase,
+      operador: payload.operador,
+      observacoes: 'Saldo antes: ' + atual + ' / contado: ' + contado
+    });
+
+    if (resp.sucesso) {
+      ajustes.push({
+        modelo: item.modelo,
+        peca: item.peca,
+        antes: atual,
+        depois: contado,
+        diferenca: diferenca,
+        movId: resp.id
+      });
+      totalUnidades += Math.abs(diferenca);
+    }
+  }
+
+  return {
+    sucesso: true,
+    totalAjustes: ajustes.length,
+    totalUnidadesMovidas: totalUnidades,
+    ajustes: ajustes
+  };
 }
