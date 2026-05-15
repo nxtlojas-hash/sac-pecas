@@ -133,7 +133,99 @@
   }
 
   function setupFormMovimentar() {
-    // Placeholder - implementado nas proximas tasks
+    populateOperadoresDatalist();
+
+    // Modelo muda -> popula datalist de pecas
+    var modeloSel = document.getElementById('estModelo');
+    if (modeloSel) {
+      modeloSel.addEventListener('change', function() {
+        popularDatalistPecas(modeloSel.value);
+      });
+    }
+
+    // Tipo Ajuste -> mostra dica
+    var tipoSel = document.getElementById('estTipo');
+    var dica = document.getElementById('estDicaAjuste');
+    if (tipoSel && dica) {
+      tipoSel.addEventListener('change', function() {
+        dica.style.display = (tipoSel.value === 'Ajuste') ? '' : 'none';
+        // Em Ajuste, permite negativos no input quantidade
+        var qtdInput = document.getElementById('estQtd');
+        if (tipoSel.value === 'Ajuste') {
+          qtdInput.removeAttribute('min');
+        } else {
+          qtdInput.setAttribute('min', '1');
+        }
+      });
+    }
+
+    document.getElementById('btnLimparEst').addEventListener('click', limparForm);
+    document.getElementById('btnRegistrarEst').addEventListener('click', registrarMov);
+  }
+
+  function popularDatalistPecas(modelId) {
+    var datalist = document.getElementById('estPecasList');
+    if (!datalist) return;
+    datalist.innerHTML = '';
+    if (!modelId || typeof CATALOGO_MODELOS === 'undefined' || !CATALOGO_MODELOS[modelId]) return;
+    var pecas = CATALOGO_MODELOS[modelId].pecas || [];
+    pecas.forEach(function(p) {
+      var opt = document.createElement('option');
+      opt.value = p.nome;
+      datalist.appendChild(opt);
+    });
+  }
+
+  function getOperadores() {
+    try {
+      return JSON.parse(localStorage.getItem(LS_OPERADORES) || '[]');
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveOperador(nome) {
+    var trimmed = (nome || '').trim();
+    if (!trimmed) return;
+    var lista = getOperadores();
+    var existe = lista.some(function(n) { return n.toLowerCase() === trimmed.toLowerCase(); });
+    if (existe) return;
+    lista.push(trimmed);
+    lista.sort(function(a, b) { return a.localeCompare(b, 'pt-BR'); });
+    localStorage.setItem(LS_OPERADORES, JSON.stringify(lista));
+    populateOperadoresDatalist();
+  }
+
+  function populateOperadoresDatalist() {
+    var dl = document.getElementById('estOperadoresList');
+    if (!dl) return;
+    dl.innerHTML = '';
+    getOperadores().forEach(function(n) {
+      var opt = document.createElement('option');
+      opt.value = n;
+      dl.appendChild(opt);
+    });
+  }
+
+  function limparForm() {
+    document.getElementById('estForm').reset();
+    document.getElementById('estPecasList').innerHTML = '';
+    document.getElementById('estDicaAjuste').style.display = 'none';
+    document.getElementById('estQtd').setAttribute('min', '1');
+    var fb = document.getElementById('estFeedback');
+    if (fb) fb.innerHTML = '';
+  }
+
+  function registrarMov() {
+    // Placeholder - implementado na Task E2.5
+    console.log('registrarMov ainda nao implementado');
+  }
+
+  function mostrarFeedback(msg, tipo) {
+    var el = document.getElementById('estFeedback');
+    if (!el) return;
+    var bg = tipo === 'erro' ? '#ef4444' : tipo === 'sucesso' ? '#22c55e' : '#3b82f6';
+    el.innerHTML = '<div style="background:' + bg + ';color:#fff;padding:0.75rem 1rem;border-radius:6px;text-align:center;font-weight:600;">' + msg + '</div>';
   }
 
 })();
