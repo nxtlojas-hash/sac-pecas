@@ -762,6 +762,18 @@ function doGet(e) {
         };
         return jsonResponse(listarMovimentacoes(filtros));
 
+      case 'listar_atendimentos':
+        var filtrosAt = {
+          status: e.parameter.status,
+          categoria: e.parameter.categoria,
+          vendedor: e.parameter.vendedor,
+          dataDe: e.parameter.dataDe,
+          dataAte: e.parameter.dataAte,
+          busca: e.parameter.busca,
+          limite: e.parameter.limite
+        };
+        return jsonResponse(listarAtendimentos(filtrosAt));
+
       // --- Assistencias Tecnicas (cadastro) ---
       case 'listar_assistencias':
         return jsonResponse(listarAssistenciasCadastro());
@@ -2473,4 +2485,70 @@ function vincularDocAtendimento(payload) {
   }
 
   return { sucesso: true, atendimentoId: payload.atendimentoId, docId: payload.docId };
+}
+
+/**
+ * Lista atendimentos com filtros opcionais.
+ * filtros: { status, categoria, vendedor, dataDe, dataAte, busca, limite }
+ * busca: procura em nomeCliente, telefone, cpfCnpj, id (case-insensitive, substring)
+ * Retorna ultimos 100 ordenados por data desc por default.
+ */
+function listarAtendimentos(filtros) {
+  filtros = filtros || {};
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_ATENDIMENTOS);
+  if (!sheet) return { sucesso: true, atendimentos: [] };
+
+  var ultLinha = sheet.getLastRow();
+  if (ultLinha < 2) return { sucesso: true, atendimentos: [] };
+
+  var ultCol = sheet.getLastColumn();
+  var dados = sheet.getRange(2, 1, ultLinha - 1, ultCol).getValues();
+  var dataDe = filtros.dataDe ? new Date(filtros.dataDe) : null;
+  var dataAte = filtros.dataAte ? new Date(filtros.dataAte) : null;
+  var buscaLower = (filtros.busca || '').toLowerCase().trim();
+
+  var resultado = [];
+  for (var i = 0; i < dados.length; i++) {
+    var row = dados[i];
+    var at = {
+      id: row[0],
+      dataAbertura: row[1],
+      categoria: row[2],
+      motivo: row[3],
+      origem: row[4],
+      nomeCliente: row[5],
+      telefone: row[6],
+      cpfCnpj: row[7],
+      notaFiscal: row[8],
+      modeloEquipamento: row[9],
+      descricao: row[10],
+      vendedor: row[11],
+      status: row[12],
+      dataFechamento: row[13],
+      motivoFechamento: row[14],
+      npsEnviado: row[15],
+      acoes: row[16] || '',
+      docsVinculados: row[17] || ''
+    };
+
+    if (dataDe && new Date(at.dataAbertura) < dataDe) continue;
+    if (dataAte && new Date(at.dataAbertura) > dataAte) continue;
+    if (filtros.status && at.status !== filtros.status) continue;
+    if (filtros.categoria && at.categoria !== filtros.categoria) continue;
+    if (filtros.vendedor && String(at.vendedor).toLowerCase() !== String(filtros.vendedor).toLowerCase()) continue;
+    if (buscaLower) {
+      var hay = (String(at.id) + ' ' + at.nomeCliente + ' ' + at.telefone + ' ' + at.cpfCnpj).toLowerCase();
+      if (hay.indexOf(buscaLower) === -1) continue;
+    }
+
+    resultado.push(at);
+  }
+
+  resultado.reverse(); // mais recentes primeiro
+
+  var limite = parseInt(filtros.limite) || 100;
+  if (resultado.length > limite) resultado = resultado.slice(0, limite);
+
+  return { sucesso: true, atendimentos: resultado, total: resultado.length };
 }
