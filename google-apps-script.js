@@ -2174,3 +2174,57 @@ function atualizarSaldoEstoque(armazem, modelo, peca, delta) {
   sheet.appendRow(nova);
   return nova[col];
 }
+
+/**
+ * Lista movimentacoes com filtros opcionais.
+ * filtros: { dataDe, dataAte, tipo, armazem, modelo, peca, operador }
+ * Retorna ultimas 100 por default (mais recentes primeiro).
+ */
+function listarMovimentacoes(filtros) {
+  filtros = filtros || {};
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_MOVIMENTACOES);
+  if (!sheet) return { sucesso: true, movimentacoes: [] };
+
+  var ultLinha = sheet.getLastRow();
+  if (ultLinha < 2) return { sucesso: true, movimentacoes: [] };
+
+  var dados = sheet.getRange(2, 1, ultLinha - 1, 11).getValues();
+  var dataDe = filtros.dataDe ? new Date(filtros.dataDe) : null;
+  var dataAte = filtros.dataAte ? new Date(filtros.dataAte) : null;
+
+  var resultado = [];
+  for (var i = 0; i < dados.length; i++) {
+    var row = dados[i];
+    var mov = {
+      id: row[0],
+      dataHora: row[1],
+      tipo: row[2],
+      armazem: row[3],
+      modelo: row[4],
+      peca: row[5],
+      quantidade: row[6],
+      origem: row[7],
+      operador: row[8],
+      observacoes: row[9],
+      docVinculado: row[10]
+    };
+
+    if (dataDe && new Date(mov.dataHora) < dataDe) continue;
+    if (dataAte && new Date(mov.dataHora) > dataAte) continue;
+    if (filtros.tipo && mov.tipo !== filtros.tipo) continue;
+    if (filtros.armazem && mov.armazem !== filtros.armazem) continue;
+    if (filtros.modelo && String(mov.modelo).toLowerCase() !== String(filtros.modelo).toLowerCase()) continue;
+    if (filtros.peca && String(mov.peca).toLowerCase().indexOf(String(filtros.peca).toLowerCase()) === -1) continue;
+    if (filtros.operador && String(mov.operador).toLowerCase() !== String(filtros.operador).toLowerCase()) continue;
+
+    resultado.push(mov);
+  }
+
+  resultado.reverse(); // mais recentes primeiro
+
+  var limite = parseInt(filtros.limite) || 100;
+  if (resultado.length > limite) resultado = resultado.slice(0, limite);
+
+  return { sucesso: true, movimentacoes: resultado, total: resultado.length };
+}
