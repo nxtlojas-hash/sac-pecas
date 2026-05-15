@@ -238,9 +238,71 @@
   }
 
   function mostrarSucesso(id, dados) {
-    // Implementado na Task 1.6
-    mostrarFeedback('Atendimento aberto! Protocolo: ' + id, 'sucesso');
+    var existente = document.getElementById('atModalSucesso');
+    if (existente) existente.remove();
+
+    var modal = document.createElement('div');
+    modal.id = 'atModalSucesso';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:1000;padding:1rem;';
+
+    var telDigits = (dados.telefone || '').replace(/\D/g, '');
+    var primeiroNome = (dados.nomeCliente || '').split(' ')[0] || 'Cliente';
+    var msgWA = 'Ola ' + primeiroNome + '!\n\nSeu atendimento foi registrado na NXT.\n\n' +
+      '*Protocolo:* ' + id + '\n' +
+      '*Categoria:* ' + dados.categoria + '\n' +
+      '*Motivo:* ' + dados.motivo + '\n\n' +
+      'Guarde esse numero para acompanhar. Em breve retornaremos.\n\n_NXT SAC_';
+
+    var canWhats = telDigits.length >= 10;
+
+    modal.innerHTML = '' +
+      '<div style="background:#fff;border-radius:8px;max-width:480px;width:100%;box-shadow:0 20px 40px rgba(0,0,0,0.3);">' +
+        '<div style="background:#1a1a2e;color:#fff;padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;border-radius:8px 8px 0 0;">' +
+          '<div>' +
+            '<div style="font-size:11px;letter-spacing:1.5px;color:#c6ff00;font-weight:700;">ATENDIMENTO ABERTO</div>' +
+            '<div style="font-size:22px;font-weight:900;margin-top:2px;letter-spacing:1px;">' + escapeHtmlAt(id) + '</div>' +
+          '</div>' +
+          '<button id="atModalClose" style="background:transparent;border:none;color:#fff;font-size:28px;cursor:pointer;line-height:1;padding:0 0.25rem;">&times;</button>' +
+        '</div>' +
+        '<div style="padding:1.25rem;">' +
+          '<div style="font-size:13px;color:#444;margin-bottom:0.75rem;">' +
+            '<strong>' + escapeHtmlAt(primeiroNome) + '</strong> &bull; ' + escapeHtmlAt(dados.telefone) +
+          '</div>' +
+          '<div style="font-size:13px;color:#666;margin-bottom:1rem;">' +
+            'Protocolo registrado em planilha. Compartilhe com o cliente:' +
+          '</div>' +
+          '<div style="display:flex;gap:0.5rem;flex-wrap:wrap;">' +
+            '<button id="atBtnCopiar" style="flex:1;min-width:140px;padding:0.7rem;background:#1a1a2e;color:#c6ff00;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;">&#128203; Copiar protocolo</button>' +
+            '<button id="atBtnWa" ' + (canWhats ? '' : 'disabled') +
+              ' style="flex:1;min-width:140px;padding:0.7rem;background:' + (canWhats ? '#25d366' : '#9ca3af') + ';color:#fff;border:none;border-radius:6px;font-weight:600;cursor:' + (canWhats ? 'pointer' : 'not-allowed') + ';font-size:13px;">&#128241; WhatsApp</button>' +
+          '</div>' +
+          '<div style="margin-top:1rem;text-align:center;font-size:11px;color:#999;">Voce pode fechar este aviso quando terminar.</div>' +
+        '</div>' +
+      '</div>';
+
+    document.body.appendChild(modal);
+
+    document.getElementById('atModalClose').addEventListener('click', function() { modal.remove(); });
+    document.getElementById('atBtnCopiar').addEventListener('click', function() {
+      navigator.clipboard.writeText(id).then(function() {
+        mostrarFeedback('Protocolo ' + id + ' copiado', 'sucesso');
+      }).catch(function() {
+        mostrarFeedback('Falha ao copiar — selecione e Ctrl+C', 'erro');
+      });
+    });
+    if (canWhats) {
+      document.getElementById('atBtnWa').addEventListener('click', function() {
+        var url = 'https://wa.me/55' + telDigits + '?text=' + encodeURIComponent(msgWA);
+        window.open(url, '_blank');
+      });
+    }
+
     limparForm();
+  }
+
+  function escapeHtmlAt(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
 })();
