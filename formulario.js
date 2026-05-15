@@ -291,10 +291,15 @@ function buildFormHTML() {
       '<div class="form-total form-total-geral">TOTAL GERAL: <strong id="totalGeral">R$ 0,00</strong></div>' +
     '</div>' +
 
-    // BOTAO REGISTRAR
-    '<button type="submit" class="btn-primario btn-registrar-venda" id="btnRegistrar">' +
-      'Registrar Atendimento' +
-    '</button>' +
+    // BOTOES FINAIS: Registrar Venda + Salvar como Orcamento
+    '<div style="display:flex;gap:0.75rem;flex-wrap:wrap;justify-content:flex-end;margin-top:1rem;">' +
+      '<button type="button" class="btn-secundario" id="btnSalvarOrcamento" style="flex:1 1 240px;padding:1rem;font-weight:600;">' +
+        '📄 Salvar como Orçamento' +
+      '</button>' +
+      '<button type="submit" class="btn-primario btn-registrar-venda" id="btnRegistrar" style="flex:1 1 240px;">' +
+        'Registrar Venda' +
+      '</button>' +
+    '</div>' +
     '</form>' +
 
     // MODAL RESUMO
@@ -330,6 +335,12 @@ function setupFormListeners() {
   var form = document.getElementById('vendaPecaForm');
   if (form) {
     form.addEventListener('submit', registrarVenda);
+  }
+
+  // Botao "Salvar como Orcamento" — mesmo form, fluxo alternativo (nao baixa estoque)
+  var btnOrc = document.getElementById('btnSalvarOrcamento');
+  if (btnOrc) {
+    btnOrc.addEventListener('click', salvarComoOrcamento);
   }
 
   // Tipo cliente change
@@ -1750,4 +1761,108 @@ function addPartToForm(peca, modelId) {
 
     preencherDadosPeca();
   }, 100);
+}
+
+// --- Salvar form de venda como Orcamento (nao baixa estoque) ---
+function salvarComoOrcamento() {
+  if (envioEmAndamento) return;
+
+  var nomeCliente = (document.getElementById('nomeCliente') || {}).value || '';
+  nomeCliente = nomeCliente.trim();
+  var telefone = (document.getElementById('telefoneCliente') || {}).value || '';
+  var cpfCnpj = (document.getElementById('cpfCnpjCliente') || {}).value || '';
+  var vendedor = (document.getElementById('vendedor') || {}).value || '';
+  vendedor = vendedor.trim();
+  var observacoes = (document.getElementById('observacoes') || {}).value || '';
+  observacoes = observacoes.trim();
+
+  if (!nomeCliente) return mostrarFeedback('Informe o nome do cliente', 'erro');
+  if (!telefone || telefone.replace(/\D/g, '').length < 10) {
+    return mostrarFeedback('Telefone do cliente invalido', 'erro');
+  }
+  if (pecasAdicionadas.length === 0) {
+    return mostrarFeedback('Adicione ao menos uma peca', 'erro');
+  }
+
+  envioEmAndamento = true;
+  var btn = document.getElementById('btnSalvarOrcamento');
+  if (btn) { btn.disabled = true; btn.textContent = 'Salvando...'; }
+
+  var hoje = new Date();
+  var dataValidade = new Date(hoje.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+  var totalOrc = 0;
+  var pesoTotalGr = 0;
+  var pecasPayload = pecasAdicionadas.map(function(p) {
+    totalOrc += p.total || 0;
+    pesoTotalGr += p.pesoGramas || 0;
+    return {
+      nome: p.descricao,
+      modelo: p.modelo,
+      modelId: p.modelId || '',
+      quantidade: p.quantidade,
+      precoUnitario: p.precoUnitario,
+      total: p.total,
+      peso: p.peso || ''
+    };
+  });
+
+  var numero = (typeof gerarNumeroOrc === 'function')
+    ? gerarNumeroOrc()
+    : 'ORC-' + hoje.getFullYear() + String(hoje.getMonth() + 1).padStart(2, '0') + String(hoje.getDate()).padStart(2, '0') + '-' + String(Math.floor(Math.random() * 900) + 100);
+
+  var orcamento = {
+    action: 'salvar_orcamento',
+    numero: numero,
+    data: hoje.toISOString().split('T')[0],
+    dataValidade: dataValidade.toISOString().split('T')[0],
+    status: 'pendente',
+    cliente: {
+      nome: nomeCliente,
+      telefone: telefone.replace(/\D/g, ''),
+      documento: cpfCnpj.replace(/\D/g, ''),
+      email: ''
+    },
+    vendedor: vendedor,
+    pecas: pecasPayload,
+    pesoTotal: (typeof formatWeight === 'function') ? formatWeight(pesoTotalGr) : (pesoTotalGr + 'gr'),
+    total: totalOrc,
+    observacoes: observacoes
+  };
+
+  mostrarFeedback('Salvando orcamento ' + numero + '...', 'info');
+
+  fetch(GOOGLE_SCRIPT_URL, {
+    method: 'POST',
+    redirect: 'follow',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(orcamento)
+  })
+  .then(function(r) { return r.text(); })
+  .then(function(text) {
+    var data = {};
+    try { data = JSON.parse(text); } catch (e) { data = { sucesso: true }; }
+    if (data.sucesso !== false) {
+      mostrarFeedback('Orcamento ' + numero + ' salvo! Veja em Orcamentos.', 'sucesso');
+      // Limpar form de venda
+      pecasAdicionadas = [];
+      if (typeof renderizarPecas === 'function') renderizarPecas();
+      if (typeof atualizarTotal === 'function') atualizarTotal();
+      var f = document.getElementById('vendaPecaForm');
+      if (f) f.reset();
+    } else {
+      mostrarFeedback('Erro ao salvar orcamento: ' + (data.erro || 'desconhecido'), 'erro');
+    }
+  })
+  .catch(function(err) {
+    console.error('Erro orcamento:', err);
+    mostrarFeedback('Orcamento enviado. Confirme em Orcamentos.', 'info');
+  })
+  .finally(function() {
+    envioEmAndamento = false;
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '📄 Salvar como Orçamento';
+    }
+  });
 }
