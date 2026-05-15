@@ -1634,47 +1634,63 @@ function atualizarEstoque(body) {
 }
 
 /**
- * Baixa de estoque (decrementa)
- * body: { modelo, peca, localizacao ('sumare' ou 'jaragua'), quantidade }
+ * Baixa de estoque a partir de uma venda registrada.
+ * body: { modelo, peca, sumare, jaragua, vendaId, vendedor }
+ * Cria 1 movimentacao tipo Saida em cada armazem com qtd > 0.
+ * Mantem retrocompat: continua atualizando aba Estoque atraves de registrarMovimentacao.
  */
 function baixaEstoque(body) {
-  var sheet = getOrCreateAbaEstoque();
   var modelo = body.modelo || '';
   var peca = body.peca || '';
-  var localizacao = (body.localizacao || '').toLowerCase();
-  var quantidade = parseInt(body.quantidade) || 1;
-  var timestamp = new Date().toISOString();
+  var sumare = parseInt(body.sumare) || 0;
+  var jaragua = parseInt(body.jaragua) || 0;
+  var vendaId = body.vendaId || '';
+  var vendedor = body.vendedor || '';
 
   if (!modelo || !peca) {
     return { sucesso: false, erro: 'Modelo e peca sao obrigatorios' };
   }
-
-  if (localizacao !== 'sumare' && localizacao !== 'jaragua') {
-    return { sucesso: false, erro: 'Localizacao deve ser "sumare" ou "jaragua"' };
+  if (sumare === 0 && jaragua === 0) {
+    return { sucesso: false, erro: 'Quantidade Sumare/Jaragua nao informada' };
   }
 
-  var data = sheet.getDataRange().getValues();
-  var modeloLower = modelo.toLowerCase();
-  var pecaLower = peca.toLowerCase();
+  var resultados = [];
+  var origem = vendaId ? 'Baixa venda ' + vendaId : 'Baixa venda';
 
-  for (var i = 1; i < data.length; i++) {
-    if (String(data[i][0]).toLowerCase() === modeloLower &&
-        String(data[i][1]).toLowerCase() === pecaLower) {
-      var col = localizacao === 'sumare' ? 3 : 4; // coluna C ou D (1-indexed)
-      var atual = parseInt(data[i][col - 1]) || 0;
-      var novo = Math.max(0, atual - quantidade);
-      sheet.getRange(i + 1, col).setValue(novo);
-      sheet.getRange(i + 1, 5).setValue(timestamp);
-      return {
-        sucesso: true,
-        mensagem: 'Baixa de ' + quantidade + ' unidade(s) de ' + peca + ' em ' + localizacao,
-        estoqueAnterior: atual,
-        estoqueAtual: novo
-      };
-    }
+  if (sumare > 0) {
+    var rS = registrarMovimentacao({
+      tipo: 'Saida',
+      armazem: 'Sumare',
+      modelo: modelo,
+      peca: peca,
+      quantidade: sumare,
+      origem: origem,
+      operador: vendedor || 'sistema',
+      observacoes: '',
+      docVinculado: vendaId
+    });
+    resultados.push({ armazem: 'Sumare', resp: rS });
+  }
+  if (jaragua > 0) {
+    var rJ = registrarMovimentacao({
+      tipo: 'Saida',
+      armazem: 'Jaragua',
+      modelo: modelo,
+      peca: peca,
+      quantidade: jaragua,
+      origem: origem,
+      operador: vendedor || 'sistema',
+      observacoes: '',
+      docVinculado: vendaId
+    });
+    resultados.push({ armazem: 'Jaragua', resp: rJ });
   }
 
-  return { sucesso: true, mensagem: 'Peca nao encontrada no estoque, baixa ignorada' };
+  var todasOk = resultados.every(function(r) { return r.resp && r.resp.sucesso; });
+  return {
+    sucesso: todasOk,
+    resultados: resultados
+  };
 }
 
 // ========================================
