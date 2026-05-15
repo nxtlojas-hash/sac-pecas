@@ -2419,7 +2419,7 @@ function registrarInventarioLote(payload) {
 function setupColunaAtendimentoId() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var resultado = [];
-  ['Vendas', 'Orcamentos', 'OSes', 'Assistencias'].forEach(function(nomeAba) {
+  [ABA_REGISTROS, ABA_ORCAMENTOS, ABA_ASSISTENCIAS].forEach(function(nomeAba) {
     var sheet = ss.getSheetByName(nomeAba);
     if (!sheet) { resultado.push(nomeAba + ': aba nao existe (skip)'); return; }
     var ultimaCol = sheet.getLastColumn();
@@ -2465,10 +2465,10 @@ function vincularDocAtendimento(payload) {
   }
 
   var mapAba = {
-    'venda': 'Vendas',
-    'orcamento': 'Orcamentos',
-    'os': 'OSes',
-    'assistencia': 'Assistencias'
+    'venda': ABA_REGISTROS,
+    'orcamento': ABA_ORCAMENTOS,
+    'os': ABA_ASSISTENCIAS,
+    'assistencia': ABA_ASSISTENCIAS
   };
   var nomeAba = mapAba[payload.tipoDoc];
   if (!nomeAba) return { sucesso: false, erro: 'tipoDoc invalido' };
@@ -2668,7 +2668,7 @@ function buscarClienteConsolidado(query) {
   }
 
   // VENDAS
-  var shV = ss.getSheetByName('Vendas');
+  var shV = ss.getSheetByName(ABA_REGISTROS);
   if (shV && shV.getLastRow() > 1) {
     var ultV = shV.getLastColumn();
     var headersV = shV.getRange(1, 1, 1, ultV).getValues()[0];
@@ -2721,7 +2721,7 @@ function buscarClienteConsolidado(query) {
   }
 
   // OSes / Assistencias
-  ['OSes', 'Assistencias'].forEach(function(nomeAba) {
+  [ABA_ASSISTENCIAS].forEach(function(nomeAba) {
     var shOS = ss.getSheetByName(nomeAba);
     if (!shOS || shOS.getLastRow() < 2) return;
     var ultOS = shOS.getLastColumn();
