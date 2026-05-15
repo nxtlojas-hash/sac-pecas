@@ -1205,20 +1205,21 @@ function baixaEstoqueVenda(venda) {
 
   var pecas = venda.pecas || [];
   pecas.forEach(function(p) {
-    // Determinar localizacao pela tipo de atendimento
-    var localizacao = 'sumare'; // default
-    if (venda.tipoAtendimento && venda.tipoAtendimento.toLowerCase().indexOf('sumare') !== -1) {
-      localizacao = 'sumare';
-    } else {
-      localizacao = 'jaragua';
-    }
+    // Determinar armazem pela tipo de atendimento
+    // Sumare = atendimento Sumare; demais = Jaragua (legado)
+    var ehSumare = venda.tipoAtendimento && venda.tipoAtendimento.toLowerCase().indexOf('sumare') !== -1;
+    var qtd = p.quantidade || 1;
 
+    // Backend novo (Fase E4) espera sumare/jaragua + vendaId + vendedor
+    // pra criar movimentacao Saida vinculada na aba MovimentacoesEstoque
     var payload = {
       action: 'baixa_estoque',
       modelo: p.modelo || '',
       peca: p.descricao || '',
-      localizacao: localizacao,
-      quantidade: p.quantidade || 1
+      sumare: ehSumare ? qtd : 0,
+      jaragua: ehSumare ? 0 : qtd,
+      vendaId: venda.id || '',
+      vendedor: venda.vendedor || ''
     };
 
     fetch(GOOGLE_SCRIPT_URL, {
