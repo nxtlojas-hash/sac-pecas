@@ -273,8 +273,8 @@
 
   function mostrarSucessoMov(resp, dados) {
     var saldoTxt = (typeof resp.saldoAtual === 'number') ? ' Saldo atual em ' + resp.armazem + ': ' + resp.saldoAtual + ' un.' : '';
-    mostrarFeedback('OK ' + resp.id + ' - ' + dados.tipo + ' ' + Math.abs(dados.quantidade) + ' un de ' + dados.peca + '.' + saldoTxt, 'sucesso');
     limparForm();
+    mostrarFeedback('OK ' + resp.id + ' - ' + dados.tipo + ' ' + Math.abs(dados.quantidade) + ' un de ' + dados.peca + '.' + saldoTxt, 'sucesso');
   }
 
   function mostrarFeedback(msg, tipo) {
