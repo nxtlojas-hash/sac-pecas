@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.8 - App Core ===== */
+/* ===== NXT SAC V2.9 - App Core ===== */
 
 // --- Global State ---
 let currentView = 'home';
@@ -70,50 +70,75 @@ document.getElementById('nav-tabs').addEventListener('click', function(e) {
   navigateTo(view);
 });
 
-// --- Home: Render model cards ---
+// --- Home: Render atalhos (Atendimento, Catalogo, Registrar, Assistencia, Estoque) + Links uteis (Drive) ---
 function renderHome() {
-  const grid = document.getElementById('grid-modelos');
-  grid.innerHTML = '';
+  var grid = document.getElementById('grid-modelos');
+  if (!grid) return;
 
-  Object.keys(CATALOGO_MODELOS).forEach(function(modelId) {
-    const model = CATALOGO_MODELOS[modelId];
-    const count = model.pecas.length;
-    const card = document.createElement('div');
-    card.className = 'modelo-card';
-    card.innerHTML =
-      '<div class="modelo-img"><img src="img/modelos/' + modelId + '.png" alt="' + model.nome + '" onerror="this.style.display=\'none\';this.parentElement.innerHTML=\'<span class=modelo-icon-fallback>' + (MODEL_ICONS[modelId] || '\uD83D\uDEE0\uFE0F') + '</span>\';"></div>' +
-      '<div class="modelo-nome">' + model.nome + '</div>' +
-      '<div class="modelo-count">' + count + ' pecas</div>';
+  // Esconde o grid de modelos antigo (vai aparecer so em Catalogo agora)
+  grid.style.display = 'none';
 
-    card.addEventListener('click', function() {
-      currentModel = modelId;
-      navigateTo('catalogo', { model: modelId });
+  // Cria ou recupera o container de atalhos
+  var homeWrap = document.getElementById('home-atalhos-wrap');
+  if (homeWrap) homeWrap.remove();
+  homeWrap = document.createElement('div');
+  homeWrap.id = 'home-atalhos-wrap';
+
+  var acoes = [
+    { titulo: 'Atendimento',  icone: '\uD83D\uDCDD', desc: 'Abrir novo atendimento',           tipo: 'view',  alvo: 'atendimento' },
+    { titulo: 'Cat&aacute;logo', icone: '\uD83D\uDCD6', desc: 'Pe&ccedil;as por modelo',         tipo: 'view',  alvo: 'catalogo' },
+    { titulo: 'Registrar',    icone: '\uD83D\uDED2', desc: 'Venda ou or&ccedil;amento de pe&ccedil;a', tipo: 'view', alvo: 'formulario' },
+    { titulo: 'Assist&ecirc;ncia', icone: '\uD83D\uDD27', desc: 'Abrir Ordem de Servi&ccedil;o',  tipo: 'view',  alvo: 'assistencia' },
+    { titulo: 'Estoque',      icone: '\uD83D\uDCE6', desc: 'Movimenta&ccedil;&otilde;es, invent&aacute;rio, saldo', tipo: 'view', alvo: 'estoque' }
+  ];
+
+  var links = [
+    { titulo: 'Manuais',          icone: '\uD83D\uDCDA', desc: 'Pasta no Drive',          tipo: 'link', alvo: 'https://drive.google.com/drive/folders/1hVDtxEgwc-BSx1WKrTygpQENo27ovfqp?usp=drive_link' },
+    { titulo: 'Tabela de Pre&ccedil;os', icone: '\uD83D\uDCB0', desc: 'Pasta no Drive',  tipo: 'link', alvo: 'https://drive.google.com/drive/folders/1tW8JKNqC6gVRA2Ig68WGgG0ZzzrxZTA2?usp=drive_link' },
+    { titulo: 'Quadro Comparativo', icone: '\uD83D\uDCCA', desc: 'Arquivo no Drive',     tipo: 'link', alvo: 'https://drive.google.com/file/d/190mnJT8Rn4sBo_G65DUSmwrMAb-_nlz0/view?usp=drive_link' },
+    { titulo: 'Mapa Assist&ecirc;ncias', icone: '\uD83D\uDDFA\uFE0F', desc: 'Google Maps', tipo: 'link', alvo: 'https://www.google.com/maps/d/edit?mid=1wdtuUW-7dQ-OMY2DUJmVJ1ZqiMr-V9o&usp=drive_link' },
+    { titulo: 'Mapa Lojas',       icone: '\uD83D\uDCCD', desc: 'Google Maps',             tipo: 'link', alvo: 'https://www.google.com/maps/d/edit?mid=1-Lc86Tm6UgkxEm3r1sE4wQLpHzyvH_Q&usp=drive_link' },
+    { titulo: 'Drive do SAC',     icone: '\uD83D\uDCC1', desc: 'Pasta principal',         tipo: 'link', alvo: 'https://drive.google.com/drive/folders/1rTamTXwXDFWIi_0YLgFD1MdzMigcPlNr?usp=drive_link' }
+  ];
+
+  homeWrap.innerHTML =
+    '<section class="home-section">' +
+      '<h2 class="home-section-titulo">A&ccedil;&otilde;es</h2>' +
+      '<div class="home-grid">' +
+        acoes.map(function(c) {
+          return '<button class="home-card home-card-acao" data-tipo="' + c.tipo + '" data-alvo="' + c.alvo + '">' +
+            '<span class="home-card-icone">' + c.icone + '</span>' +
+            '<span class="home-card-titulo">' + c.titulo + '</span>' +
+            '<span class="home-card-desc">' + c.desc + '</span>' +
+          '</button>';
+        }).join('') +
+      '</div>' +
+    '</section>' +
+    '<section class="home-section">' +
+      '<h2 class="home-section-titulo">Links &uacute;teis</h2>' +
+      '<div class="home-grid">' +
+        links.map(function(c) {
+          return '<a class="home-card home-card-link" href="' + c.alvo + '" target="_blank" rel="noopener">' +
+            '<span class="home-card-icone">' + c.icone + '</span>' +
+            '<span class="home-card-titulo">' + c.titulo + '</span>' +
+            '<span class="home-card-desc">' + c.desc + '</span>' +
+          '</a>';
+        }).join('') +
+      '</div>' +
+    '</section>';
+
+  grid.parentNode.insertBefore(homeWrap, grid);
+
+  // Bind clicks dos cards de a&ccedil;&atilde;o
+  homeWrap.querySelectorAll('.home-card-acao').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      navigateTo(btn.dataset.alvo);
     });
-
-    grid.appendChild(card);
   });
 
-  // Price table button and stock control button
-  var btnSection = document.getElementById('home-tabela-section');
-  if (!btnSection) {
-    btnSection = document.createElement('div');
-    btnSection.id = 'home-tabela-section';
-    btnSection.style.cssText = 'text-align:center;padding:1.5rem 0;display:flex;flex-wrap:wrap;justify-content:center;gap:0.75rem;';
-    btnSection.innerHTML =
-      '<button class="btn-secundario" onclick="abrirTabelaPrecos()" style="font-size:1rem;padding:0.75rem 2rem;">' +
-        '\uD83D\uDCCA Tabela Completa de Precos' +
-      '</button>' +
-      '<button class="btn-secundario" onclick="abrirControleEstoque()" style="font-size:1rem;padding:0.75rem 2rem;">' +
-        '\uD83D\uDCE6 Controle de Estoque' +
-      '</button>' +
-      '<button class="btn-secundario" onclick="abrirGuiaUso()" style="font-size:1rem;padding:0.75rem 2rem;">' +
-        '\uD83D\uDCD6 Guia de Uso' +
-      '</button>' +
-      '<button class="btn-secundario" onclick="navigateTo(\'assistencia\')" style="font-size:1rem;padding:0.75rem 2rem;background:var(--cor-primaria);color:#fff;">' +
-        '\uD83D\uDD27 Abrir OS Assistencia' +
-      '</button>';
-    grid.parentNode.insertBefore(btnSection, grid.nextSibling);
-  }
+  // Remove a se&ccedil;&atilde;o antiga de bot&otilde;es se ainda existir
+  var btnSectionAntigo = document.getElementById('home-tabela-section');
+  if (btnSectionAntigo) btnSectionAntigo.remove();
 }
 
 // --- Guide modal ---

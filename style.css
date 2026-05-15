@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.8 - Styles ===== */
+/* ===== NXT SAC V2.9 - Styles ===== */
 
 :root {
   --cor-fundo: #0f0f1a;
@@ -1735,4 +1735,106 @@ body {
 
 .estoque-inline-input:focus {
   box-shadow: 0 0 0 2px rgba(198, 255, 0, 0.25);
+}
+
+/* ═══ Home: atalhos + links ═══ */
+#home-atalhos-wrap {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+}
+
+.home-section {
+  margin-bottom: 2rem;
+}
+
+.home-section-titulo {
+  color: var(--cor-primaria);
+  font-size: 1.1rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.home-card {
+  background: #1c1c1c;
+  border: 1px solid #2a2a2a;
+  border-radius: 12px;
+  padding: 1.25rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  cursor: pointer;
+  text-decoration: none;
+  color: #f0f0f0;
+  transition: all 0.2s ease;
+  min-height: 140px;
+  font-family: inherit;
+}
+
+.home-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--cor-primaria);
+  box-shadow: 0 4px 20px rgba(198, 255, 0, 0.15);
+  background: #222;
+}
+
+.home-card-icone {
+  font-size: 2.25rem;
+  line-height: 1;
+  margin-bottom: 0.5rem;
+}
+
+.home-card-titulo {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 0.25rem;
+}
+
+.home-card-desc {
+  font-size: 0.78rem;
+  color: #9a9a9a;
+  line-height: 1.3;
+}
+
+.home-card-acao .home-card-titulo {
+  color: var(--cor-primaria);
+}
+
+.home-card-link {
+  background: #161616;
+}
+
+.home-card-link:hover {
+  background: #1c1c1c;
+}
+
+@media (max-width: 480px) {
+  .home-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.6rem;
+  }
+  .home-card {
+    padding: 0.85rem 0.5rem;
+    min-height: 110px;
+  }
+  .home-card-icone {
+    font-size: 1.75rem;
+  }
+  .home-card-titulo {
+    font-size: 0.85rem;
+  }
+  .home-card-desc {
+    font-size: 0.7rem;
+  }
 }
