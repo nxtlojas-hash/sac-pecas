@@ -749,6 +749,19 @@ function doGet(e) {
           e.parameter.peca || ''
         ));
 
+      case 'listar_movimentacoes':
+        var filtros = {
+          dataDe: e.parameter.dataDe,
+          dataAte: e.parameter.dataAte,
+          tipo: e.parameter.tipo,
+          armazem: e.parameter.armazem,
+          modelo: e.parameter.modelo,
+          peca: e.parameter.peca,
+          operador: e.parameter.operador,
+          limite: e.parameter.limite
+        };
+        return jsonResponse(listarMovimentacoes(filtros));
+
       // --- Assistencias Tecnicas (cadastro) ---
       case 'listar_assistencias':
         return jsonResponse(listarAssistenciasCadastro());
@@ -876,6 +889,10 @@ function doPost(e) {
       // --- Atendimentos (NXT SAC Fase 1) ---
       case 'registrar_atendimento':
         return jsonResponse(registrarAtendimento(body));
+
+      // --- Movimentacoes de Estoque (Fase E1 NXT SAC) ---
+      case 'registrar_movimentacao':
+        return jsonResponse(registrarMovimentacao(body));
 
       default:
         return jsonResponse({ sucesso: false, erro: 'Acao POST desconhecida: ' + action });
