@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NXT SAC — Atendimento ao Cliente</title>
-  <link rel="stylesheet" href="style.css?v=2.5">
+  <link rel="stylesheet" href="style.css?v=2.6">
   <link rel="icon" href="logo-nxt.png" type="image/png">
 </head>
 <body>
@@ -28,6 +28,7 @@
     <button class="nav-tab" data-view="formulario">Registrar</button>
     <button class="nav-tab" data-view="orcamentos">Orcamentos <span class="badge" id="badge-orcamentos" style="display:none;">0</span></button>
     <button class="nav-tab" data-view="assistencia">&#128295; Assistencias</button>
+    <button class="nav-tab" data-view="estoque">&#128230; Estoque</button>
     <button class="nav-tab nav-tab-admin" data-view="admin" title="Gerenciar Pecas">&#9881; Admin</button>
   </nav>
 
@@ -42,6 +43,11 @@
     <!-- Atendimento View -->
     <section class="view" id="view-atendimento">
         <div id="atendimento-container"></div>
+    </section>
+
+    <!-- Estoque View -->
+    <section class="view" id="view-estoque">
+        <div id="estoque-container"></div>
     </section>
 
     <!-- Catalogo View -->
@@ -105,14 +111,15 @@
   <div class="toast" id="toast" style="display:none;"></div>
 
   <!-- Scripts -->
-  <script src="data.js?v=2.5"></script>
-  <script src="app.js?v=2.5"></script>
-  <script src="catalogo.js?v=2.5"></script>
-  <script src="formulario.js?v=2.5"></script>
-  <script src="orcamento.js?v=2.5"></script>
-  <script src="admin.js?v=2.5"></script>
-  <script src="assistencia.js?v=2.5"></script>
-  <script src="atendimento.js?v=2.5"></script>
+  <script src="data.js?v=2.6"></script>
+  <script src="app.js?v=2.6"></script>
+  <script src="catalogo.js?v=2.6"></script>
+  <script src="formulario.js?v=2.6"></script>
+  <script src="orcamento.js?v=2.6"></script>
+  <script src="admin.js?v=2.6"></script>
+  <script src="assistencia.js?v=2.6"></script>
+  <script src="atendimento.js?v=2.6"></script>
+  <script src="estoque.js?v=2.6"></script>
 
 </body>
 </html>
