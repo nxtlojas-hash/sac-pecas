@@ -1883,6 +1883,46 @@ function upsertAssistenciaCadastro(nome, endereco, telefone) {
 
 var SHEET_ATENDIMENTOS = 'Atendimentos';
 
+/**
+ * Executar UMA VEZ no editor do Apps Script.
+ * Cria a aba "Atendimentos" com os 16 cabecalhos.
+ * Idempotente: se a aba ja existir, nao quebra (so confere os cabecalhos).
+ */
+function setupAtendimentos() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_ATENDIMENTOS);
+  var headers = [
+    'id', 'dataAbertura', 'categoria', 'motivo', 'origem',
+    'nomeCliente', 'telefone', 'cpfCnpj', 'notaFiscal', 'modeloEquipamento',
+    'descricao', 'vendedor', 'status', 'dataFechamento', 'motivoFechamento',
+    'npsEnviado'
+  ];
+
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_ATENDIMENTOS);
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold').setBackground('#1a1a2e').setFontColor('#c6ff00');
+    sheet.setFrozenRows(1);
+    sheet.autoResizeColumns(1, headers.length);
+    Logger.log('Aba "Atendimentos" criada com ' + headers.length + ' colunas.');
+    return 'Aba "Atendimentos" criada com sucesso.';
+  }
+
+  // Aba ja existe — verificar cabecalhos
+  var rangeHeaders = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
+  var diff = [];
+  for (var i = 0; i < headers.length; i++) {
+    if (rangeHeaders[i] !== headers[i]) diff.push((i + 1) + ': "' + rangeHeaders[i] + '" != "' + headers[i] + '"');
+  }
+  if (diff.length === 0) {
+    Logger.log('Aba "Atendimentos" ja existe com cabecalhos corretos.');
+    return 'Aba ja existe e esta OK.';
+  } else {
+    Logger.log('Aba "Atendimentos" existe mas cabecalhos divergem:\n' + diff.join('\n'));
+    return 'Aba existe mas cabecalhos divergem. Veja Logger.';
+  }
+}
+
 function registrarAtendimento(payload) {
   try {
     var id = gerarProximoIdAtendimento();
