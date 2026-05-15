@@ -1,0 +1,19 @@
+# Claude Code / OMC
+.claude/
+.omc/
+
+# Logos (use logo-nxt.png na raiz)
+Logos/
+
+# PDFs avulsos de teste
+errado.pdf
+PEDIDO DE PEÇA*.pdf
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+*.tmp

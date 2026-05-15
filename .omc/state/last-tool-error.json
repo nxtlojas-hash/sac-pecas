@@ -1,7 +1,0 @@
-{
-  "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"ls C:\\\\Users\\\\claud\\\\.claude\\\\projects\\\\C--dev-NXT-ativos-sac-pecas\\\\memory\\\\\",\"description\":\"List existing memory files\"}",
-  "error": "Exit code 2\nls: cannot access 'C:Usersclaud.claudeprojectsC--dev-NXT-ativos-sac-pecasmemory\\': No such file or directory",
-  "timestamp": "2026-05-02T23:58:59.561Z",
-  "retry_count": 1
-}
