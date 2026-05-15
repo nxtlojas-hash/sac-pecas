@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.9 - App Core ===== */
+/* ===== NXT SAC V2.10 - App Core ===== */
 
 // --- Global State ---
 let currentView = 'home';
@@ -43,8 +43,12 @@ function navigateTo(view, params) {
 
   if (view === 'home') {
     renderHome();
-  } else if (view === 'catalogo' && params && params.model) {
-    openCatalogo(params.model);
+  } else if (view === 'catalogo') {
+    if (params && params.model) {
+      openCatalogo(params.model);
+    } else {
+      mostrarSeletorModelos();
+    }
   } else if (view === 'orcamentos') {
     if (typeof loadOrcamentos === 'function') loadOrcamentos();
   } else if (view === 'admin') {
@@ -63,10 +67,8 @@ document.getElementById('nav-tabs').addEventListener('click', function(e) {
   const tab = e.target.closest('.nav-tab');
   if (!tab) return;
   const view = tab.dataset.view;
-  if (view === 'catalogo' && !currentModel) {
-    navigateTo('home');
-    return;
-  }
+  // Sempre reseta o estado do catalogo ao clicar na aba (mostra seletor)
+  if (view === 'catalogo') currentModel = null;
   navigateTo(view);
 });
 

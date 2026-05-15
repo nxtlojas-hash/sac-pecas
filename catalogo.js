@@ -1,12 +1,55 @@
-/* ===== NXT SAC V2.8 - Catalogo ===== */
+/* ===== NXT SAC V2.10 - Catalogo ===== */
 
 let catalogoPecas = [];
 let catalogoModelId = null;
 let isRevenda = false;
 let estoqueCache = {}; // Cache de estoque por modelo
 
+// --- Mostra grid de modelos pra escolher (quando entra em Catalogo sem modelo selecionado) ---
+function mostrarSeletorModelos() {
+  catalogoModelId = null;
+
+  // Esconde os controles de filtro/busca (só fazem sentido com modelo aberto)
+  var header = document.querySelector('#view-catalogo .catalogo-header');
+  if (header) header.style.display = 'none';
+  var stats = document.getElementById('catalogo-stats');
+  if (stats) stats.style.display = 'none';
+
+  var grid = document.getElementById('grid-pecas');
+  if (!grid) return;
+  grid.innerHTML = '';
+  grid.className = 'grid-modelos';
+
+  Object.keys(CATALOGO_MODELOS).forEach(function(modelId) {
+    var model = CATALOGO_MODELOS[modelId];
+    var count = model.pecas.length;
+    var icon = (typeof MODEL_ICONS !== 'undefined' && MODEL_ICONS[modelId]) ? MODEL_ICONS[modelId] : '🛠️';
+    var card = document.createElement('div');
+    card.className = 'modelo-card';
+    card.innerHTML =
+      '<div class="modelo-img"><img src="img/modelos/' + modelId + '.png" alt="' + model.nome + '" onerror="this.style.display=\'none\';this.parentElement.innerHTML=\'<span class=modelo-icon-fallback>' + icon + '</span>\';"></div>' +
+      '<div class="modelo-nome">' + model.nome + '</div>' +
+      '<div class="modelo-count">' + count + ' pecas</div>';
+
+    card.addEventListener('click', function() {
+      currentModel = modelId;
+      navigateTo('catalogo', { model: modelId });
+    });
+
+    grid.appendChild(card);
+  });
+}
+
 // --- Open catalog for a model ---
 function openCatalogo(modelId) {
+  // Restaura os controles que estavam ocultos no seletor
+  var header = document.querySelector('#view-catalogo .catalogo-header');
+  if (header) header.style.display = '';
+  var stats = document.getElementById('catalogo-stats');
+  if (stats) stats.style.display = '';
+  var grid = document.getElementById('grid-pecas');
+  if (grid) grid.className = 'grid-pecas';
+
   catalogoModelId = modelId;
   var model = CATALOGO_MODELOS[modelId];
   if (!model) return;
