@@ -217,8 +217,64 @@
   }
 
   function registrarMov() {
-    // Placeholder - implementado na Task E2.5
-    console.log('registrarMov ainda nao implementado');
+    if (submetendo) return;
+
+    var dados = {
+      tipo: document.getElementById('estTipo').value,
+      armazem: document.getElementById('estArmazem').value,
+      modelo: document.getElementById('estModelo').selectedOptions[0] ? document.getElementById('estModelo').selectedOptions[0].textContent : '',
+      peca: document.getElementById('estPeca').value.trim(),
+      quantidade: parseInt(document.getElementById('estQtd').value),
+      origem: document.getElementById('estOrigem').value.trim(),
+      operador: document.getElementById('estOperador').value.trim(),
+      observacoes: document.getElementById('estObs').value.trim()
+    };
+
+    if (!dados.tipo) return mostrarFeedback('Selecione o tipo', 'erro');
+    if (!dados.armazem) return mostrarFeedback('Selecione o armazem', 'erro');
+    if (!dados.modelo) return mostrarFeedback('Selecione o modelo', 'erro');
+    if (!dados.peca) return mostrarFeedback('Informe a peca', 'erro');
+    if (isNaN(dados.quantidade) || dados.quantidade === 0) return mostrarFeedback('Quantidade invalida', 'erro');
+    if (dados.tipo !== 'Ajuste' && dados.quantidade < 0) return mostrarFeedback('Quantidade deve ser positiva (use Ajuste para reduzir saldo)', 'erro');
+    if (!dados.origem) return mostrarFeedback('Informe a origem', 'erro');
+    if (!dados.operador) return mostrarFeedback('Informe o operador', 'erro');
+
+    submetendo = true;
+    var btn = document.getElementById('btnRegistrarEst');
+    btn.disabled = true;
+    btn.textContent = 'Enviando...';
+    mostrarFeedback('Registrando movimentacao...', 'info');
+
+    var payload = Object.assign({ action: 'registrar_movimentacao' }, dados);
+
+    fetch(resolverUrl(), {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(resp) {
+        if (resp && resp.sucesso) {
+          saveOperador(dados.operador);
+          mostrarSucessoMov(resp, dados);
+        } else {
+          mostrarFeedback('Erro: ' + (resp && resp.erro ? resp.erro : 'resposta invalida'), 'erro');
+        }
+      })
+      .catch(function(err) {
+        mostrarFeedback('Erro de rede: ' + err.message, 'erro');
+      })
+      .finally(function() {
+        submetendo = false;
+        btn.disabled = false;
+        btn.innerHTML = 'Registrar &#10148;';
+      });
+  }
+
+  function mostrarSucessoMov(resp, dados) {
+    var saldoTxt = (typeof resp.saldoAtual === 'number') ? ' Saldo atual em ' + resp.armazem + ': ' + resp.saldoAtual + ' un.' : '';
+    mostrarFeedback('OK ' + resp.id + ' - ' + dados.tipo + ' ' + Math.abs(dados.quantidade) + ' un de ' + dados.peca + '.' + saldoTxt, 'sucesso');
+    limparForm();
   }
 
   function mostrarFeedback(msg, tipo) {
