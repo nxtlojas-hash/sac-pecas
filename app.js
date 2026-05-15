@@ -53,6 +53,8 @@ function navigateTo(view, params) {
     if (typeof initAssistencia === 'function') initAssistencia();
   } else if (view === 'atendimento') {
     if (typeof initAtendimento === 'function') initAtendimento();
+  } else if (view === 'estoque') {
+    if (typeof window.initEstoque === 'function') window.initEstoque();
   }
 }
 
