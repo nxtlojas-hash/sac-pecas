@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.6 - Atendimento (Fase 1) ===== */
+/* ===== NXT SAC V2.7 - Atendimento (Fase 1) ===== */
 
 (function() {
   var SCRIPT_URL = null;
