@@ -1,4 +1,4 @@
-/* ===== NXT PECAS V2.1 - App Core ===== */
+/* ===== NXT SAC V2.5 - App Core ===== */
 
 // --- Global State ---
 let currentView = 'home';

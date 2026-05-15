@@ -1,4 +1,4 @@
-/* ===== NXT PECAS V2.4 - Formulário Assistência Técnica + Modal Pós-OS ===== */
+/* ===== NXT SAC V2.5 - Formulário Assistência Técnica + Modal Pós-OS ===== */
 
 (function(){
   // Reaproveita a URL definida em formulario.js (mesmo endpoint do backend)

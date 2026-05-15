@@ -1,4 +1,4 @@
-/* ===== NXT PECAS V2 - Catalogo ===== */
+/* ===== NXT SAC V2.5 - Catalogo ===== */
 
 let catalogoPecas = [];
 let catalogoModelId = null;
