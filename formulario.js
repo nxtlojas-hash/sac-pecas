@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.7 - Formulario de Registro ===== */
+/* ===== NXT SAC V2.8 - Formulario de Registro ===== */
 
 const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbytZgFvvhTvYRgufyvFTGbMb27sxHnIQp256XQ6r7VZuX2B0RTdO3MIpbf4EcF8KgnYlw/exec';
 
