@@ -27,7 +27,7 @@
       '<div class="tabs-internas" style="display:flex;gap:0.5rem;margin-bottom:1rem;border-bottom:1px solid #2a2a2a;">' +
         '<button class="tab-interna active" data-subtab="movimentar" style="background:none;border:none;color:var(--cor-primaria);padding:0.5rem 1rem;border-bottom:2px solid var(--cor-primaria);cursor:pointer;font-weight:600;">Movimentar</button>' +
         '<button class="tab-interna" data-subtab="inventario" style="background:none;border:none;color:#9a9a9a;padding:0.5rem 1rem;cursor:pointer;font-weight:600;">Invent&aacute;rio</button>' +
-        '<button class="tab-interna" data-subtab="saldo" disabled style="background:none;border:none;color:#5a5a5a;padding:0.5rem 1rem;cursor:not-allowed;">Saldo (em breve)</button>' +
+        '<button class="tab-interna" data-subtab="saldo" style="background:none;border:none;color:#9a9a9a;padding:0.5rem 1rem;cursor:pointer;font-weight:600;">Saldo</button>' +
       '</div>' +
       '<div id="subtab-content"></div>';
   }
@@ -59,6 +59,9 @@
     } else if (name === 'inventario') {
       container.innerHTML = buildInventarioHTML();
       setupInventario();
+    } else if (name === 'saldo') {
+      container.innerHTML = buildSaldoHTML();
+      setupSaldo();
     }
   }
 
@@ -576,6 +579,162 @@
   function escapeHtmlEst(s) {
     if (s == null) return '';
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ============================================================
+  // SUB-TAB SALDO (Fase E5)
+  // ============================================================
+
+  var saldosCache = []; // [{ modelo, peca, sumare, jaragua, ultimaAtualizacao }]
+
+  function buildSaldoHTML() {
+    return '' +
+      '<div class="secao-form">' +
+        '<div class="secao-form-titulo">Saldo Atual</div>' +
+        '<div class="form-row" style="align-items:flex-end;">' +
+          '<div class="form-group">' +
+            '<label for="saldoModelo">Filtrar por modelo</label>' +
+            '<select id="saldoModelo">' +
+              '<option value="">Todos</option>' +
+            '</select>' +
+          '</div>' +
+          '<div class="form-group" style="flex:2 1 200px;">' +
+            '<label for="saldoBusca">Buscar pe&ccedil;a</label>' +
+            '<input type="text" id="saldoBusca" placeholder="Digite para filtrar...">' +
+          '</div>' +
+          '<div class="form-group" style="flex:0 0 auto;">' +
+            '<label for="saldoFiltroStatus">Status</label>' +
+            '<select id="saldoFiltroStatus">' +
+              '<option value="todos">Todos</option>' +
+              '<option value="comSaldo">S&oacute; com saldo</option>' +
+              '<option value="zerados">S&oacute; zerados</option>' +
+              '<option value="negativos">S&oacute; negativos</option>' +
+            '</select>' +
+          '</div>' +
+          '<div class="form-group" style="flex:0 0 auto;">' +
+            '<button type="button" class="btn-secundario" id="btnRefreshSaldo">&#x21bb; Atualizar</button>' +
+          '</div>' +
+        '</div>' +
+        '<div id="saldoResumo" style="padding:0.5rem 1rem;color:#9a9a9a;font-size:0.85rem;"></div>' +
+        '<div id="saldoLista" style="max-height:65vh;overflow-y:auto;"></div>' +
+      '</div>' +
+      '<div id="saldoFeedback" style="margin-top:1rem;"></div>';
+  }
+
+  function setupSaldo() {
+    // Popular dropdown de modelos
+    var modeloSel = document.getElementById('saldoModelo');
+    if (modeloSel && typeof CATALOGO_MODELOS !== 'undefined') {
+      Object.keys(CATALOGO_MODELOS).forEach(function(id) {
+        var opt = document.createElement('option');
+        opt.value = CATALOGO_MODELOS[id].nome;
+        opt.textContent = CATALOGO_MODELOS[id].nome;
+        modeloSel.appendChild(opt);
+      });
+    }
+
+    document.getElementById('btnRefreshSaldo').addEventListener('click', carregarSaldos);
+    document.getElementById('saldoModelo').addEventListener('change', filtrarSaldos);
+    document.getElementById('saldoBusca').addEventListener('input', filtrarSaldos);
+    document.getElementById('saldoFiltroStatus').addEventListener('change', filtrarSaldos);
+
+    carregarSaldos();
+  }
+
+  function carregarSaldos() {
+    mostrarFeedbackSaldo('Carregando saldos...', 'info');
+    var url = resolverUrl() + '?action=listar_estoque';
+    fetch(url)
+      .then(function(r) { return r.json(); })
+      .then(function(resp) {
+        if (!resp || !resp.sucesso) {
+          return mostrarFeedbackSaldo('Erro carregando estoque', 'erro');
+        }
+        saldosCache = resp.estoque || [];
+        filtrarSaldos();
+        mostrarFeedbackSaldo('', '');
+      })
+      .catch(function(err) {
+        mostrarFeedbackSaldo('Erro de rede: ' + err.message, 'erro');
+      });
+  }
+
+  function filtrarSaldos() {
+    var modeloFiltro = (document.getElementById('saldoModelo').value || '').toLowerCase();
+    var busca = (document.getElementById('saldoBusca').value || '').toLowerCase().trim();
+    var status = document.getElementById('saldoFiltroStatus').value;
+
+    var filtrados = saldosCache.filter(function(it) {
+      var total = (parseInt(it.sumare) || 0) + (parseInt(it.jaragua) || 0);
+      if (modeloFiltro && String(it.modelo).toLowerCase() !== modeloFiltro) return false;
+      if (busca && String(it.peca).toLowerCase().indexOf(busca) === -1) return false;
+      if (status === 'comSaldo' && total === 0) return false;
+      if (status === 'zerados' && total !== 0) return false;
+      if (status === 'negativos') {
+        if ((parseInt(it.sumare) || 0) >= 0 && (parseInt(it.jaragua) || 0) >= 0) return false;
+      }
+      return true;
+    });
+
+    renderSaldos(filtrados);
+  }
+
+  function renderSaldos(lista) {
+    var div = document.getElementById('saldoLista');
+    var resumo = document.getElementById('saldoResumo');
+    if (!div) return;
+
+    if (lista.length === 0) {
+      div.innerHTML = '<div style="padding:2rem;text-align:center;color:#9a9a9a;">Nenhuma pe&ccedil;a encontrada com esses filtros.</div>';
+      if (resumo) resumo.textContent = '0 pe&ccedil;as';
+      return;
+    }
+
+    var totalSumare = 0, totalJaragua = 0;
+    lista.forEach(function(it) {
+      totalSumare += parseInt(it.sumare) || 0;
+      totalJaragua += parseInt(it.jaragua) || 0;
+    });
+
+    if (resumo) {
+      resumo.innerHTML = lista.length + ' pe&ccedil;as | Sumar&eacute;: <strong>' + totalSumare + '</strong> | Jaragu&aacute;: <strong>' + totalJaragua + '</strong> | Total: <strong>' + (totalSumare + totalJaragua) + '</strong>';
+    }
+
+    var html = '<table style="width:100%;border-collapse:collapse;">' +
+      '<thead style="position:sticky;top:0;background:#1c1c1c;z-index:1;">' +
+      '<tr style="border-bottom:1px solid #2a2a2a;">' +
+        '<th style="padding:0.5rem;text-align:left;font-size:0.75rem;color:#9a9a9a;text-transform:uppercase;">Modelo</th>' +
+        '<th style="padding:0.5rem;text-align:left;font-size:0.75rem;color:#9a9a9a;text-transform:uppercase;">Pe&ccedil;a</th>' +
+        '<th style="padding:0.5rem;text-align:center;font-size:0.75rem;color:#9a9a9a;text-transform:uppercase;">Sumar&eacute;</th>' +
+        '<th style="padding:0.5rem;text-align:center;font-size:0.75rem;color:#9a9a9a;text-transform:uppercase;">Jaragu&aacute;</th>' +
+        '<th style="padding:0.5rem;text-align:center;font-size:0.75rem;color:#9a9a9a;text-transform:uppercase;">Total</th>' +
+      '</tr>' +
+      '</thead><tbody>';
+
+    lista.forEach(function(it) {
+      var sumare = parseInt(it.sumare) || 0;
+      var jaragua = parseInt(it.jaragua) || 0;
+      var total = sumare + jaragua;
+      var corS = sumare < 0 ? '#ef4444' : (sumare === 0 ? '#5a5a5a' : '#fff');
+      var corJ = jaragua < 0 ? '#ef4444' : (jaragua === 0 ? '#5a5a5a' : '#fff');
+      html += '<tr style="border-bottom:1px solid #222;">' +
+        '<td style="padding:0.5rem;font-size:0.85rem;">' + escapeHtmlEst(it.modelo) + '</td>' +
+        '<td style="padding:0.5rem;font-size:0.85rem;">' + escapeHtmlEst(it.peca) + '</td>' +
+        '<td style="padding:0.5rem;text-align:center;color:' + corS + ';font-weight:600;">' + sumare + '</td>' +
+        '<td style="padding:0.5rem;text-align:center;color:' + corJ + ';font-weight:600;">' + jaragua + '</td>' +
+        '<td style="padding:0.5rem;text-align:center;color:' + (total < 0 ? '#ef4444' : 'var(--cor-primaria)') + ';font-weight:700;">' + total + '</td>' +
+      '</tr>';
+    });
+    html += '</tbody></table>';
+    div.innerHTML = html;
+  }
+
+  function mostrarFeedbackSaldo(msg, tipo) {
+    var el = document.getElementById('saldoFeedback');
+    if (!el) return;
+    if (!msg) { el.innerHTML = ''; return; }
+    var bg = tipo === 'erro' ? '#ef4444' : tipo === 'sucesso' ? '#22c55e' : '#3b82f6';
+    el.innerHTML = '<div style="background:' + bg + ';color:#fff;padding:0.75rem 1rem;border-radius:6px;text-align:center;font-weight:600;">' + msg + '</div>';
   }
 
 })();
