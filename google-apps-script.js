@@ -1987,3 +1987,52 @@ function gerarProximoIdAtendimento() {
     lock.releaseLock();
   }
 }
+
+// ============================================================
+// MOVIMENTACOES DE ESTOQUE (Fase E1 NXT SAC)
+// ============================================================
+
+var SHEET_MOVIMENTACOES = 'MovimentacoesEstoque';
+
+/**
+ * Executar UMA VEZ no editor do Apps Script.
+ * Cria a aba "MovimentacoesEstoque" com os 11 cabecalhos.
+ * Idempotente: se a aba ja existir, verifica os cabecalhos.
+ */
+function setupMovimentacoesEstoque() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_MOVIMENTACOES);
+  var headers = [
+    'id', 'dataHora', 'tipo', 'armazem',
+    'modelo', 'peca', 'quantidade',
+    'origem', 'operador', 'observacoes', 'docVinculado'
+  ];
+
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_MOVIMENTACOES);
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sheet.getRange(1, 1, 1, headers.length)
+         .setFontWeight('bold')
+         .setBackground('#1a1a2e')
+         .setFontColor('#c6ff00');
+    sheet.setFrozenRows(1);
+    sheet.autoResizeColumns(1, headers.length);
+    Logger.log('Aba "MovimentacoesEstoque" criada com ' + headers.length + ' colunas.');
+    return 'Aba "MovimentacoesEstoque" criada com sucesso.';
+  }
+
+  var rangeHeaders = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
+  var diff = [];
+  for (var i = 0; i < headers.length; i++) {
+    if (rangeHeaders[i] !== headers[i]) {
+      diff.push((i + 1) + ': "' + rangeHeaders[i] + '" != "' + headers[i] + '"');
+    }
+  }
+  if (diff.length === 0) {
+    Logger.log('Aba "MovimentacoesEstoque" ja existe e esta OK.');
+    return 'Aba ja existe e esta OK.';
+  } else {
+    Logger.log('Aba "MovimentacoesEstoque" tem cabecalhos divergentes:\n' + diff.join('\n'));
+    return 'Aba existe mas cabecalhos divergem. Veja Logger.';
+  }
+}
