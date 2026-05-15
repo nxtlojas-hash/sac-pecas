@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.13 - App Core ===== */
+/* ===== NXT SAC V2.14 - App Core ===== */
 
 // --- Global State ---
 let currentView = 'home';
@@ -55,12 +55,28 @@ function navigateTo(view, params) {
     if (typeof initAdmin === 'function') initAdmin();
   } else if (view === 'assistencia') {
     if (typeof initAssistencia === 'function') initAssistencia();
+    // Apos init, aplica preFill se foi setado por outro fluxo (atendimento)
+    if (window.__preFillForm) {
+      var preFillOs = window.__preFillForm;
+      window.__preFillForm = null;
+      setTimeout(function() {
+        if (typeof aplicarPreFillOS === 'function') aplicarPreFillOS(preFillOs);
+      }, 150);
+    }
   } else if (view === 'atendimento') {
     if (typeof initAtendimento === 'function') initAtendimento();
   } else if (view === 'estoque') {
     if (typeof window.initEstoque === 'function') window.initEstoque();
   } else if (view === 'clientes') {
     if (typeof window.initClientes === 'function') window.initClientes();
+  } else if (view === 'formulario') {
+    if (window.__preFillForm) {
+      var preFillVenda = window.__preFillForm;
+      window.__preFillForm = null;
+      setTimeout(function() {
+        if (typeof aplicarPreFillVenda === 'function') aplicarPreFillVenda(preFillVenda);
+      }, 150);
+    }
   }
 }
 

@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.13 - Formulario de Registro ===== */
+/* ===== NXT SAC V2.14 - Formulario de Registro ===== */
 
 const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbytZgFvvhTvYRgufyvFTGbMb27sxHnIQp256XQ6r7VZuX2B0RTdO3MIpbf4EcF8KgnYlw/exec';
 
@@ -1115,6 +1115,7 @@ function enviarParaGoogle(venda) {
   var payload = {
     action: 'registrar_venda',
     id: venda.id,
+    atendimentoId: (typeof atendimentoVinculadoAtual !== 'undefined' ? atendimentoVinculadoAtual : ''),
     tipoAtendimento: venda.tipoAtendimento,
     origemSac: venda.origemSac,
     protocoloSac: venda.protocoloSac,
@@ -1763,6 +1764,53 @@ function addPartToForm(peca, modelId) {
   }, 100);
 }
 
+// Atendimento vinculado (setado por aplicarPreFillVenda quando wizard atendimento -> form)
+var atendimentoVinculadoAtual = '';
+
+// --- Aplica pre-fill quando wizard de atendimento navega pra ca ---
+function aplicarPreFillVenda(preFill) {
+  if (!preFill || !preFill.cliente) return;
+  var c = preFill.cliente;
+  atendimentoVinculadoAtual = preFill.atendimentoId || '';
+
+  // Preenche campos do cliente
+  setIf('nomeCliente', c.nome);
+  setIf('telefoneCliente', c.telefone);
+  setIf('cpfCnpjCliente', c.cpfCnpj);
+
+  // Mostra banner do vinculo
+  var existente = document.getElementById('bannerAtendimentoVinculado');
+  if (existente) existente.remove();
+  if (atendimentoVinculadoAtual) {
+    var banner = document.createElement('div');
+    banner.id = 'bannerAtendimentoVinculado';
+    banner.style.cssText = 'background:#c6ff0022;border-left:3px solid #c6ff00;padding:0.75rem 1rem;margin-bottom:1rem;border-radius:6px;color:#e8e8f0;font-size:0.9rem;';
+    var modoTxt = preFill.modo === 'orcamento' ? 'or&ccedil;amento' : (preFill.modo === 'venda' ? 'venda' : 'documento');
+    banner.innerHTML = '<strong style="color:#c6ff00;">&#128279; Vinculado ao atendimento ' + atendimentoVinculadoAtual + '</strong><br>' +
+      '<span style="color:#9a9a9a;">Cliente j&aacute; preenchido. Adicione pe&ccedil;as e registre o ' + modoTxt + ' — ser&aacute; vinculado automaticamente.</span>';
+    var formContainer = document.getElementById('formulario-container');
+    if (formContainer) formContainer.insertBefore(banner, formContainer.firstChild);
+  }
+
+  // Scroll ao topo
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  // Se o modo for orcamento, sinaliza pra o usuario clicar em Salvar como Orcamento
+  if (preFill.modo === 'orcamento') {
+    var btnOrc = document.getElementById('btnSalvarOrcamento');
+    if (btnOrc) {
+      btnOrc.style.boxShadow = '0 0 0 3px #f59e0b';
+      setTimeout(function() { btnOrc.style.boxShadow = ''; }, 3000);
+    }
+  }
+}
+
+function setIf(id, val) {
+  if (!val) return;
+  var el = document.getElementById(id);
+  if (el) { el.value = val; el.dispatchEvent(new Event('input', { bubbles: true })); }
+}
+
 // --- Salvar form de venda como Orcamento (nao baixa estoque) ---
 function salvarComoOrcamento() {
   if (envioEmAndamento) return;
@@ -1813,6 +1861,7 @@ function salvarComoOrcamento() {
 
   var orcamento = {
     action: 'salvar_orcamento',
+    atendimentoId: (typeof atendimentoVinculadoAtual !== 'undefined' ? atendimentoVinculadoAtual : ''),
     numero: numero,
     data: hoje.toISOString().split('T')[0],
     dataValidade: dataValidade.toISOString().split('T')[0],

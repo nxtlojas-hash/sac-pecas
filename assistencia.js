@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.13 - Formulário Assistência Técnica + Modal Pós-OS ===== */
+/* ===== NXT SAC V2.14 - Formulário Assistência Técnica + Modal Pós-OS ===== */
 
 (function(){
   // Reaproveita a URL definida em formulario.js (mesmo endpoint do backend)
@@ -47,6 +47,9 @@
   var submetendo = false;
   // Cache local dos dados das assistências: { "nome": { endereco, telefone } }
   var cadastroAssistencias = {};
+
+  // Atendimento vinculado (setado por aplicarPreFillOS quando wizard atendimento -> OS)
+  var atendimentoVinculadoOS = '';
 
   window.initAssistencia = function() {
     var container = document.getElementById('assistencia-container');
@@ -390,7 +393,7 @@
     btn.textContent = 'Enviando...';
     mostrarFeedbackOS('Abrindo OS...', 'info');
 
-    var payload = Object.assign({ action: 'registrar_os' }, dados);
+    var payload = Object.assign({ action: 'registrar_os', atendimentoId: atendimentoVinculadoOS || '' }, dados);
 
     fetch(resolverUrl(), {
       method: 'POST',
@@ -684,6 +687,52 @@
   function escapeHtml(s) {
     if (s == null) return '';
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // --- Aplica pre-fill quando wizard de atendimento navega pra ca ---
+  window.aplicarPreFillOS = function(preFill) {
+    if (!preFill || !preFill.cliente) return;
+    var c = preFill.cliente;
+    atendimentoVinculadoOS = preFill.atendimentoId || '';
+
+    // Preenche campos do cliente
+    setIfOS('osNomeCliente', c.nome);
+    setIfOS('osTelefoneCliente', c.telefone);
+    setIfOS('osCpfCliente', c.cpfCnpj);
+    setIfOS('osNotaFiscal', c.notaFiscal);
+    if (c.modelo) {
+      var sel = document.getElementById('osModelo');
+      if (sel) {
+        for (var i = 0; i < sel.options.length; i++) {
+          if (sel.options[i].value === c.modelo || sel.options[i].textContent === c.modelo) {
+            sel.selectedIndex = i;
+            sel.dispatchEvent(new Event('change', { bubbles: true }));
+            break;
+          }
+        }
+      }
+    }
+
+    // Banner do vinculo
+    var existente = document.getElementById('bannerAtVinculadoOS');
+    if (existente) existente.remove();
+    if (atendimentoVinculadoOS) {
+      var banner = document.createElement('div');
+      banner.id = 'bannerAtVinculadoOS';
+      banner.style.cssText = 'background:#c6ff0022;border-left:3px solid #c6ff00;padding:0.75rem 1rem;margin-bottom:1rem;border-radius:6px;color:#e8e8f0;font-size:0.9rem;';
+      banner.innerHTML = '<strong style="color:#c6ff00;">&#128279; Vinculado ao atendimento ' + atendimentoVinculadoOS + '</strong><br>' +
+        '<span style="color:#9a9a9a;">Cliente j&aacute; preenchido. Complete os dados da OS — ser&aacute; vinculada automaticamente.</span>';
+      var container = document.getElementById('assistencia-container');
+      if (container) container.insertBefore(banner, container.firstChild);
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  function setIfOS(id, val) {
+    if (!val) return;
+    var el = document.getElementById(id);
+    if (el) { el.value = val; el.dispatchEvent(new Event('input', { bubbles: true })); }
   }
 
   // ============================================================

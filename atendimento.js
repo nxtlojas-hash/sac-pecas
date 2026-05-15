@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.13 - Atendimento (Wizard Fase 2c-2f) ===== */
+/* ===== NXT SAC V2.14 - Atendimento (Wizard Fase 2c-2f) ===== */
 
 (function() {
   var SCRIPT_URL = null;
@@ -599,18 +599,53 @@
     var msgWa = 'Ola ' + primeiroNome + '!\n\nSeu atendimento foi aberto na NXT.\n\n*Protocolo:* ' + idAtendimento + '\n*Categoria:* ' + dados.motivo.categoria + '\n*Motivo:* ' + dados.motivo.motivo + '\n\nEm breve retornaremos.\n\n_NXT SAC_';
     var canWa = telDigits.length >= 10;
 
+    // Botoes condicionais por acao marcada
+    var btnsAcao = '';
+    if (dados.acoes.indexOf('venda') !== -1) {
+      btnsAcao += '<button type="button" class="btn-primario" id="atBtnVenda" style="background:#22c55e;color:#fff;">🛒 Criar venda vinculada</button>';
+    }
+    if (dados.acoes.indexOf('orcamento') !== -1) {
+      btnsAcao += '<button type="button" class="btn-primario" id="atBtnOrcamento" style="background:#f59e0b;color:#fff;">📄 Criar or&ccedil;amento vinculado</button>';
+    }
+    if (dados.acoes.indexOf('os') !== -1) {
+      btnsAcao += '<button type="button" class="btn-primario" id="atBtnOS" style="background:#3b82f6;color:#fff;">🔧 Abrir OS vinculada</button>';
+    }
+
     container.innerHTML =
-      '<div style="text-align:center;padding:3rem 1rem;">' +
-        '<div style="font-size:4rem;">&#x2705;</div>' +
-        '<h2 style="color:var(--cor-primaria);margin:1rem 0;">Atendimento aberto!</h2>' +
-        '<div style="font-size:2rem;font-weight:900;color:#fff;letter-spacing:2px;margin:1rem 0;">' + escapeHtmlAt(idAtendimento) + '</div>' +
+      '<div style="text-align:center;padding:2rem 1rem;">' +
+        '<div style="font-size:3.5rem;">&#x2705;</div>' +
+        '<h2 style="color:var(--cor-primaria);margin:0.75rem 0;">Atendimento aberto!</h2>' +
+        '<div style="font-size:2rem;font-weight:900;color:#fff;letter-spacing:2px;margin:0.75rem 0;">' + escapeHtmlAt(idAtendimento) + '</div>' +
         '<p style="color:#9a9a9a;">' + escapeHtmlAt(c.nome) + ' &bull; ' + formatarTel(telDigits) + '</p>' +
-        '<div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;margin-top:2rem;">' +
-          '<button type="button" class="btn-secundario" id="atBtnCopiar">&#128203; Copiar protocolo</button>' +
-          (canWa ? '<button type="button" id="atBtnWa" style="padding:0.6rem 1.5rem;background:#25d366;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;">&#128241; WhatsApp</button>' : '') +
-          '<button type="button" class="btn-primario" id="atBtnNovo">Novo atendimento</button>' +
+
+        (btnsAcao ? '<div style="margin-top:2rem;">' +
+          '<div style="color:#9a9a9a;font-size:0.85rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:0.75rem;">A&ccedil;&otilde;es vinculadas</div>' +
+          '<div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;">' + btnsAcao + '</div>' +
+        '</div>' : '') +
+
+        '<div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid #2a2a2a;">' +
+          '<div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;">' +
+            '<button type="button" class="btn-secundario" id="atBtnCopiar">&#128203; Copiar protocolo</button>' +
+            (canWa ? '<button type="button" id="atBtnWa" style="padding:0.6rem 1.5rem;background:#25d366;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;">&#128241; WhatsApp</button>' : '') +
+            '<button type="button" class="btn-secundario" id="atBtnNovo">Novo atendimento</button>' +
+          '</div>' +
         '</div>' +
       '</div>';
+
+    function preFill(viewAlvo, modo) {
+      window.__preFillForm = {
+        cliente: {
+          nome: c.nome,
+          telefone: c.telefone,
+          cpfCnpj: c.cpfCnpj,
+          notaFiscal: c.notaFiscal,
+          modelo: c.modelo
+        },
+        atendimentoId: idAtendimento,
+        modo: modo || null
+      };
+      navigateTo(viewAlvo);
+    }
 
     document.getElementById('atBtnCopiar').addEventListener('click', function() {
       navigator.clipboard.writeText(idAtendimento).then(function() {
@@ -625,6 +660,14 @@
     document.getElementById('atBtnNovo').addEventListener('click', function() {
       window.initAtendimento();
     });
+
+    // Listeners das acoes vinculadas
+    var btnV = document.getElementById('atBtnVenda');
+    if (btnV) btnV.addEventListener('click', function() { preFill('formulario', 'venda'); });
+    var btnO = document.getElementById('atBtnOrcamento');
+    if (btnO) btnO.addEventListener('click', function() { preFill('formulario', 'orcamento'); });
+    var btnOS = document.getElementById('atBtnOS');
+    if (btnOS) btnOS.addEventListener('click', function() { preFill('assistencia', null); });
   }
 
   // ============================================================
