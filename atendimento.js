@@ -106,8 +106,72 @@
       '</form>';
   }
 
+  var MOTIVOS_POR_CATEGORIA = {
+    'Pos-venda': ['Garantia', 'Assistencia tecnica', 'Pecas / reposicao', 'Duvida sobre uso', 'Reclamacao'],
+    'Pre-venda': ['Interesse em compra', 'Cotacao', 'Duvida sobre modelo', 'Agendar visita / test-ride'],
+    'Outro':     ['Reclamacao geral', 'Sugestao', 'Elogio', 'Outro']
+  };
+
   function setupListeners() {
-    // Placeholder — listeners reais nas proximas tasks
+    var tel = document.getElementById('atTelefone');
+    if (tel && typeof aplicarMascaraTelefone === 'function') aplicarMascaraTelefone(tel);
+
+    var cpf = document.getElementById('atCpf');
+    if (cpf && typeof aplicarMascaraCPF === 'function') aplicarMascaraCPF(cpf);
+
+    var cat = document.getElementById('atCategoria');
+    if (cat) {
+      cat.addEventListener('change', function() {
+        popularMotivos(cat.value);
+        toggleNF(cat.value);
+      });
+    }
+
+    document.getElementById('btnLimparAt').addEventListener('click', limparForm);
+    document.getElementById('btnAbrirAt').addEventListener('click', abrirAtendimento);
+  }
+
+  function popularMotivos(categoria) {
+    var sel = document.getElementById('atMotivo');
+    sel.innerHTML = '';
+    if (!categoria || !MOTIVOS_POR_CATEGORIA[categoria]) {
+      sel.disabled = true;
+      sel.innerHTML = '<option value="">Selecione a categoria primeiro</option>';
+      return;
+    }
+    sel.disabled = false;
+    sel.innerHTML = '<option value="">Selecione...</option>';
+    MOTIVOS_POR_CATEGORIA[categoria].forEach(function(m) {
+      var opt = document.createElement('option');
+      opt.value = m;
+      opt.textContent = m;
+      sel.appendChild(opt);
+    });
+  }
+
+  function toggleNF(categoria) {
+    var row = document.getElementById('atNfRow');
+    var input = document.getElementById('atNotaFiscal');
+    if (categoria === 'Pos-venda') {
+      row.style.display = '';
+      input.required = true;
+    } else {
+      row.style.display = 'none';
+      input.required = false;
+      input.value = '';
+    }
+  }
+
+  function limparForm() {
+    document.getElementById('atForm').reset();
+    toggleNF('');
+    popularMotivos('');
+    var fb = document.getElementById('atFeedback');
+    if (fb) fb.innerHTML = '';
+  }
+
+  function abrirAtendimento() {
+    console.log('abrirAtendimento ainda nao implementado');
   }
 
 })();
