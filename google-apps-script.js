@@ -774,6 +774,13 @@ function doGet(e) {
         };
         return jsonResponse(listarAtendimentos(filtrosAt));
 
+      case 'buscar_cliente_consolidado':
+        return jsonResponse(buscarClienteConsolidado({
+          cpf: e.parameter.cpf,
+          telefone: e.parameter.telefone,
+          nome: e.parameter.nome
+        }));
+
       // --- Assistencias Tecnicas (cadastro) ---
       case 'listar_assistencias':
         return jsonResponse(listarAssistenciasCadastro());
@@ -2551,4 +2558,172 @@ function listarAtendimentos(filtros) {
   if (resultado.length > limite) resultado = resultado.slice(0, limite);
 
   return { sucesso: true, atendimentos: resultado, total: resultado.length };
+}
+
+/**
+ * Busca cliente em todas as abas (Atendimentos, Vendas, Orcamentos, OSes/Assistencias)
+ * agrega tudo por CPF ou telefone (chave normalizada apenas digitos).
+ * query: { cpf?, telefone?, nome? }
+ * Retorna { sucesso, clientes: [...] } onde cada cliente tem:
+ *   { chave, nome, cpfs, telefones, nfs, eventos }
+ * eventos: [{tipo, id, data, resumo, atendimentoId}]
+ */
+function buscarClienteConsolidado(query) {
+  query = query || {};
+  var cpfQ = (query.cpf || '').replace(/\D/g, '');
+  var telQ = (query.telefone || '').replace(/\D/g, '');
+  var nomeQ = (query.nome || '').toLowerCase().trim();
+  if (!cpfQ && !telQ && !nomeQ) {
+    return { sucesso: false, erro: 'Informe cpf, telefone ou nome' };
+  }
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  // Mapa chave -> agregado
+  var agregado = {};
+
+  function chave(cpf, tel) {
+    if (cpf) return 'CPF:' + cpf;
+    if (tel) return 'TEL:' + tel;
+    return null;
+  }
+
+  function pertence(cpf, tel, nome) {
+    if (cpfQ && cpf === cpfQ) return true;
+    if (telQ && tel === telQ) return true;
+    if (nomeQ && nome && String(nome).toLowerCase().indexOf(nomeQ) !== -1) return true;
+    return false;
+  }
+
+  function add(cpf, tel, nome, nf, evento) {
+    var k = chave(cpf, tel);
+    if (!k) return;
+    if (!agregado[k]) {
+      agregado[k] = {
+        chave: k,
+        nome: nome || '',
+        cpfs: [],
+        telefones: [],
+        nfs: [],
+        eventos: []
+      };
+    }
+    var a = agregado[k];
+    if (nome && !a.nome) a.nome = nome;
+    if (cpf && a.cpfs.indexOf(cpf) === -1) a.cpfs.push(cpf);
+    if (tel && a.telefones.indexOf(tel) === -1) a.telefones.push(tel);
+    if (nf && a.nfs.indexOf(nf) === -1) a.nfs.push(nf);
+    a.eventos.push(evento);
+  }
+
+  // ATENDIMENTOS
+  var shAt = ss.getSheetByName(SHEET_ATENDIMENTOS);
+  if (shAt && shAt.getLastRow() > 1) {
+    var dadosAt = shAt.getRange(2, 1, shAt.getLastRow() - 1, 16).getValues();
+    dadosAt.forEach(function(r) {
+      var cpf = String(r[7] || '').replace(/\D/g, '');
+      var tel = String(r[6] || '').replace(/\D/g, '');
+      if (!pertence(cpf, tel, r[5])) return;
+      add(cpf, tel, r[5], r[8], {
+        tipo: 'atendimento',
+        id: r[0],
+        data: r[1],
+        resumo: r[2] + ' - ' + r[3],
+        categoria: r[2],
+        status: r[12]
+      });
+    });
+  }
+
+  // VENDAS
+  var shV = ss.getSheetByName('Vendas');
+  if (shV && shV.getLastRow() > 1) {
+    var ultV = shV.getLastColumn();
+    var headersV = shV.getRange(1, 1, 1, ultV).getValues()[0];
+    var idxCpf = headersV.indexOf('cpfCnpjCliente'); if (idxCpf < 0) idxCpf = headersV.indexOf('cpf');
+    var idxTel = headersV.indexOf('telefoneCliente'); if (idxTel < 0) idxTel = headersV.indexOf('telefone');
+    var idxNome = headersV.indexOf('nomeCliente'); if (idxNome < 0) idxNome = headersV.indexOf('cliente');
+    var idxId = 0; // assumindo col A
+    var idxData = headersV.indexOf('dataVenda'); if (idxData < 0) idxData = 1;
+    var idxAt = headersV.indexOf('atendimentoId');
+    var dadosV = shV.getRange(2, 1, shV.getLastRow() - 1, ultV).getValues();
+    dadosV.forEach(function(r) {
+      var cpf = idxCpf >= 0 ? String(r[idxCpf] || '').replace(/\D/g, '') : '';
+      var tel = idxTel >= 0 ? String(r[idxTel] || '').replace(/\D/g, '') : '';
+      var nome = idxNome >= 0 ? r[idxNome] : '';
+      if (!pertence(cpf, tel, nome)) return;
+      add(cpf, tel, nome, '', {
+        tipo: 'venda',
+        id: r[idxId],
+        data: r[idxData],
+        resumo: 'Venda registrada',
+        atendimentoId: idxAt >= 0 ? r[idxAt] : ''
+      });
+    });
+  }
+
+  // ORCAMENTOS
+  var shO = ss.getSheetByName('Orcamentos');
+  if (shO && shO.getLastRow() > 1) {
+    var ultO = shO.getLastColumn();
+    var headersO = shO.getRange(1, 1, 1, ultO).getValues()[0];
+    var iCpfO = headersO.indexOf('documento'); if (iCpfO < 0) iCpfO = headersO.indexOf('cpf');
+    var iTelO = headersO.indexOf('telefone');
+    var iNomeO = headersO.indexOf('cliente'); if (iNomeO < 0) iNomeO = headersO.indexOf('nome');
+    var iDataO = headersO.indexOf('data'); if (iDataO < 0) iDataO = 1;
+    var iAtO = headersO.indexOf('atendimentoId');
+    var dadosO = shO.getRange(2, 1, shO.getLastRow() - 1, ultO).getValues();
+    dadosO.forEach(function(r) {
+      var cpf = iCpfO >= 0 ? String(r[iCpfO] || '').replace(/\D/g, '') : '';
+      var tel = iTelO >= 0 ? String(r[iTelO] || '').replace(/\D/g, '') : '';
+      var nome = iNomeO >= 0 ? r[iNomeO] : '';
+      if (!pertence(cpf, tel, nome)) return;
+      add(cpf, tel, nome, '', {
+        tipo: 'orcamento',
+        id: r[0],
+        data: r[iDataO],
+        resumo: 'Orcamento',
+        atendimentoId: iAtO >= 0 ? r[iAtO] : ''
+      });
+    });
+  }
+
+  // OSes / Assistencias
+  ['OSes', 'Assistencias'].forEach(function(nomeAba) {
+    var shOS = ss.getSheetByName(nomeAba);
+    if (!shOS || shOS.getLastRow() < 2) return;
+    var ultOS = shOS.getLastColumn();
+    var headersOS = shOS.getRange(1, 1, 1, ultOS).getValues()[0];
+    var iCpf = headersOS.indexOf('cpfCliente'); if (iCpf < 0) iCpf = headersOS.indexOf('cpf');
+    var iTel = headersOS.indexOf('telefoneCliente'); if (iTel < 0) iTel = headersOS.indexOf('telefone');
+    var iNome = headersOS.indexOf('nomeCliente'); if (iNome < 0) iNome = headersOS.indexOf('nome');
+    var iNF = headersOS.indexOf('notaFiscal');
+    var iData = headersOS.indexOf('dataAbertura'); if (iData < 0) iData = 1;
+    var iAt = headersOS.indexOf('atendimentoId');
+    var dadosOS = shOS.getRange(2, 1, shOS.getLastRow() - 1, ultOS).getValues();
+    dadosOS.forEach(function(r) {
+      var cpf = iCpf >= 0 ? String(r[iCpf] || '').replace(/\D/g, '') : '';
+      var tel = iTel >= 0 ? String(r[iTel] || '').replace(/\D/g, '') : '';
+      var nome = iNome >= 0 ? r[iNome] : '';
+      var nf = iNF >= 0 ? r[iNF] : '';
+      if (!pertence(cpf, tel, nome)) return;
+      add(cpf, tel, nome, nf, {
+        tipo: 'os',
+        id: r[0],
+        data: r[iData],
+        resumo: 'Ordem de Servico',
+        atendimentoId: iAt >= 0 ? r[iAt] : ''
+      });
+    });
+  });
+
+  // Converter mapa em array, ordenar eventos por data desc
+  var clientes = [];
+  Object.keys(agregado).forEach(function(k) {
+    var c = agregado[k];
+    c.eventos.sort(function(a, b) { return new Date(b.data) - new Date(a.data); });
+    c.totalEventos = c.eventos.length;
+    clientes.push(c);
+  });
+
+  return { sucesso: true, clientes: clientes };
 }
