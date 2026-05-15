@@ -59,6 +59,8 @@ function navigateTo(view, params) {
     if (typeof initAtendimento === 'function') initAtendimento();
   } else if (view === 'estoque') {
     if (typeof window.initEstoque === 'function') window.initEstoque();
+  } else if (view === 'clientes') {
+    if (typeof window.initClientes === 'function') window.initClientes();
   }
 }
 
