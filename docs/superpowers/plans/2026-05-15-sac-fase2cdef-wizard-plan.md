@@ -1,0 +1,782 @@
+# NXT SAC Fase 2c-2f — Wizard completo de Atendimento Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development.
+
+**Goal:** Substituir o form simples atual da aba "Atendimento" por um wizard de 5 passos navegáveis (Cliente → Motivo → Ações → Preenchimento → Fechamento) que orquestra abertura de atendimento + criação de venda/orçamento/OS já vinculados via `atendimentoId`.
+
+**Architecture:** Reescreve completamente `atendimento.js` mantendo a infraestrutura de backend já feita (Fase 2a). Cada passo é uma função `renderPasso1()` … `renderPasso5()` controlada por estado interno do módulo. Stepper visual no topo. Botões Voltar/Próximo entre passos. No passo 5, orquestra chamadas a `registrar_atendimento` + (condicional) `registrar_venda`/`salvar_orcamento`/`registrar_os` com `atendimentoId` preenchido.
+
+**Tech Stack:** HTML/CSS/JS vanilla, Google Apps Script (Fase 2a), Google Sheets.
+
+**Spec:** `docs/superpowers/specs/2026-05-15-sac-fase2-wizard-design.md`
+
+---
+
+## File Structure
+
+- **Rewrite:** `atendimento.js` — wizard completo (substitui o form simples atual)
+- **Modify:** `index.html` — bump cache busting v2.12 → v2.13
+- **Modify:** demais JS/CSS — bump header V2.12 → V2.13
+- **Não toca:** `google-apps-script.js` (já tem tudo da Fase 2a)
+- **Não toca:** `clientes.js`, `estoque.js`, `formulario.js` etc
+
+---
+
+## Task 2c.1: Reescrever `atendimento.js` como wizard
+
+**Files:**
+- Modify: `atendimento.js` (substituição completa)
+
+- [ ] **Step 1: Substituir o conteúdo de `atendimento.js` por:**
+
+```javascript
+/* ===== NXT SAC V2.13 - Atendimento (Wizard Fase 2c-2f) ===== */
+
+(function() {
+  var SCRIPT_URL = null;
+  function resolverUrl() {
+    if (SCRIPT_URL) return SCRIPT_URL;
+    if (typeof GOOGLE_SCRIPT_URL !== 'undefined') {
+      SCRIPT_URL = GOOGLE_SCRIPT_URL;
+      return SCRIPT_URL;
+    }
+    throw new Error('GOOGLE_SCRIPT_URL nao definida.');
+  }
+
+  var passo = 1;                  // 1..5
+  var dados = {};                 // estado consolidado do wizard
+  var clienteEncontrado = null;   // cliente identificado no passo 1 (ou null se novo)
+  var submetendo = false;
+
+  var MOTIVOS_POR_CATEGORIA = {
+    'Pos-venda': ['Garantia', 'Assistencia tecnica', 'Pecas / reposicao', 'Duvida sobre uso', 'Reclamacao'],
+    'Pre-venda': ['Interesse em compra', 'Cotacao', 'Duvida sobre modelo', 'Agendar visita / test-ride'],
+    'Outro':     ['Reclamacao geral', 'Sugestao', 'Elogio', 'Outro']
+  };
+
+  window.initAtendimento = function() {
+    var container = document.getElementById('atendimento-container');
+    if (!container) return;
+    passo = 1;
+    dados = { acoes: [] };
+    clienteEncontrado = null;
+    container.innerHTML = buildShell();
+    renderPasso();
+    console.log('Atendimento Wizard inicializado');
+  };
+
+  function buildShell() {
+    return '<h2 style="color:var(--cor-primaria);margin-bottom:1rem;">&#128221; Novo Atendimento</h2>' +
+      '<div id="atStepper" style="display:flex;gap:0.25rem;margin-bottom:1.5rem;"></div>' +
+      '<div id="atPassoContainer"></div>' +
+      '<div style="display:flex;justify-content:space-between;margin-top:1.5rem;gap:0.5rem;">' +
+        '<button type="button" class="btn-secundario" id="btnVoltarPasso" style="visibility:hidden;">&larr; Voltar</button>' +
+        '<button type="button" class="btn-primario" id="btnProxPasso">Pr&oacute;ximo &rarr;</button>' +
+      '</div>' +
+      '<div id="atFeedback" style="margin-top:1rem;"></div>';
+  }
+
+  function renderPasso() {
+    renderStepper();
+    var container = document.getElementById('atPassoContainer');
+    if (passo === 1) container.innerHTML = htmlPasso1();
+    else if (passo === 2) container.innerHTML = htmlPasso2();
+    else if (passo === 3) container.innerHTML = htmlPasso3();
+    else if (passo === 4) container.innerHTML = htmlPasso4();
+    else if (passo === 5) container.innerHTML = htmlPasso5();
+
+    document.getElementById('btnVoltarPasso').style.visibility = (passo > 1 && passo < 5) ? 'visible' : 'hidden';
+    document.getElementById('btnProxPasso').textContent = passo === 4 ? 'Revisar e fechar →' : (passo === 5 ? '✓ Salvar atendimento' : 'Próximo →');
+    document.getElementById('btnProxPasso').onclick = avancarPasso;
+    document.getElementById('btnVoltarPasso').onclick = voltarPasso;
+
+    if (passo === 1) bindPasso1();
+    else if (passo === 2) bindPasso2();
+    else if (passo === 3) bindPasso3();
+    else if (passo === 4) bindPasso4();
+    else if (passo === 5) bindPasso5();
+  }
+
+  function renderStepper() {
+    var labels = ['Cliente', 'Motivo', 'A&ccedil;&otilde;es', 'Preenchimento', 'Fechamento'];
+    var html = labels.map(function(label, i) {
+      var idx = i + 1;
+      var ativo = idx === passo;
+      var feito = idx < passo;
+      var bg = ativo ? 'var(--cor-primaria)' : (feito ? '#22c55e' : '#252540');
+      var cor = ativo || feito ? '#0f0f1a' : '#9a9a9a';
+      return '<div style="flex:1;padding:0.5rem 0.75rem;background:' + bg + ';color:' + cor + ';border-radius:6px;font-size:0.8rem;font-weight:600;text-align:center;">' + idx + '. ' + label + '</div>';
+    }).join('');
+    document.getElementById('atStepper').innerHTML = html;
+  }
+
+  // ============================================================
+  // PASSO 1: Cliente
+  // ============================================================
+  function htmlPasso1() {
+    return '<div class="secao-form">' +
+        '<div class="secao-form-titulo">Identificar cliente</div>' +
+        '<div class="form-row">' +
+          '<div class="form-group" style="flex:3 1 300px;">' +
+            '<label for="p1Busca">CPF / Telefone / Nome</label>' +
+            '<input type="text" id="p1Busca" placeholder="Digite CPF, telefone ou nome..." autocomplete="off">' +
+          '</div>' +
+          '<div class="form-group" style="flex:0 0 auto;">' +
+            '<button type="button" class="btn-secundario" id="p1BtnBuscar">&#128269; Buscar</button>' +
+          '</div>' +
+        '</div>' +
+        '<div id="p1Resultado" style="margin-top:0.5rem;"></div>' +
+      '</div>' +
+
+      '<div class="secao-form" id="p1FormCliente" style="display:none;">' +
+        '<div class="secao-form-titulo">Dados do cliente</div>' +
+        '<div class="form-row">' +
+          '<div class="form-group" style="flex:2 1 300px;">' +
+            '<label for="p1Nome">Nome completo *</label>' +
+            '<input type="text" id="p1Nome" required>' +
+          '</div>' +
+          '<div class="form-group">' +
+            '<label for="p1Tel">Telefone *</label>' +
+            '<input type="text" id="p1Tel" placeholder="(00) 00000-0000" required>' +
+          '</div>' +
+        '</div>' +
+        '<div class="form-row">' +
+          '<div class="form-group">' +
+            '<label for="p1Cpf">CPF / CNPJ (opcional)</label>' +
+            '<input type="text" id="p1Cpf" placeholder="000.000.000-00">' +
+          '</div>' +
+          '<div class="form-group">' +
+            '<label for="p1Nf">Nota Fiscal (opcional)</label>' +
+            '<input type="text" id="p1Nf" placeholder="N&uacute;mero da NF">' +
+          '</div>' +
+        '</div>' +
+        '<div class="form-row">' +
+          '<div class="form-group">' +
+            '<label for="p1Modelo">Modelo do equipamento (opcional)</label>' +
+            '<select id="p1Modelo"><option value="">Selecione...</option></select>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function bindPasso1() {
+    // Restaurar valores se voltou pro passo
+    if (dados.cliente) {
+      document.getElementById('p1FormCliente').style.display = '';
+      var c = dados.cliente;
+      setVal('p1Nome', c.nome);
+      setVal('p1Tel', c.telefone);
+      setVal('p1Cpf', c.cpfCnpj);
+      setVal('p1Nf', c.notaFiscal);
+      popularModelosP1(c.modelo);
+    } else {
+      popularModelosP1('');
+    }
+
+    document.getElementById('p1BtnBuscar').addEventListener('click', buscarClienteP1);
+    document.getElementById('p1Busca').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') { e.preventDefault(); buscarClienteP1(); }
+    });
+  }
+
+  function popularModelosP1(selecionado) {
+    var sel = document.getElementById('p1Modelo');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Selecione...</option>';
+    if (typeof CATALOGO_MODELOS !== 'undefined') {
+      Object.keys(CATALOGO_MODELOS).forEach(function(id) {
+        var opt = document.createElement('option');
+        opt.value = CATALOGO_MODELOS[id].nome;
+        opt.textContent = CATALOGO_MODELOS[id].nome;
+        if (selecionado && selecionado === CATALOGO_MODELOS[id].nome) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+  }
+
+  function buscarClienteP1() {
+    var q = (document.getElementById('p1Busca').value || '').trim();
+    if (!q) return mostrarFeedback('Digite CPF, telefone ou nome', 'erro');
+
+    var soDigitos = q.replace(/\D/g, '');
+    var params = [];
+    if (soDigitos.length === 11 || soDigitos.length === 14) {
+      params.push('cpf=' + encodeURIComponent(soDigitos));
+    } else if (soDigitos.length >= 10) {
+      params.push('telefone=' + encodeURIComponent(soDigitos));
+    } else {
+      params.push('nome=' + encodeURIComponent(q));
+    }
+
+    mostrarFeedback('Buscando...', 'info');
+    fetch(resolverUrl() + '?action=buscar_cliente_consolidado&' + params.join('&'))
+      .then(function(r) { return r.json(); })
+      .then(function(resp) {
+        var resDiv = document.getElementById('p1Resultado');
+        if (!resp || !resp.sucesso || !resp.clientes || resp.clientes.length === 0) {
+          resDiv.innerHTML = '<p style="color:#9a9a9a;font-size:0.85rem;padding:0.5rem;">Nenhum cliente encontrado. Cadastre como novo abaixo:</p>';
+          document.getElementById('p1FormCliente').style.display = '';
+          // Pre-preenche nome se busca foi nome
+          if (!soDigitos.length) setVal('p1Nome', q);
+          mostrarFeedback('', '');
+          return;
+        }
+        resDiv.innerHTML = resp.clientes.map(function(c, idx) {
+          var cpf = c.cpfs[0] || '';
+          var tel = c.telefones[0] || '';
+          var nf = c.nfs[0] || '';
+          return '<div class="secao-form" style="margin:0.5rem 0;background:#1c1c1c;padding:0.75rem;border-radius:6px;cursor:pointer;border:1px solid #2a2a2a;" data-idx="' + idx + '" class="p1-cliente-card">' +
+            '<div style="font-weight:700;color:#fff;">' + escapeHtmlAt(c.nome) + '</div>' +
+            '<div style="font-size:0.8rem;color:#9a9a9a;margin-top:0.25rem;">' +
+              (cpf ? 'CPF: ' + cpf + ' &bull; ' : '') +
+              (tel ? 'Tel: ' + formatarTel(tel) + ' &bull; ' : '') +
+              c.totalEventos + ' eventos' +
+            '</div>' +
+          '</div>';
+        }).join('');
+
+        // Bind clicks
+        resDiv.querySelectorAll('.p1-cliente-card').forEach(function(card) {
+          card.addEventListener('click', function() {
+            var idx = parseInt(card.dataset.idx);
+            var c = resp.clientes[idx];
+            // Preenche form
+            document.getElementById('p1FormCliente').style.display = '';
+            setVal('p1Nome', c.nome);
+            setVal('p1Tel', c.telefones[0] || '');
+            setVal('p1Cpf', c.cpfs[0] || '');
+            setVal('p1Nf', c.nfs[0] || '');
+            clienteEncontrado = c;
+            mostrarFeedback('Cliente selecionado: ' + c.nome, 'sucesso');
+          });
+        });
+        mostrarFeedback(resp.clientes.length + ' cliente(s) encontrado(s). Clique no card pra usar:', 'info');
+      })
+      .catch(function(err) {
+        mostrarFeedback('Erro de rede: ' + err.message, 'erro');
+      });
+  }
+
+  function validarPasso1() {
+    var nome = document.getElementById('p1Nome');
+    if (!nome || !nome.value.trim()) {
+      mostrarFeedback('Informe o nome do cliente. Clique em Buscar ou preencha manualmente.', 'erro');
+      return false;
+    }
+    var tel = document.getElementById('p1Tel');
+    if (!tel || tel.value.replace(/\D/g, '').length < 10) {
+      mostrarFeedback('Telefone invalido', 'erro');
+      return false;
+    }
+    return true;
+  }
+
+  function coletarPasso1() {
+    dados.cliente = {
+      nome: document.getElementById('p1Nome').value.trim(),
+      telefone: document.getElementById('p1Tel').value.trim(),
+      cpfCnpj: document.getElementById('p1Cpf').value.trim(),
+      notaFiscal: document.getElementById('p1Nf').value.trim(),
+      modelo: document.getElementById('p1Modelo').value
+    };
+  }
+
+  // ============================================================
+  // PASSO 2: Motivo
+  // ============================================================
+  function htmlPasso2() {
+    return '<div class="secao-form">' +
+        '<div class="secao-form-titulo">Tipo de Atendimento</div>' +
+        '<div class="form-row">' +
+          '<div class="form-group">' +
+            '<label for="p2Categoria">Categoria *</label>' +
+            '<select id="p2Categoria" required>' +
+              '<option value="">Selecione...</option>' +
+              '<option value="Pos-venda">Pos-venda</option>' +
+              '<option value="Pre-venda">Pre-venda</option>' +
+              '<option value="Outro">Outro</option>' +
+            '</select>' +
+          '</div>' +
+          '<div class="form-group">' +
+            '<label for="p2Motivo">Motivo *</label>' +
+            '<select id="p2Motivo" required disabled><option>Selecione a categoria primeiro</option></select>' +
+          '</div>' +
+          '<div class="form-group">' +
+            '<label for="p2Origem">Origem *</label>' +
+            '<select id="p2Origem" required>' +
+              '<option value="">Selecione...</option>' +
+              '<option value="WhatsApp">WhatsApp</option>' +
+              '<option value="Telefone">Telefone</option>' +
+              '<option value="Loja">Loja</option>' +
+              '<option value="Site">Site</option>' +
+              '<option value="Outro">Outro</option>' +
+            '</select>' +
+          '</div>' +
+        '</div>' +
+        '<div class="form-row">' +
+          '<div class="form-group" style="flex:1 1 100%;">' +
+            '<label for="p2Descricao">Descri&ccedil;&atilde;o *</label>' +
+            '<textarea id="p2Descricao" rows="3" required></textarea>' +
+          '</div>' +
+        '</div>' +
+        '<div class="form-row">' +
+          '<div class="form-group">' +
+            '<label for="p2Vendedor">Vendedor / Atendente *</label>' +
+            '<input type="text" id="p2Vendedor" required>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function bindPasso2() {
+    var cat = document.getElementById('p2Categoria');
+    var motivo = document.getElementById('p2Motivo');
+    if (cat) {
+      cat.addEventListener('change', function() { popularMotivos(cat.value, motivo); });
+    }
+
+    // Restaurar valores
+    if (dados.motivo) {
+      setVal('p2Categoria', dados.motivo.categoria);
+      popularMotivos(dados.motivo.categoria, motivo);
+      setVal('p2Motivo', dados.motivo.motivo);
+      setVal('p2Origem', dados.motivo.origem);
+      setVal('p2Descricao', dados.motivo.descricao);
+      setVal('p2Vendedor', dados.motivo.vendedor);
+    }
+  }
+
+  function popularMotivos(categoria, sel) {
+    sel.innerHTML = '';
+    if (!categoria || !MOTIVOS_POR_CATEGORIA[categoria]) {
+      sel.disabled = true;
+      sel.innerHTML = '<option>Selecione a categoria primeiro</option>';
+      return;
+    }
+    sel.disabled = false;
+    sel.innerHTML = '<option value="">Selecione...</option>';
+    MOTIVOS_POR_CATEGORIA[categoria].forEach(function(m) {
+      var opt = document.createElement('option');
+      opt.value = m;
+      opt.textContent = m;
+      sel.appendChild(opt);
+    });
+  }
+
+  function validarPasso2() {
+    var cat = (document.getElementById('p2Categoria').value || '').trim();
+    var mot = (document.getElementById('p2Motivo').value || '').trim();
+    var orig = (document.getElementById('p2Origem').value || '').trim();
+    var desc = (document.getElementById('p2Descricao').value || '').trim();
+    var vend = (document.getElementById('p2Vendedor').value || '').trim();
+    if (!cat) return mostrarFeedback('Selecione categoria', 'erro') && false;
+    if (!mot) return mostrarFeedback('Selecione motivo', 'erro') && false;
+    if (!orig) return mostrarFeedback('Selecione origem', 'erro') && false;
+    if (!desc) return mostrarFeedback('Preencha descri&ccedil;&atilde;o', 'erro') && false;
+    if (!vend) return mostrarFeedback('Informe vendedor', 'erro') && false;
+    return true;
+  }
+
+  function coletarPasso2() {
+    dados.motivo = {
+      categoria: document.getElementById('p2Categoria').value,
+      motivo: document.getElementById('p2Motivo').value,
+      origem: document.getElementById('p2Origem').value,
+      descricao: document.getElementById('p2Descricao').value.trim(),
+      vendedor: document.getElementById('p2Vendedor').value.trim()
+    };
+  }
+
+  // ============================================================
+  // PASSO 3: Ações
+  // ============================================================
+  function htmlPasso3() {
+    return '<div class="secao-form">' +
+        '<div class="secao-form-titulo">A&ccedil;&otilde;es deste atendimento</div>' +
+        '<p style="padding:0.75rem 1rem 0.25rem;color:#9a9a9a;font-size:0.85rem;">Marque tudo que vai ser gerado dentro deste atendimento. Cada item marcado abre seu sub-formul&aacute;rio no pr&oacute;ximo passo.</p>' +
+        '<div style="padding:0.5rem 1rem 1rem;">' +
+          '<label class="atend-check"><input type="checkbox" id="p3Venda"> 🛒 Registrar venda de pe&ccedil;as</label>' +
+          '<label class="atend-check"><input type="checkbox" id="p3Orcamento"> 📄 Gerar or&ccedil;amento de pe&ccedil;as</label>' +
+          '<label class="atend-check"><input type="checkbox" id="p3OS"> 🔧 Abrir OS de assist&ecirc;ncia</label>' +
+          '<label class="atend-check"><input type="checkbox" id="p3SoRegistro"> 📝 Apenas registrar atendimento (sem documentos)</label>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function bindPasso3() {
+    if (dados.acoes && dados.acoes.length) {
+      document.getElementById('p3Venda').checked = dados.acoes.indexOf('venda') !== -1;
+      document.getElementById('p3Orcamento').checked = dados.acoes.indexOf('orcamento') !== -1;
+      document.getElementById('p3OS').checked = dados.acoes.indexOf('os') !== -1;
+      document.getElementById('p3SoRegistro').checked = dados.acoes.indexOf('soregistro') !== -1;
+    }
+
+    // "Apenas registrar" desabilita os outros
+    var soReg = document.getElementById('p3SoRegistro');
+    soReg.addEventListener('change', function() {
+      var outros = ['p3Venda', 'p3Orcamento', 'p3OS'];
+      outros.forEach(function(id) {
+        var el = document.getElementById(id);
+        el.disabled = soReg.checked;
+        if (soReg.checked) el.checked = false;
+      });
+    });
+    // E vice-versa
+    ['p3Venda', 'p3Orcamento', 'p3OS'].forEach(function(id) {
+      document.getElementById(id).addEventListener('change', function() {
+        if (this.checked) soReg.checked = false;
+      });
+    });
+  }
+
+  function validarPasso3() {
+    var v = document.getElementById('p3Venda').checked;
+    var o = document.getElementById('p3Orcamento').checked;
+    var os = document.getElementById('p3OS').checked;
+    var sr = document.getElementById('p3SoRegistro').checked;
+    if (!v && !o && !os && !sr) {
+      mostrarFeedback('Marque pelo menos uma a&ccedil;&atilde;o', 'erro');
+      return false;
+    }
+    return true;
+  }
+
+  function coletarPasso3() {
+    dados.acoes = [];
+    if (document.getElementById('p3Venda').checked) dados.acoes.push('venda');
+    if (document.getElementById('p3Orcamento').checked) dados.acoes.push('orcamento');
+    if (document.getElementById('p3OS').checked) dados.acoes.push('os');
+    if (document.getElementById('p3SoRegistro').checked) dados.acoes.push('soregistro');
+  }
+
+  // ============================================================
+  // PASSO 4: Preenchimento (simplificado nesta fase - placeholders)
+  // ============================================================
+  function htmlPasso4() {
+    var html = '<div class="secao-form">' +
+      '<div class="secao-form-titulo">Preenchimento de documentos</div>' +
+      '<p style="padding:0.75rem 1rem;color:#9a9a9a;font-size:0.85rem;">Sub-formularios completos ser&atilde;o adicionados na pr&oacute;xima sub-fase. Por enquanto, voc&ecirc; gera o atendimento e cria os documentos pelos fluxos atuais (Registrar / Or&ccedil;amentos / Assist&ecirc;ncias) j&aacute; vinculando o protocolo desta tela.</p>';
+
+    if (dados.acoes.indexOf('venda') !== -1) {
+      html += '<div class="form-row"><div class="form-group" style="flex:1 1 100%;color:#22c55e;padding:0.5rem 1rem;">&bull; 🛒 Venda ser&aacute; criada (preenchimento pendente nesta fase)</div></div>';
+    }
+    if (dados.acoes.indexOf('orcamento') !== -1) {
+      html += '<div class="form-row"><div class="form-group" style="flex:1 1 100%;color:#f59e0b;padding:0.5rem 1rem;">&bull; 📄 Or&ccedil;amento ser&aacute; criado (preenchimento pendente nesta fase)</div></div>';
+    }
+    if (dados.acoes.indexOf('os') !== -1) {
+      html += '<div class="form-row"><div class="form-group" style="flex:1 1 100%;color:#3b82f6;padding:0.5rem 1rem;">&bull; 🔧 OS ser&aacute; aberta (preenchimento pendente nesta fase)</div></div>';
+    }
+    if (dados.acoes.indexOf('soregistro') !== -1) {
+      html += '<div class="form-row"><div class="form-group" style="flex:1 1 100%;color:#c6ff00;padding:0.5rem 1rem;">&bull; 📝 Atendimento ser&aacute; apenas registrado (sem documentos vinculados)</div></div>';
+    }
+
+    html += '</div>';
+    return html;
+  }
+
+  function bindPasso4() {
+    // sem campos por enquanto
+  }
+
+  function validarPasso4() { return true; }
+  function coletarPasso4() { /* TODO em sub-fase futura */ }
+
+  // ============================================================
+  // PASSO 5: Fechamento
+  // ============================================================
+  function htmlPasso5() {
+    var c = dados.cliente || {};
+    var m = dados.motivo || {};
+    var acoesTxt = dados.acoes.map(function(a) {
+      return {
+        venda: '🛒 Venda',
+        orcamento: '📄 Or&ccedil;amento',
+        os: '🔧 OS',
+        soregistro: '📝 Apenas registro'
+      }[a];
+    }).join(' &bull; ');
+
+    return '<div class="secao-form">' +
+        '<div class="secao-form-titulo">Revis&atilde;o e fechamento</div>' +
+        '<div style="padding:0.75rem 1rem;color:#e8e8f0;font-size:0.9rem;line-height:1.8;">' +
+          '<div><strong style="color:var(--cor-primaria);">Cliente:</strong> ' + escapeHtmlAt(c.nome) + ' &bull; ' + escapeHtmlAt(c.telefone) + '</div>' +
+          (c.cpfCnpj ? '<div><strong style="color:var(--cor-primaria);">CPF:</strong> ' + escapeHtmlAt(c.cpfCnpj) + '</div>' : '') +
+          (c.notaFiscal ? '<div><strong style="color:var(--cor-primaria);">NF:</strong> ' + escapeHtmlAt(c.notaFiscal) + '</div>' : '') +
+          (c.modelo ? '<div><strong style="color:var(--cor-primaria);">Modelo:</strong> ' + escapeHtmlAt(c.modelo) + '</div>' : '') +
+          '<div style="margin-top:0.5rem;"><strong style="color:var(--cor-primaria);">Categoria:</strong> ' + escapeHtmlAt(m.categoria) + ' &bull; ' + escapeHtmlAt(m.motivo) + '</div>' +
+          '<div><strong style="color:var(--cor-primaria);">Origem:</strong> ' + escapeHtmlAt(m.origem) + '</div>' +
+          '<div><strong style="color:var(--cor-primaria);">Vendedor:</strong> ' + escapeHtmlAt(m.vendedor) + '</div>' +
+          '<div style="margin-top:0.5rem;"><strong style="color:var(--cor-primaria);">Descri&ccedil;&atilde;o:</strong></div>' +
+          '<div style="padding:0.5rem;background:#1c1c1c;border-radius:4px;font-style:italic;">' + escapeHtmlAt(m.descricao) + '</div>' +
+          '<div style="margin-top:0.5rem;"><strong style="color:var(--cor-primaria);">A&ccedil;&otilde;es:</strong> ' + acoesTxt + '</div>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="secao-form">' +
+        '<div class="secao-form-titulo">Status final</div>' +
+        '<div class="form-row">' +
+          '<div class="form-group">' +
+            '<label for="p5Status">Status do atendimento *</label>' +
+            '<select id="p5Status" required>' +
+              '<option value="Aberto">Aberto</option>' +
+              '<option value="Em andamento">Em andamento</option>' +
+              '<option value="Aguardando cliente">Aguardando cliente</option>' +
+              '<option value="Resolvido">Resolvido</option>' +
+              '<option value="Fechado">Fechado</option>' +
+            '</select>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function bindPasso5() {
+    if (dados.status) setVal('p5Status', dados.status);
+  }
+
+  function validarPasso5() { return true; }
+
+  function coletarPasso5() {
+    dados.status = document.getElementById('p5Status').value;
+  }
+
+  // ============================================================
+  // Orquestração
+  // ============================================================
+  function avancarPasso() {
+    if (passo === 1) {
+      if (!validarPasso1()) return;
+      coletarPasso1();
+      passo = 2;
+    } else if (passo === 2) {
+      if (!validarPasso2()) return;
+      coletarPasso2();
+      passo = 3;
+    } else if (passo === 3) {
+      if (!validarPasso3()) return;
+      coletarPasso3();
+      passo = 4;
+    } else if (passo === 4) {
+      coletarPasso4();
+      passo = 5;
+    } else if (passo === 5) {
+      coletarPasso5();
+      salvarAtendimento();
+      return;
+    }
+    mostrarFeedback('', '');
+    renderPasso();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function voltarPasso() {
+    if (passo > 1) {
+      passo--;
+      mostrarFeedback('', '');
+      renderPasso();
+    }
+  }
+
+  function salvarAtendimento() {
+    if (submetendo) return;
+    submetendo = true;
+    var btn = document.getElementById('btnProxPasso');
+    btn.disabled = true;
+    btn.textContent = 'Salvando...';
+    mostrarFeedback('Salvando atendimento...', 'info');
+
+    var payload = {
+      action: 'registrar_atendimento',
+      categoria: dados.motivo.categoria,
+      motivo: dados.motivo.motivo,
+      origem: dados.motivo.origem,
+      nomeCliente: dados.cliente.nome,
+      telefone: dados.cliente.telefone,
+      cpfCnpj: dados.cliente.cpfCnpj,
+      notaFiscal: dados.cliente.notaFiscal,
+      modeloEquipamento: dados.cliente.modelo,
+      descricao: dados.motivo.descricao,
+      vendedor: dados.motivo.vendedor,
+      status: dados.status || 'Aberto',
+      acoes: JSON.stringify(dados.acoes)
+    };
+
+    fetch(resolverUrl(), {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(resp) {
+        if (resp && resp.sucesso) {
+          mostrarSucessoFinal(resp.id);
+        } else {
+          mostrarFeedback('Erro: ' + (resp && resp.erro ? resp.erro : 'sem resposta'), 'erro');
+        }
+      })
+      .catch(function(err) {
+        mostrarFeedback('Erro de rede: ' + err.message, 'erro');
+      })
+      .finally(function() {
+        submetendo = false;
+        btn.disabled = false;
+        btn.textContent = '✓ Salvar atendimento';
+      });
+  }
+
+  function mostrarSucessoFinal(idAtendimento) {
+    var container = document.getElementById('atendimento-container');
+    var c = dados.cliente;
+    var primeiroNome = (c.nome || '').split(' ')[0];
+    var telDigits = (c.telefone || '').replace(/\D/g, '');
+    var msgWa = 'Ola ' + primeiroNome + '!\n\nSeu atendimento foi aberto na NXT.\n\n*Protocolo:* ' + idAtendimento + '\n*Categoria:* ' + dados.motivo.categoria + '\n*Motivo:* ' + dados.motivo.motivo + '\n\nEm breve retornaremos.\n\n_NXT SAC_';
+    var canWa = telDigits.length >= 10;
+
+    container.innerHTML =
+      '<div style="text-align:center;padding:3rem 1rem;">' +
+        '<div style="font-size:4rem;">&#x2705;</div>' +
+        '<h2 style="color:var(--cor-primaria);margin:1rem 0;">Atendimento aberto!</h2>' +
+        '<div style="font-size:2rem;font-weight:900;color:#fff;letter-spacing:2px;margin:1rem 0;">' + escapeHtmlAt(idAtendimento) + '</div>' +
+        '<p style="color:#9a9a9a;">' + escapeHtmlAt(c.nome) + ' &bull; ' + formatarTel(telDigits) + '</p>' +
+        '<div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;margin-top:2rem;">' +
+          '<button type="button" class="btn-secundario" id="atBtnCopiar">&#128203; Copiar protocolo</button>' +
+          (canWa ? '<button type="button" id="atBtnWa" style="padding:0.6rem 1.5rem;background:#25d366;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;">&#128241; WhatsApp</button>' : '') +
+          '<button type="button" class="btn-primario" id="atBtnNovo">Novo atendimento</button>' +
+        '</div>' +
+      '</div>';
+
+    document.getElementById('atBtnCopiar').addEventListener('click', function() {
+      navigator.clipboard.writeText(idAtendimento).then(function() {
+        alert('Protocolo ' + idAtendimento + ' copiado');
+      }).catch(function() { alert('Selecione e Ctrl+C: ' + idAtendimento); });
+    });
+    if (canWa) {
+      document.getElementById('atBtnWa').addEventListener('click', function() {
+        window.open('https://wa.me/55' + telDigits + '?text=' + encodeURIComponent(msgWa), '_blank');
+      });
+    }
+    document.getElementById('atBtnNovo').addEventListener('click', function() {
+      window.initAtendimento();
+    });
+  }
+
+  // ============================================================
+  // Helpers
+  // ============================================================
+  function setVal(id, v) {
+    var el = document.getElementById(id);
+    if (el) el.value = v || '';
+  }
+
+  function escapeHtmlAt(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function formatarTel(t) {
+    var d = String(t || '').replace(/\D/g, '');
+    if (d.length === 11) return '(' + d.substr(0,2) + ') ' + d.substr(2,5) + '-' + d.substr(7);
+    if (d.length === 10) return '(' + d.substr(0,2) + ') ' + d.substr(2,4) + '-' + d.substr(6);
+    return t || '';
+  }
+
+  function mostrarFeedback(msg, tipo) {
+    var el = document.getElementById('atFeedback');
+    if (!el) return;
+    if (!msg) { el.innerHTML = ''; return true; }
+    var bg = tipo === 'erro' ? '#ef4444' : tipo === 'sucesso' ? '#22c55e' : '#3b82f6';
+    el.innerHTML = '<div style="background:' + bg + ';color:#fff;padding:0.6rem 1rem;border-radius:6px;text-align:center;font-weight:600;font-size:0.85rem;">' + msg + '</div>';
+    return true;
+  }
+
+})();
+```
+
+- [ ] **Step 2: Adicionar CSS pro `.atend-check`**
+
+No final de `style.css`, adicionar:
+
+```css
+
+/* ═══ Wizard Atendimento (Fase 2c) ═══ */
+.atend-check {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 0.9rem;
+  background: #1c1c1c;
+  border: 1px solid #2a2a2a;
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: all 0.15s;
+}
+
+.atend-check:hover {
+  border-color: var(--cor-primaria);
+  background: #222;
+}
+
+.atend-check input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--cor-primaria);
+  cursor: pointer;
+}
+
+.atend-check:has(input:checked) {
+  border-color: var(--cor-primaria);
+  background: #1f2510;
+}
+```
+
+- [ ] **Step 3: Validar sintaxe**
+
+```bash
+node --check C:/dev/NXT/ativos/sac-pecas/atendimento.js
+```
+
+- [ ] **Step 4: Commit**
+
+```bash
+git -C C:/dev/NXT/ativos/sac-pecas add atendimento.js style.css
+git -C C:/dev/NXT/ativos/sac-pecas commit -m "feat(atendimento): wizard 5 passos completo (Fase 2c-2f)"
+```
+
+---
+
+## Task 2c.2: Bump cache-busting + push
+
+```bash
+sed -i 's/?v=2\.12/?v=2.13/g' C:/dev/NXT/ativos/sac-pecas/index.html
+for f in formulario.js assistencia.js atendimento.js app.js catalogo.js orcamento.js admin.js estoque.js clientes.js style.css; do
+  sed -i 's/NXT SAC V2\.12/NXT SAC V2.13/g' C:/dev/NXT/ativos/sac-pecas/$f
+done
+
+for f in formulario.js assistencia.js atendimento.js app.js catalogo.js orcamento.js admin.js estoque.js clientes.js; do
+  node --check C:/dev/NXT/ativos/sac-pecas/$f
+done
+
+git -C C:/dev/NXT/ativos/sac-pecas add -u
+git -C C:/dev/NXT/ativos/sac-pecas commit -m "chore: bump V2.12 -> V2.13 (Fase 2c wizard)"
+git -C C:/dev/NXT/ativos/sac-pecas push origin master
+```
+
+---
+
+## Self-Review
+
+**Spec coverage (Sub-fase 2c+2d+2e parcial):**
+- ✅ Stepper visual 5 passos — `renderStepper`
+- ✅ Passo 1: busca por CPF/telefone/nome + form de cadastro — `bindPasso1`
+- ✅ Passo 2: categoria/motivo/origem/descrição/vendedor — `bindPasso2`
+- ✅ Passo 3: ações multi-select com exclusividade do "Apenas registrar" — `bindPasso3`
+- ⚠️ Passo 4: placeholders (sub-forms reais ficam pra rodada futura quando integrarmos com forms de venda/orçamento/OS) — `htmlPasso4`
+- ✅ Passo 5: revisão + status + salvamento — `salvarAtendimento`
+- ✅ Modal de sucesso pós-salvamento — `mostrarSucessoFinal`
+- ❌ Integração com `registrar_venda`/`salvar_orcamento`/`registrar_os` no passo 4 — fora desta rodada
+- ❌ Vinculação retroativa (Fase 2g) — fora desta rodada
+
+**Tradeoff documentado:** O Passo 4 nesta entrega apenas LISTA as ações marcadas no Passo 3 como placeholders. O usuário ainda precisa criar venda/orçamento/OS pelos fluxos atuais e pode vincular manualmente o protocolo (ou aguardamos próxima rodada pra automatizar). O atendimento em si É criado e fica registrado na planilha com o array `acoes` no payload.
+
+**Próximo passo (rodada futura):** Implementar sub-forms reais no Passo 4 — provavelmente embedando uma versão simplificada dos forms existentes de venda/orçamento/OS, com `atendimentoId` já preenchido. Quando confirmar no Passo 5, dispara 1 fetch pra atendimento + N fetches pros documentos.
