@@ -51,6 +51,8 @@ function navigateTo(view, params) {
     if (typeof initAdmin === 'function') initAdmin();
   } else if (view === 'assistencia') {
     if (typeof initAssistencia === 'function') initAssistencia();
+  } else if (view === 'atendimento') {
+    if (typeof initAtendimento === 'function') initAtendimento();
   }
 }
 
