@@ -1027,6 +1027,17 @@ function salvarOrcamento(dados) {
     '' // PdfUrl
   ]);
 
+  // Fase 2: vincular ao atendimento se presente no payload
+  if (dados.atendimentoId) {
+    try {
+      var colAtOrc = getColAtendimentoId(sheet);
+      if (colAtOrc > 0) {
+        var ultLinhaOrc = sheet.getLastRow();
+        sheet.getRange(ultLinhaOrc, colAtOrc).setValue(dados.atendimentoId);
+      }
+    } catch (eAt) { /* nao bloqueia o fluxo */ }
+  }
+
   var resultado = { sucesso: true, numero: dados.numero };
 
   // Generate PDF if requested
@@ -1367,6 +1378,17 @@ function registrarVenda(dados) {
       dados.totalPecas || 0,
       dados.totalGeral || 0
     ]);
+
+    // Fase 2: vincular ao atendimento se presente no payload
+    if (dados.atendimentoId) {
+      try {
+        var colAtVenda = getColAtendimentoId(sheetReg);
+        if (colAtVenda > 0) {
+          var ultLinhaVenda = sheetReg.getLastRow();
+          sheetReg.getRange(ultLinhaVenda, colAtVenda).setValue(dados.atendimentoId);
+        }
+      } catch (eAt) { /* nao bloqueia o fluxo */ }
+    }
   } catch (errReg) {
     resultado.erros.push('Registros: ' + errReg.toString());
   }
@@ -1815,6 +1837,17 @@ function registrarOS(dados) {
     ];
 
     aba.appendRow(linha);
+
+    // Fase 2: vincular ao atendimento se presente no payload
+    if (dados.atendimentoId) {
+      try {
+        var colAtOS = getColAtendimentoId(aba);
+        if (colAtOS > 0) {
+          var ultLinhaOS = aba.getLastRow();
+          aba.getRange(ultLinhaOS, colAtOS).setValue(dados.atendimentoId);
+        }
+      } catch (eAt) { /* nao bloqueia o fluxo */ }
+    }
 
     // Upsert automático no cadastro de assistências quando há dados preenchidos
     if (dados.assistencia && (dados.assistenciaEndereco || dados.assistenciaTelefone)) {
