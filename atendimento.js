@@ -171,7 +171,76 @@
   }
 
   function abrirAtendimento() {
-    console.log('abrirAtendimento ainda nao implementado');
+    if (submetendo) return;
+
+    var dados = {
+      categoria: document.getElementById('atCategoria').value,
+      motivo: document.getElementById('atMotivo').value,
+      origem: document.getElementById('atOrigem').value,
+      nomeCliente: document.getElementById('atNome').value.trim(),
+      telefone: document.getElementById('atTelefone').value.trim(),
+      cpfCnpj: document.getElementById('atCpf').value.trim(),
+      notaFiscal: document.getElementById('atNotaFiscal').value.trim(),
+      modeloEquipamento: document.getElementById('atModelo').value,
+      descricao: document.getElementById('atDescricao').value.trim(),
+      vendedor: document.getElementById('atVendedor').value.trim()
+    };
+
+    if (!dados.categoria) return mostrarFeedback('Selecione a categoria', 'erro');
+    if (!dados.motivo) return mostrarFeedback('Selecione o motivo', 'erro');
+    if (!dados.origem) return mostrarFeedback('Selecione a origem', 'erro');
+    if (!dados.nomeCliente) return mostrarFeedback('Informe o nome do cliente', 'erro');
+    if (!dados.telefone || dados.telefone.replace(/\D/g, '').length < 10) {
+      return mostrarFeedback('Telefone invalido', 'erro');
+    }
+    if (!dados.descricao) return mostrarFeedback('Descreva o atendimento', 'erro');
+    if (!dados.vendedor) return mostrarFeedback('Informe o vendedor/atendente', 'erro');
+    if (dados.categoria === 'Pos-venda' && !dados.notaFiscal) {
+      return mostrarFeedback('Nota fiscal e obrigatoria em pos-venda', 'erro');
+    }
+
+    submetendo = true;
+    var btn = document.getElementById('btnAbrirAt');
+    btn.disabled = true;
+    btn.textContent = 'Enviando...';
+    mostrarFeedback('Abrindo atendimento...', 'info');
+
+    var payload = Object.assign({ action: 'registrar_atendimento' }, dados);
+
+    fetch(resolverUrl(), {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(resp) {
+        if (resp && resp.sucesso) {
+          mostrarSucesso(resp.id, dados);
+        } else {
+          mostrarFeedback('Erro: ' + (resp && resp.erro ? resp.erro : 'resposta invalida'), 'erro');
+        }
+      })
+      .catch(function(err) {
+        mostrarFeedback('Erro de rede: ' + err.message, 'erro');
+      })
+      .finally(function() {
+        submetendo = false;
+        btn.disabled = false;
+        btn.innerHTML = 'Abrir Atendimento &#10148;';
+      });
+  }
+
+  function mostrarFeedback(msg, tipo) {
+    var el = document.getElementById('atFeedback');
+    if (!el) return;
+    var bg = tipo === 'erro' ? '#ef4444' : tipo === 'sucesso' ? '#22c55e' : '#3b82f6';
+    el.innerHTML = '<div style="background:' + bg + ';color:#fff;padding:0.75rem 1rem;border-radius:6px;text-align:center;font-weight:600;">' + msg + '</div>';
+  }
+
+  function mostrarSucesso(id, dados) {
+    // Implementado na Task 1.6
+    mostrarFeedback('Atendimento aberto! Protocolo: ' + id, 'sucesso');
+    limparForm();
   }
 
 })();
