@@ -2351,3 +2351,48 @@ function registrarInventarioLote(payload) {
     ajustes: ajustes
   };
 }
+
+// ============================================================
+// FASE 2 — Vinculacao docs ao Atendimento
+// ============================================================
+
+/**
+ * Executar UMA VEZ no editor.
+ * Adiciona coluna 'atendimentoId' (vazia) ao final das abas Vendas, Orcamentos, OSes
+ * se ela ainda nao existir. Idempotente.
+ */
+function setupColunaAtendimentoId() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var resultado = [];
+  ['Vendas', 'Orcamentos', 'OSes', 'Assistencias'].forEach(function(nomeAba) {
+    var sheet = ss.getSheetByName(nomeAba);
+    if (!sheet) { resultado.push(nomeAba + ': aba nao existe (skip)'); return; }
+    var ultimaCol = sheet.getLastColumn();
+    if (ultimaCol === 0) { resultado.push(nomeAba + ': aba vazia (skip)'); return; }
+
+    // Le linha 1 inteira
+    var headers = sheet.getRange(1, 1, 1, ultimaCol).getValues()[0];
+    var jaTem = headers.some(function(h) { return String(h).trim().toLowerCase() === 'atendimentoid'; });
+    if (jaTem) { resultado.push(nomeAba + ': coluna ja existe'); return; }
+
+    // Adiciona nova coluna no final
+    sheet.getRange(1, ultimaCol + 1).setValue('atendimentoId');
+    sheet.getRange(1, ultimaCol + 1).setFontWeight('bold');
+    resultado.push(nomeAba + ': coluna atendimentoId adicionada (col ' + (ultimaCol + 1) + ')');
+  });
+  Logger.log(resultado.join('\n'));
+  return resultado.join('; ');
+}
+
+/**
+ * Retorna o indice (1-based) da coluna 'atendimentoId' em uma aba.
+ * Retorna 0 se a coluna nao existir.
+ */
+function getColAtendimentoId(sheet) {
+  if (!sheet || sheet.getLastColumn() === 0) return 0;
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  for (var i = 0; i < headers.length; i++) {
+    if (String(headers[i]).trim().toLowerCase() === 'atendimentoid') return i + 1;
+  }
+  return 0;
+}
