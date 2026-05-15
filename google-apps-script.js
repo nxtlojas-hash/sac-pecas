@@ -873,6 +873,10 @@ function doPost(e) {
       case 'salvar_assistencia':
         return jsonResponse(upsertAssistenciaCadastro(body.nome, body.endereco, body.telefone));
 
+      // --- Atendimentos (NXT SAC Fase 1) ---
+      case 'registrar_atendimento':
+        return jsonResponse(registrarAtendimento(body));
+
       default:
         return jsonResponse({ sucesso: false, erro: 'Acao POST desconhecida: ' + action });
     }
@@ -1868,6 +1872,77 @@ function upsertAssistenciaCadastro(nome, endereco, telefone) {
 
     aba.appendRow([nome, endereco, telefone, agora]);
     return { sucesso: true, acao: 'criado', nome: nome };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ============================================================
+// ATENDIMENTOS (NXT SAC Fase 1)
+// ============================================================
+
+var SHEET_ATENDIMENTOS = 'Atendimentos';
+
+function registrarAtendimento(payload) {
+  try {
+    var id = gerarProximoIdAtendimento();
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName(SHEET_ATENDIMENTOS);
+    if (!sheet) {
+      return { sucesso: false, erro: 'Aba "Atendimentos" nao existe. Crie no Sheets primeiro.' };
+    }
+
+    var agora = new Date();
+    sheet.appendRow([
+      id,                              // A: id
+      agora,                           // B: dataAbertura
+      payload.categoria || '',         // C
+      payload.motivo || '',            // D
+      payload.origem || '',            // E
+      payload.nomeCliente || '',       // F
+      payload.telefone || '',          // G
+      payload.cpfCnpj || '',           // H
+      payload.notaFiscal || '',        // I
+      payload.modeloEquipamento || '', // J
+      payload.descricao || '',         // K
+      payload.vendedor || '',          // L
+      'Aberto',                        // M: status
+      '',                              // N: dataFechamento
+      '',                              // O: motivoFechamento
+      false                            // P: npsEnviado
+    ]);
+
+    return { sucesso: true, id: id };
+  } catch (err) {
+    return { sucesso: false, erro: String(err) };
+  }
+}
+
+function gerarProximoIdAtendimento() {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var ano = new Date().getFullYear();
+    var prefix = 'PV-' + ano + '-';
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName(SHEET_ATENDIMENTOS);
+    if (!sheet) throw new Error('Aba Atendimentos nao encontrada');
+
+    var ultLinha = sheet.getLastRow();
+    if (ultLinha < 2) return prefix + '0001';
+
+    var dados = sheet.getRange(2, 1, ultLinha - 1, 1).getValues();
+    var maior = 0;
+    for (var i = 0; i < dados.length; i++) {
+      var v = String(dados[i][0] || '');
+      if (v.indexOf(prefix) === 0) {
+        var n = parseInt(v.substring(prefix.length), 10);
+        if (!isNaN(n) && n > maior) maior = n;
+      }
+    }
+    var prox = maior + 1;
+    var num = ('0000' + prox).slice(-4);
+    return prefix + num;
   } finally {
     lock.releaseLock();
   }
