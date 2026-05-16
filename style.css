@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.21 - Styles ===== */
+/* ===== NXT SAC V2.22 - Styles ===== */
 
 :root {
   --cor-fundo: #0f0f1a;
@@ -1792,6 +1792,16 @@ body {
   font-size: 2.25rem;
   line-height: 1;
   margin-bottom: 0.5rem;
+}
+
+.home-card-logo {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  margin-bottom: 0.5rem;
+  border-radius: 6px;
+  background: #fff;
+  padding: 4px;
 }
 
 .home-card-titulo {

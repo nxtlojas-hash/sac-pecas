@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.21 - App Core ===== */
+/* ===== NXT SAC V2.22 - App Core ===== */
 
 // --- Global State ---
 let currentView = 'home';
@@ -122,7 +122,8 @@ function renderHome() {
     { titulo: 'Quadro Comparativo', icone: '\uD83D\uDCCA', desc: 'Arquivo no Drive',     tipo: 'link', alvo: 'https://drive.google.com/file/d/190mnJT8Rn4sBo_G65DUSmwrMAb-_nlz0/view?usp=drive_link' },
     { titulo: 'Mapa Assist&ecirc;ncias', icone: '\uD83D\uDDFA\uFE0F', desc: 'Google Maps', tipo: 'link', alvo: 'https://www.google.com/maps/d/edit?mid=1wdtuUW-7dQ-OMY2DUJmVJ1ZqiMr-V9o&usp=drive_link' },
     { titulo: 'Mapa Lojas',       icone: '\uD83D\uDCCD', desc: 'Google Maps',             tipo: 'link', alvo: 'https://www.google.com/maps/d/edit?mid=1-Lc86Tm6UgkxEm3r1sE4wQLpHzyvH_Q&usp=drive_link' },
-    { titulo: 'Drive do SAC',     icone: '\uD83D\uDCC1', desc: 'Pasta principal',         tipo: 'link', alvo: 'https://drive.google.com/drive/folders/1rTamTXwXDFWIi_0YLgFD1MdzMigcPlNr?usp=drive_link' }
+    { titulo: 'Drive do SAC',     icone: '\uD83D\uDCC1', desc: 'Pasta principal',         tipo: 'link', alvo: 'https://drive.google.com/drive/folders/1rTamTXwXDFWIi_0YLgFD1MdzMigcPlNr?usp=drive_link' },
+    { titulo: 'Respond.io',       icone: '\uD83D\uDCAC', logoUrl: 'https://www.google.com/s2/favicons?domain=respond.io&sz=64', desc: 'Plataforma de mensagens', tipo: 'link', alvo: 'https://respond.io/' }
   ];
 
   homeWrap.innerHTML =
@@ -142,8 +143,11 @@ function renderHome() {
       '<h2 class="home-section-titulo">Links &uacute;teis</h2>' +
       '<div class="home-grid">' +
         links.map(function(c) {
+          var iconeHtml = c.logoUrl
+            ? '<img src="' + c.logoUrl + '" alt="' + c.titulo + '" class="home-card-logo" onerror="this.style.display=\'none\';this.parentElement.insertAdjacentHTML(\'afterbegin\', \'<span class=home-card-icone>' + (c.icone || '🔗') + '</span>\');this.remove();">'
+            : '<span class="home-card-icone">' + c.icone + '</span>';
           return '<a class="home-card home-card-link" href="' + c.alvo + '" target="_blank" rel="noopener">' +
-            '<span class="home-card-icone">' + c.icone + '</span>' +
+            iconeHtml +
             '<span class="home-card-titulo">' + c.titulo + '</span>' +
             '<span class="home-card-desc">' + c.desc + '</span>' +
           '</a>';
