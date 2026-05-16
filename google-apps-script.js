@@ -915,6 +915,9 @@ function doPost(e) {
       case 'atualizar_atendimento':
         return jsonResponse(atualizarAtendimento(body));
 
+      case 'marcar_nps_enviado':
+        return jsonResponse(marcarNpsEnviado(body));
+
       // --- Movimentacoes de Estoque (Fase E1 NXT SAC) ---
       case 'registrar_movimentacao':
         return jsonResponse(registrarMovimentacao(body));
@@ -2099,6 +2102,39 @@ function atualizarAtendimento(payload) {
     }
 
     return { sucesso: true, id: payload.id, status: payload.status };
+  } catch (err) {
+    return { sucesso: false, erro: String(err) };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * Marca npsEnviado=true em um atendimento.
+ * payload: { id }
+ */
+function marcarNpsEnviado(payload) {
+  if (!payload || !payload.id) return { sucesso: false, erro: 'id obrigatorio' };
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName(SHEET_ATENDIMENTOS);
+    if (!sheet) return { sucesso: false, erro: 'Aba Atendimentos nao encontrada' };
+
+    var ultLinha = sheet.getLastRow();
+    if (ultLinha < 2) return { sucesso: false, erro: 'Aba vazia' };
+
+    var dados = sheet.getRange(2, 1, ultLinha - 1, 1).getValues();
+    var linha = 0;
+    for (var i = 0; i < dados.length; i++) {
+      if (String(dados[i][0]) === String(payload.id)) { linha = i + 2; break; }
+    }
+    if (linha === 0) return { sucesso: false, erro: 'Atendimento ' + payload.id + ' nao encontrado' };
+
+    sheet.getRange(linha, 16).setValue(true); // Coluna P = npsEnviado
+    return { sucesso: true, id: payload.id };
   } catch (err) {
     return { sucesso: false, erro: String(err) };
   } finally {

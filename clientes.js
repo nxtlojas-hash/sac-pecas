@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.20 - Clientes (Timeline Fase 2b) ===== */
+/* ===== NXT SAC V2.21 - Clientes (Timeline Fase 2b) ===== */
 
 (function() {
   var SCRIPT_URL = null;
@@ -286,6 +286,23 @@
           ev.status = novoStatus;
           var spans = document.querySelectorAll('.cli-ev-status-' + cliIdx + '-' + evIdx);
           spans.forEach(function(s) { s.textContent = novoStatus; });
+
+          // Se virou Resolvido/Fechado, oferece enviar NPS
+          if ((novoStatus === 'Resolvido' || novoStatus === 'Fechado') && typeof window.enviarNPSWhatsApp === 'function') {
+            var cliente = clientesResultado[cliIdx];
+            var tel = cliente && cliente.telefones && cliente.telefones[0] ? cliente.telefones[0] : '';
+            var nome = cliente && cliente.nome ? cliente.nome : '';
+            if (tel) {
+              setTimeout(function() {
+                if (confirm('Atendimento marcado como ' + novoStatus + '.\n\nEnviar pesquisa de satisfacao (NPS) por WhatsApp agora?')) {
+                  window.enviarNPSWhatsApp(ev.id, tel, nome);
+                }
+                fechar();
+              }, 500);
+              return;
+            }
+          }
+
           setTimeout(fechar, 700);
         } else {
           setStatusFeedback('Erro: ' + (resp && resp.erro ? resp.erro : 'sem resposta'), 'erro');

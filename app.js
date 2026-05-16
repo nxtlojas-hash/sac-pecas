@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.20 - App Core ===== */
+/* ===== NXT SAC V2.21 - App Core ===== */
 
 // --- Global State ---
 let currentView = 'home';
@@ -164,6 +164,31 @@ function renderHome() {
   var btnSectionAntigo = document.getElementById('home-tabela-section');
   if (btnSectionAntigo) btnSectionAntigo.remove();
 }
+
+// --- NPS: envia pesquisa por WhatsApp + marca npsEnviado no backend ---
+window.enviarNPSWhatsApp = function(atendimentoId, telefone, nomeCliente) {
+  var tel = String(telefone || '').replace(/\D/g, '');
+  if (tel.length < 10) {
+    alert('Telefone do cliente invalido — nao da pra enviar NPS por WhatsApp.');
+    return;
+  }
+  var primeiroNome = String(nomeCliente || 'Cliente').split(' ')[0];
+  var msg = 'Ola ' + primeiroNome + '! Aqui da NXT SAC.\n\n' +
+    'Seu atendimento ' + atendimentoId + ' foi concluído. Sua opinião é muito importante!\n\n' +
+    '⭐ *De 0 a 10, o quanto você recomendaria nosso atendimento para um amigo?*\n\n' +
+    'Pode responder apenas com a nota e, se quiser, deixar um comentário. Obrigado! 🙏';
+
+  window.open('https://wa.me/55' + tel + '?text=' + encodeURIComponent(msg), '_blank');
+
+  // Marca como enviado no backend (best effort)
+  if (typeof GOOGLE_SCRIPT_URL !== 'undefined') {
+    fetch(GOOGLE_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'marcar_nps_enviado', id: atendimentoId }),
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+    }).catch(function() { /* silencioso */ });
+  }
+};
 
 // --- Guide modal ---
 function abrirGuiaUso() {

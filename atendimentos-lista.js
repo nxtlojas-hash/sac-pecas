@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.20 - Atendimentos (lista) ===== */
+/* ===== NXT SAC V2.21 - Atendimentos (lista) ===== */
 
 (function() {
   var SCRIPT_URL = null;
@@ -325,6 +325,22 @@
         if (resp && resp.sucesso) {
           atendimento.status = novoStatus;
           renderLista();
+
+          // Se virou Resolvido/Fechado, oferece enviar NPS
+          if ((novoStatus === 'Resolvido' || novoStatus === 'Fechado') && typeof window.enviarNPSWhatsApp === 'function') {
+            var tel = atendimento.telefone || '';
+            var nome = atendimento.nomeCliente || '';
+            if (tel) {
+              setTimeout(function() {
+                if (confirm('Atendimento marcado como ' + novoStatus + '.\n\nEnviar pesquisa de satisfacao (NPS) por WhatsApp agora?')) {
+                  window.enviarNPSWhatsApp(atendimento.id, tel, nome);
+                }
+                fechar();
+              }, 300);
+              return;
+            }
+          }
+
           setTimeout(fechar, 300);
         } else {
           var fb = document.getElementById('alModalFeedback');
