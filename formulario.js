@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.19 - Formulario de Registro ===== */
+/* ===== NXT SAC V2.20 - Formulario de Registro ===== */
 
 const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbytZgFvvhTvYRgufyvFTGbMb27sxHnIQp256XQ6r7VZuX2B0RTdO3MIpbf4EcF8KgnYlw/exec';
 
@@ -31,6 +31,13 @@ function buildFormHTML() {
 
   return '' +
     '<form id="vendaPecaForm" autocomplete="off">' +
+
+    // Banner explicativo sobre os 2 fluxos finais
+    '<div style="background:#161625;border-left:3px solid var(--cor-primaria);padding:0.7rem 1rem;margin-bottom:1rem;border-radius:6px;color:#9a9a9a;font-size:0.85rem;">' +
+      '<strong style="color:#e8e8f0;">&#128161; No final do formul&aacute;rio voc&ecirc; escolhe:</strong><br>' +
+      '<span style="color:#22c55e;font-weight:600;">&#128722; Registrar Venda</span> &mdash; conclui a venda, baixa estoque, envia para Bling.<br>' +
+      '<span style="color:#f59e0b;font-weight:600;">&#128196; Salvar como Or&ccedil;amento</span> &mdash; salva pendente (validade 7 dias), sem baixar estoque.' +
+    '</div>' +
 
     // SECAO ATENDIMENTO
     '<div class="secao-form">' +
@@ -1035,6 +1042,22 @@ function registrarVenda(event) {
   }
   if ((tipoVendaSAC || tipoVendaSumare) && !formaPagamento) { mostrarFeedback('Selecione a forma de pagamento', 'erro'); return; }
 
+  // Confirmacao com resumo antes de registrar venda
+  var totalPecasPreview = pecasAdicionadas.reduce(function(s, p) { return s + p.total; }, 0);
+  var totalGeralPreview = totalPecasPreview + valorFrete;
+  var tipoAtPreview = [];
+  if (tipoVendaSAC) tipoAtPreview.push('Venda SAC');
+  if (tipoVendaSumare) tipoAtPreview.push('Venda Sumare');
+  if (tipoGarantia) tipoAtPreview.push('Garantia');
+  var atendVincTxt = atendimentoVinculadoAtual ? '\n🔗 Atendimento vinculado: ' + atendimentoVinculadoAtual : '';
+  var msgConfirm = '🛒 CONFIRMAR REGISTRO DE VENDA\n\n' +
+    'Cliente: ' + nomeCliente + '\n' +
+    'Tipo: ' + tipoAtPreview.join(' + ') + '\n' +
+    'Peças: ' + pecasAdicionadas.length + '\n' +
+    'Total: R$ ' + formatarValor(totalGeralPreview) + atendVincTxt + '\n\n' +
+    '⚠️ Isso vai baixar o estoque e enviar para o Bling.\n\nConfirmar?';
+  if (!confirm(msgConfirm)) return;
+
   envioEmAndamento = true;
   var btnSubmit = document.getElementById('btnRegistrar');
   btnSubmit.disabled = true;
@@ -1955,6 +1978,17 @@ function salvarComoOrcamento() {
   if (pecasAdicionadas.length === 0) {
     return mostrarFeedback('Adicione ao menos uma peca', 'erro');
   }
+
+  // Confirmacao com resumo antes de salvar orcamento
+  var totalOrcPreview = pecasAdicionadas.reduce(function(s, p) { return s + p.total; }, 0);
+  var atendVincOrc = atendimentoVinculadoAtual ? '\n🔗 Atendimento vinculado: ' + atendimentoVinculadoAtual : '';
+  var msgConfirmOrc = '📄 CONFIRMAR ORÇAMENTO\n\n' +
+    'Cliente: ' + nomeCliente + '\n' +
+    'Peças: ' + pecasAdicionadas.length + '\n' +
+    'Total: R$ ' + formatarValor(totalOrcPreview) + '\n' +
+    'Validade: 7 dias' + atendVincOrc + '\n\n' +
+    'ℹ️ Sem baixa de estoque. Aparecerá em Orçamentos como pendente.\n\nConfirmar?';
+  if (!confirm(msgConfirmOrc)) return;
 
   envioEmAndamento = true;
   var btn = document.getElementById('btnSalvarOrcamento');

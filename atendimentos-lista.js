@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.19 - Atendimentos (lista) ===== */
+/* ===== NXT SAC V2.20 - Atendimentos (lista) ===== */
 
 (function() {
   var SCRIPT_URL = null;
