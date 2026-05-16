@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.18 - Sistema de Orcamentos ===== */
+/* ===== NXT SAC V2.19 - Sistema de Orcamentos ===== */
 
 var orcamentosCache = [];
 var orcamentoSearchTimer = null;

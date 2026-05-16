@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.18 - App Core ===== */
+/* ===== NXT SAC V2.19 - App Core ===== */
 
 // --- Global State ---
 let currentView = 'home';
@@ -69,6 +69,8 @@ function navigateTo(view, params) {
     if (typeof window.initEstoque === 'function') window.initEstoque();
   } else if (view === 'clientes') {
     if (typeof window.initClientes === 'function') window.initClientes();
+  } else if (view === 'atendimentos') {
+    if (typeof window.initAtendimentosLista === 'function') window.initAtendimentosLista();
   } else if (view === 'formulario') {
     if (window.__preFillForm) {
       var preFillVenda = window.__preFillForm;
@@ -106,6 +108,7 @@ function renderHome() {
 
   var acoes = [
     { titulo: 'Atendimento',  icone: '\uD83D\uDCDD', desc: 'Abrir novo atendimento',           tipo: 'view',  alvo: 'atendimento' },
+    { titulo: 'Atendimentos', icone: '\uD83D\uDCCB', desc: 'Listar e filtrar atendimentos',    tipo: 'view',  alvo: 'atendimentos' },
     { titulo: 'Clientes',     icone: '\uD83D\uDC64', desc: 'Hist&oacute;rico por CPF/telefone', tipo: 'view',  alvo: 'clientes' },
     { titulo: 'Cat&aacute;logo', icone: '\uD83D\uDCD6', desc: 'Pe&ccedil;as por modelo',         tipo: 'view',  alvo: 'catalogo' },
     { titulo: 'Registrar',    icone: '\uD83D\uDED2', desc: 'Venda ou or&ccedil;amento de pe&ccedil;a', tipo: 'view', alvo: 'formulario' },
