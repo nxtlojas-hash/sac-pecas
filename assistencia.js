@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.17 - Formulário Assistência Técnica + Modal Pós-OS ===== */
+/* ===== NXT SAC V2.18 - Formulário Assistência Técnica + Modal Pós-OS ===== */
 
 (function(){
   // Reaproveita a URL definida em formulario.js (mesmo endpoint do backend)
@@ -218,6 +218,12 @@
     aplicarMascaraTelefone(document.getElementById('osAssistenciaTelefone'));
     aplicarMascaraCPF(document.getElementById('osCpfCliente'));
     aplicarMascaraCEP(document.getElementById('osCepCliente'));
+
+    // Busca cliente automatica ao sair dos campos CPF/telefone
+    var cpfEl = document.getElementById('osCpfCliente');
+    if (cpfEl) cpfEl.addEventListener('blur', buscarClienteAutoOS);
+    var telEl = document.getElementById('osTelefoneCliente');
+    if (telEl) telEl.addEventListener('blur', buscarClienteAutoOS);
 
     // CEP autofill via ViaCEP
     var cepInput = document.getElementById('osCepCliente');
@@ -733,6 +739,114 @@
     if (!val) return;
     var el = document.getElementById(id);
     if (el) { el.value = val; el.dispatchEvent(new Event('input', { bubbles: true })); }
+  }
+
+  // --- Busca cliente automatica em OS ---
+  var ultimaBuscaAutoOS = '';
+
+  function buscarClienteAutoOS() {
+    if (typeof GOOGLE_SCRIPT_URL === 'undefined') return;
+
+    var cpf = (document.getElementById('osCpfCliente') || {}).value || '';
+    var tel = (document.getElementById('osTelefoneCliente') || {}).value || '';
+    var cpfDigitos = cpf.replace(/\D/g, '');
+    var telDigitos = tel.replace(/\D/g, '');
+
+    var params = [];
+    if (cpfDigitos.length === 11 || cpfDigitos.length === 14) {
+      params.push('cpf=' + encodeURIComponent(cpfDigitos));
+    } else if (telDigitos.length === 10 || telDigitos.length === 11) {
+      params.push('telefone=' + encodeURIComponent(telDigitos));
+    } else {
+      return;
+    }
+
+    var chave = params.join('&');
+    if (chave === ultimaBuscaAutoOS) return;
+    ultimaBuscaAutoOS = chave;
+
+    fetch(GOOGLE_SCRIPT_URL + '?action=buscar_cliente_consolidado&' + chave)
+      .then(function(r) { return r.json(); })
+      .then(function(resp) {
+        if (!resp || !resp.sucesso || !resp.clientes || resp.clientes.length === 0) {
+          removerBannerClienteAutoOS();
+          return;
+        }
+        mostrarBannerClienteAutoOS(resp.clientes[0]);
+      })
+      .catch(function() { /* silencioso */ });
+  }
+
+  function removerBannerClienteAutoOS() {
+    var existente = document.getElementById('bannerClienteAutoOS');
+    if (existente) existente.remove();
+  }
+
+  function mostrarBannerClienteAutoOS(cliente) {
+    removerBannerClienteAutoOS();
+
+    var atendimentos = (cliente.eventos || []).filter(function(e) { return e.tipo === 'atendimento'; });
+    var abertos = atendimentos.filter(function(a) { return a.status !== 'Fechado' && a.status !== 'Resolvido'; });
+    var totalAt = atendimentos.length;
+
+    var corBg = abertos.length > 0 ? '#f59e0b22' : '#3b82f622';
+    var corBorda = abertos.length > 0 ? '#f59e0b' : '#3b82f6';
+    var corTitulo = abertos.length > 0 ? '#f59e0b' : '#3b82f6';
+    var icone = abertos.length > 0 ? '&#9888;' : '&#8505;';
+
+    var subtitulo = '';
+    if (abertos.length > 0) subtitulo = '<strong>' + abertos.length + ' atendimento(s) em aberto</strong> &bull; ' + totalAt + ' total';
+    else if (totalAt > 0) subtitulo = totalAt + ' atendimento(s) anteriores (todos fechados)';
+    else subtitulo = 'Cliente conhecido, sem atendimentos anteriores';
+
+    var listaHtml = '';
+    if (totalAt > 0) {
+      listaHtml = '<div style="margin-top:0.5rem;display:flex;flex-direction:column;gap:0.3rem;">' +
+        atendimentos.slice(0, 5).map(function(a) {
+          var statusCor = (a.status === 'Aberto' || a.status === 'Em andamento') ? '#f59e0b' : (a.status === 'Resolvido' ? '#22c55e' : '#9a9a9a');
+          return '<div style="display:flex;justify-content:space-between;align-items:center;padding:0.4rem 0.6rem;background:#1c1c1c;border-radius:4px;font-size:0.85rem;">' +
+            '<span><strong style="color:#c6ff00;">' + a.id + '</strong> &bull; ' +
+            '<span style="color:' + statusCor + ';">' + (a.status || '—') + '</span> &bull; ' +
+            '<span style="color:#9a9a9a;">' + (a.categoria || '') + '</span></span>' +
+            '<button type="button" data-at-id="' + a.id + '" class="banner-vincular-at-os" style="background:#c6ff00;color:#0f0f1a;border:none;padding:0.2rem 0.6rem;border-radius:4px;font-size:0.75rem;cursor:pointer;font-weight:600;">Vincular a este</button>' +
+          '</div>';
+        }).join('') +
+        (atendimentos.length > 5 ? '<div style="font-size:0.75rem;color:#9a9a9a;text-align:center;">+ ' + (atendimentos.length - 5) + ' mais</div>' : '') +
+      '</div>';
+    }
+
+    var banner = document.createElement('div');
+    banner.id = 'bannerClienteAutoOS';
+    banner.style.cssText = 'background:' + corBg + ';border-left:3px solid ' + corBorda + ';padding:0.75rem 1rem;margin-bottom:1rem;border-radius:6px;color:#e8e8f0;font-size:0.9rem;';
+    banner.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;">' +
+        '<div>' +
+          '<strong style="color:' + corTitulo + ';">' + icone + ' Cliente identificado: ' + escapeHtml(cliente.nome || '') + '</strong><br>' +
+          '<span style="color:#9a9a9a;">' + subtitulo + '</span>' +
+        '</div>' +
+        '<button type="button" id="bannerClienteAutoOSFechar" style="background:transparent;border:none;color:#9a9a9a;cursor:pointer;font-size:1.1rem;line-height:1;">&times;</button>' +
+      '</div>' +
+      listaHtml;
+
+    var container = document.getElementById('assistencia-container');
+    if (container) container.insertBefore(banner, container.firstChild);
+
+    document.getElementById('bannerClienteAutoOSFechar').addEventListener('click', removerBannerClienteAutoOS);
+    banner.querySelectorAll('.banner-vincular-at-os').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var atId = btn.dataset.atId;
+        atendimentoVinculadoOS = atId;
+        removerBannerClienteAutoOS();
+        var existenteVinc = document.getElementById('bannerAtVinculadoOS');
+        if (existenteVinc) existenteVinc.remove();
+        var b = document.createElement('div');
+        b.id = 'bannerAtVinculadoOS';
+        b.style.cssText = 'background:#c6ff0022;border-left:3px solid #c6ff00;padding:0.75rem 1rem;margin-bottom:1rem;border-radius:6px;color:#e8e8f0;font-size:0.9rem;';
+        b.innerHTML = '<strong style="color:#c6ff00;">&#128279; Vinculado ao atendimento ' + atId + '</strong><br>' +
+          '<span style="color:#9a9a9a;">Esta OS ser&aacute; vinculada automaticamente.</span>';
+        if (container) container.insertBefore(b, container.firstChild);
+      });
+    });
   }
 
   // ============================================================

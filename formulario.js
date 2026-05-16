@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.17 - Formulario de Registro ===== */
+/* ===== NXT SAC V2.18 - Formulario de Registro ===== */
 
 const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbytZgFvvhTvYRgufyvFTGbMb27sxHnIQp256XQ6r7VZuX2B0RTdO3MIpbf4EcF8KgnYlw/exec';
 
@@ -342,6 +342,12 @@ function setupFormListeners() {
   if (btnOrc) {
     btnOrc.addEventListener('click', salvarComoOrcamento);
   }
+
+  // Busca cliente automatica ao sair dos campos CPF/telefone
+  var cpfEl = document.getElementById('cpfCnpjCliente');
+  if (cpfEl) cpfEl.addEventListener('blur', function() { buscarClienteAutoVenda(); });
+  var telEl = document.getElementById('telefoneCliente');
+  if (telEl) telEl.addEventListener('blur', function() { buscarClienteAutoVenda(); });
 
   // Tipo cliente change
   var tipoCliente = document.getElementById('tipoCliente');
@@ -1766,6 +1772,124 @@ function addPartToForm(peca, modelId) {
 
 // Atendimento vinculado (setado por aplicarPreFillVenda quando wizard atendimento -> form)
 var atendimentoVinculadoAtual = '';
+
+// Cache da ultima busca pra evitar disparar varias vezes a mesma
+var ultimaBuscaAutoVenda = '';
+
+// --- Busca cliente automatica quando CPF ou telefone perde foco ---
+function buscarClienteAutoVenda() {
+  if (typeof GOOGLE_SCRIPT_URL === 'undefined' || GOOGLE_SCRIPT_URL.indexOf('SUBSTITUIR') !== -1) return;
+
+  var cpf = (document.getElementById('cpfCnpjCliente') || {}).value || '';
+  var tel = (document.getElementById('telefoneCliente') || {}).value || '';
+  var cpfDigitos = cpf.replace(/\D/g, '');
+  var telDigitos = tel.replace(/\D/g, '');
+
+  var params = [];
+  if (cpfDigitos.length === 11 || cpfDigitos.length === 14) {
+    params.push('cpf=' + encodeURIComponent(cpfDigitos));
+  } else if (telDigitos.length === 10 || telDigitos.length === 11) {
+    params.push('telefone=' + encodeURIComponent(telDigitos));
+  } else {
+    return; // dados insuficientes
+  }
+
+  var chaveBusca = params.join('&');
+  if (chaveBusca === ultimaBuscaAutoVenda) return; // evita re-busca
+  ultimaBuscaAutoVenda = chaveBusca;
+
+  fetch(GOOGLE_SCRIPT_URL + '?action=buscar_cliente_consolidado&' + chaveBusca)
+    .then(function(r) { return r.json(); })
+    .then(function(resp) {
+      if (!resp || !resp.sucesso || !resp.clientes || resp.clientes.length === 0) {
+        removerBannerClienteAuto();
+        return;
+      }
+      mostrarBannerClienteAuto(resp.clientes[0], 'venda');
+    })
+    .catch(function() { /* silencioso */ });
+}
+
+function removerBannerClienteAuto() {
+  var existente = document.getElementById('bannerClienteAuto');
+  if (existente) existente.remove();
+}
+
+function mostrarBannerClienteAuto(cliente, contexto) {
+  removerBannerClienteAuto();
+
+  var atendimentos = (cliente.eventos || []).filter(function(e) { return e.tipo === 'atendimento'; });
+  var abertos = atendimentos.filter(function(a) { return a.status !== 'Fechado' && a.status !== 'Resolvido'; });
+  var totalAt = atendimentos.length;
+
+  var corBg = abertos.length > 0 ? '#f59e0b22' : '#3b82f622';
+  var corBorda = abertos.length > 0 ? '#f59e0b' : '#3b82f6';
+  var corTitulo = abertos.length > 0 ? '#f59e0b' : '#3b82f6';
+  var icone = abertos.length > 0 ? '&#9888;' : '&#8505;';
+
+  var subtitulo = '';
+  if (abertos.length > 0) {
+    subtitulo = '<strong>' + abertos.length + ' atendimento(s) em aberto</strong> &bull; ' + totalAt + ' total';
+  } else if (totalAt > 0) {
+    subtitulo = totalAt + ' atendimento(s) anteriores (todos fechados)';
+  } else {
+    subtitulo = 'Cliente conhecido, sem atendimentos anteriores';
+  }
+
+  var listaAtsHtml = '';
+  if (totalAt > 0) {
+    listaAtsHtml = '<div style="margin-top:0.5rem;display:flex;flex-direction:column;gap:0.3rem;">' +
+      atendimentos.slice(0, 5).map(function(a) {
+        var statusCor = (a.status === 'Aberto' || a.status === 'Em andamento') ? '#f59e0b' : (a.status === 'Resolvido' ? '#22c55e' : '#9a9a9a');
+        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:0.4rem 0.6rem;background:#1c1c1c;border-radius:4px;font-size:0.85rem;">' +
+          '<span><strong style="color:#c6ff00;">' + a.id + '</strong> &bull; ' +
+          '<span style="color:' + statusCor + ';">' + (a.status || '—') + '</span> &bull; ' +
+          '<span style="color:#9a9a9a;">' + (a.categoria || '') + (a.resumo ? ' &bull; ' + a.resumo : '') + '</span></span>' +
+          '<button type="button" data-at-id="' + a.id + '" class="banner-vincular-at" style="background:#c6ff00;color:#0f0f1a;border:none;padding:0.2rem 0.6rem;border-radius:4px;font-size:0.75rem;cursor:pointer;font-weight:600;">Vincular a este</button>' +
+        '</div>';
+      }).join('') +
+      (atendimentos.length > 5 ? '<div style="font-size:0.75rem;color:#9a9a9a;text-align:center;">+ ' + (atendimentos.length - 5) + ' mais</div>' : '') +
+    '</div>';
+  }
+
+  var banner = document.createElement('div');
+  banner.id = 'bannerClienteAuto';
+  banner.style.cssText = 'background:' + corBg + ';border-left:3px solid ' + corBorda + ';padding:0.75rem 1rem;margin-bottom:1rem;border-radius:6px;color:#e8e8f0;font-size:0.9rem;';
+  banner.innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;">' +
+      '<div>' +
+        '<strong style="color:' + corTitulo + ';">' + icone + ' Cliente identificado: ' + escapeHtmlFV(cliente.nome || '') + '</strong><br>' +
+        '<span style="color:#9a9a9a;">' + subtitulo + '</span>' +
+      '</div>' +
+      '<button type="button" id="bannerClienteAutoFechar" style="background:transparent;border:none;color:#9a9a9a;cursor:pointer;font-size:1.1rem;line-height:1;">&times;</button>' +
+    '</div>' +
+    listaAtsHtml;
+
+  var formContainer = document.getElementById('formulario-container');
+  if (formContainer) formContainer.insertBefore(banner, formContainer.firstChild);
+
+  document.getElementById('bannerClienteAutoFechar').addEventListener('click', removerBannerClienteAuto);
+  banner.querySelectorAll('.banner-vincular-at').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var atId = btn.dataset.atId;
+      atendimentoVinculadoAtual = atId;
+      removerBannerClienteAuto();
+      // Mostra banner verde de vinculacao confirmada
+      var b = document.createElement('div');
+      b.id = 'bannerAtendimentoVinculado';
+      b.style.cssText = 'background:#c6ff0022;border-left:3px solid #c6ff00;padding:0.75rem 1rem;margin-bottom:1rem;border-radius:6px;color:#e8e8f0;font-size:0.9rem;';
+      b.innerHTML = '<strong style="color:#c6ff00;">&#128279; Vinculado ao atendimento ' + atId + '</strong><br>' +
+        '<span style="color:#9a9a9a;">Esta venda/or&ccedil;amento ser&aacute; vinculada automaticamente.</span>';
+      var fc = document.getElementById('formulario-container');
+      if (fc) fc.insertBefore(b, fc.firstChild);
+    });
+  });
+}
+
+function escapeHtmlFV(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 
 // --- Aplica pre-fill quando wizard de atendimento navega pra ca ---
 function aplicarPreFillVenda(preFill) {
