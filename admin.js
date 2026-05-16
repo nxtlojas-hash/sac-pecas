@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.22 - Admin / Gerenciar Pecas ===== */
+/* ===== NXT SAC V2.23 - Admin / Gerenciar Pecas ===== */
 
 // --- Admin State ---
 let adminAllParts = [];

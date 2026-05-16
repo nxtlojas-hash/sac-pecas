@@ -918,6 +918,9 @@ function doPost(e) {
       case 'marcar_nps_enviado':
         return jsonResponse(marcarNpsEnviado(body));
 
+      case 'migrar_pendentes_para_atendimentos':
+        return jsonResponse(migrarPendentesParaAtendimentos(body));
+
       // --- Movimentacoes de Estoque (Fase E1 NXT SAC) ---
       case 'registrar_movimentacao':
         return jsonResponse(registrarMovimentacao(body));
@@ -2140,6 +2143,138 @@ function marcarNpsEnviado(payload) {
   } finally {
     lock.releaseLock();
   }
+}
+
+/**
+ * Migracao retroativa: cria atendimentos sinteticos para docs pendentes sem atendimentoId.
+ * Considera "pendente":
+ *   - Orcamentos com status='pendente' (case insensitive ou vazio) e atendimentoId vazio
+ *   - AssistenciasTecnicas com atendimentoId vazio (OS nao tem status formal de fechamento)
+ *
+ * payload: { simular: boolean } - se true, so retorna a contagem sem modificar
+ *
+ * Para cada doc qualificado:
+ *  1. Le campos do cliente (nome, telefone, cpf, nf, modelo) do doc
+ *  2. Chama registrarAtendimento() com categoria/motivo deduzidos do tipo
+ *  3. Chama vincularDocAtendimento() para conectar doc ao atendimento criado
+ *
+ * Status do atendimento criado: "Em andamento" (pendente real)
+ */
+function migrarPendentesParaAtendimentos(payload) {
+  var simular = !!(payload && payload.simular);
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var resumo = { orcamentos: 0, oses: 0, criados: [] };
+
+  // === ORCAMENTOS pendentes ===
+  var sheetOrc = ss.getSheetByName(ABA_ORCAMENTOS);
+  if (sheetOrc && sheetOrc.getLastRow() > 1) {
+    var ultCol = sheetOrc.getLastColumn();
+    var headers = sheetOrc.getRange(1, 1, 1, ultCol).getValues()[0];
+    var idxStatus = headers.indexOf('status');
+    var idxAt = headers.indexOf('atendimentoId');
+    var idxCliente = headers.indexOf('cliente'); if (idxCliente < 0) idxCliente = headers.indexOf('nome');
+    var idxTel = headers.indexOf('telefone');
+    var idxDoc = headers.indexOf('documento'); if (idxDoc < 0) idxDoc = headers.indexOf('cpf');
+    var idxVendedor = headers.indexOf('vendedor');
+
+    if (idxAt >= 0) { // só migra se a coluna existe
+      var dados = sheetOrc.getRange(2, 1, sheetOrc.getLastRow() - 1, ultCol).getValues();
+      for (var i = 0; i < dados.length; i++) {
+        var r = dados[i];
+        var status = String(r[idxStatus] || '').toLowerCase().trim();
+        var atId = String(r[idxAt] || '').trim();
+        if (atId) continue; // ja vinculado
+        if (status && status !== 'pendente' && status !== '') continue;
+
+        resumo.orcamentos++;
+        if (simular) continue;
+
+        var orcId = r[0];
+        var atResp = registrarAtendimento({
+          categoria: 'Pos-venda',
+          motivo: 'Pecas / reposicao',
+          origem: 'Migracao - Orcamento pendente',
+          nomeCliente: r[idxCliente] || '',
+          telefone: r[idxTel] || '',
+          cpfCnpj: r[idxDoc] || '',
+          notaFiscal: '',
+          modeloEquipamento: '',
+          descricao: 'Orcamento ' + orcId + ' criado anteriormente (migrado retroativamente)',
+          vendedor: r[idxVendedor] || 'migracao',
+          status: 'Em andamento'
+        });
+
+        if (atResp && atResp.sucesso) {
+          vincularDocAtendimento({
+            atendimentoId: atResp.id,
+            tipoDoc: 'orcamento',
+            docId: orcId
+          });
+          resumo.criados.push({ tipo: 'orcamento', docId: orcId, atendimentoId: atResp.id });
+        }
+      }
+    }
+  }
+
+  // === ASSISTENCIAS TECNICAS sem atendimentoId ===
+  var sheetOS = ss.getSheetByName(ABA_ASSISTENCIAS);
+  if (sheetOS && sheetOS.getLastRow() > 1) {
+    var ultColOS = sheetOS.getLastColumn();
+    var headersOS = sheetOS.getRange(1, 1, 1, ultColOS).getValues()[0];
+    var idxAtOS = headersOS.indexOf('atendimentoId');
+    var idxNomeOS = headersOS.indexOf('nomeCliente'); if (idxNomeOS < 0) idxNomeOS = headersOS.indexOf('nome');
+    var idxTelOS = headersOS.indexOf('telefoneCliente'); if (idxTelOS < 0) idxTelOS = headersOS.indexOf('telefone');
+    var idxCpfOS = headersOS.indexOf('cpfCliente'); if (idxCpfOS < 0) idxCpfOS = headersOS.indexOf('cpf');
+    var idxNFOS = headersOS.indexOf('notaFiscal');
+    var idxModeloOS = headersOS.indexOf('modeloEquipamento'); if (idxModeloOS < 0) idxModeloOS = headersOS.indexOf('modelo');
+    var idxProblemaOS = headersOS.indexOf('problema'); if (idxProblemaOS < 0) idxProblemaOS = headersOS.indexOf('descricao');
+
+    if (idxAtOS >= 0) {
+      var dadosOS = sheetOS.getRange(2, 1, sheetOS.getLastRow() - 1, ultColOS).getValues();
+      for (var j = 0; j < dadosOS.length; j++) {
+        var ros = dadosOS[j];
+        var atIdOS = String(ros[idxAtOS] || '').trim();
+        if (atIdOS) continue;
+
+        resumo.oses++;
+        if (simular) continue;
+
+        var osId = ros[0];
+        var atRespOS = registrarAtendimento({
+          categoria: 'Pos-venda',
+          motivo: 'Assistencia tecnica',
+          origem: 'Migracao - OS legada',
+          nomeCliente: idxNomeOS >= 0 ? (ros[idxNomeOS] || '') : '',
+          telefone: idxTelOS >= 0 ? (ros[idxTelOS] || '') : '',
+          cpfCnpj: idxCpfOS >= 0 ? (ros[idxCpfOS] || '') : '',
+          notaFiscal: idxNFOS >= 0 ? (ros[idxNFOS] || '') : '',
+          modeloEquipamento: idxModeloOS >= 0 ? (ros[idxModeloOS] || '') : '',
+          descricao: idxProblemaOS >= 0 ? (ros[idxProblemaOS] || 'OS ' + osId) : ('OS ' + osId + ' migrada'),
+          vendedor: 'migracao',
+          status: 'Em andamento'
+        });
+
+        if (atRespOS && atRespOS.sucesso) {
+          vincularDocAtendimento({
+            atendimentoId: atRespOS.id,
+            tipoDoc: 'os',
+            docId: osId
+          });
+          resumo.criados.push({ tipo: 'os', docId: osId, atendimentoId: atRespOS.id });
+        }
+      }
+    }
+  }
+
+  return {
+    sucesso: true,
+    simulacao: simular,
+    totalOrcamentos: resumo.orcamentos,
+    totalOSes: resumo.oses,
+    totalGeral: resumo.orcamentos + resumo.oses,
+    totalCriados: simular ? 0 : resumo.criados.length,
+    criados: resumo.criados
+  };
 }
 
 function gerarProximoIdAtendimento() {

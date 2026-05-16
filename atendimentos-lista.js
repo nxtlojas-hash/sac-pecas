@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.22 - Atendimentos (lista) ===== */
+/* ===== NXT SAC V2.23 - Atendimentos (lista) ===== */
 
 (function() {
   var SCRIPT_URL = null;
@@ -71,6 +71,7 @@
           '<button type="button" class="btn-primario" id="alBtnAplicar">&#128269; Aplicar filtros</button>' +
           '<button type="button" class="btn-secundario" id="alBtnLimpar">Limpar</button>' +
           '<button type="button" class="btn-secundario" id="alBtnRefresh">&#x21bb; Atualizar</button>' +
+          '<button type="button" class="btn-secundario" id="alBtnMigrar" style="margin-left:0.5rem;border-color:#f59e0b;color:#f59e0b;">&#x1f504; Migrar pendentes</button>' +
           '<span id="alResumo" style="color:#9a9a9a;font-size:0.85rem;margin-left:auto;"></span>' +
         '</div>' +
       '</div>' +
@@ -83,6 +84,7 @@
     document.getElementById('alBtnAplicar').addEventListener('click', aplicarFiltros);
     document.getElementById('alBtnLimpar').addEventListener('click', limparFiltros);
     document.getElementById('alBtnRefresh').addEventListener('click', carregarAtendimentos);
+    document.getElementById('alBtnMigrar').addEventListener('click', migrarPendentes);
     document.getElementById('alBusca').addEventListener('keydown', function(e) {
       if (e.key === 'Enter') { e.preventDefault(); aplicarFiltros(); }
     });
@@ -397,6 +399,62 @@
     if (!msg) { el.innerHTML = ''; return; }
     var bg = tipo === 'erro' ? '#ef4444' : tipo === 'sucesso' ? '#22c55e' : '#3b82f6';
     el.innerHTML = '<div style="background:' + bg + ';color:#fff;padding:0.5rem 1rem;border-radius:6px;text-align:center;font-weight:600;font-size:0.85rem;">' + msg + '</div>';
+  }
+
+  // --- Migracao retroativa de pendentes em atendimentos sinteticos ---
+  function migrarPendentes() {
+    mostrarFeedback('Verificando pendentes...', 'info');
+
+    // 1. Simulacao primeiro - conta quantos sao
+    fetch(resolverUrl(), {
+      method: 'POST',
+      body: JSON.stringify({ action: 'migrar_pendentes_para_atendimentos', simular: true }),
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(resp) {
+      if (!resp || !resp.sucesso) {
+        return mostrarFeedback('Erro: ' + (resp && resp.erro ? resp.erro : 'sem resposta'), 'erro');
+      }
+      mostrarFeedback('', '');
+      var total = resp.totalGeral;
+      if (total === 0) {
+        alert('Sem pendentes para migrar.\n\nTodos os orcamentos pendentes e OSes ja tem atendimento vinculado.');
+        return;
+      }
+      var msg = 'MIGRACAO RETROATIVA\n\n' +
+        'Vamos criar ' + total + ' atendimento(s) sintetico(s):\n' +
+        '  - ' + resp.totalOrcamentos + ' orcamento(s) pendente(s)\n' +
+        '  - ' + resp.totalOSes + ' OS(es) sem atendimento\n\n' +
+        'Cada doc vai virar 1 atendimento com status "Em andamento".\n' +
+        'Categoria/motivo deduzidos do tipo. Cliente copiado do doc.\n\n' +
+        'Isso e IRREVERSIVEL. Confirmar?';
+      if (!confirm(msg)) return;
+
+      mostrarFeedback('Migrando... isso pode demorar alguns segundos.', 'info');
+
+      // 2. Executar de verdade
+      fetch(resolverUrl(), {
+        method: 'POST',
+        body: JSON.stringify({ action: 'migrar_pendentes_para_atendimentos', simular: false }),
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+      })
+      .then(function(r2) { return r2.json(); })
+      .then(function(resp2) {
+        if (resp2 && resp2.sucesso) {
+          mostrarFeedback(resp2.totalCriados + ' atendimento(s) criado(s) e vinculado(s) com sucesso.', 'sucesso');
+          carregarAtendimentos();
+        } else {
+          mostrarFeedback('Erro: ' + (resp2 && resp2.erro ? resp2.erro : 'sem resposta'), 'erro');
+        }
+      })
+      .catch(function(err) {
+        mostrarFeedback('Erro de rede: ' + err.message, 'erro');
+      });
+    })
+    .catch(function(err) {
+      mostrarFeedback('Erro de rede: ' + err.message, 'erro');
+    });
   }
 
 })();
