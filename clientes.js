@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.16 - Clientes (Timeline Fase 2b) ===== */
+/* ===== NXT SAC V2.17 - Clientes (Timeline Fase 2b) ===== */
 
 (function() {
   var SCRIPT_URL = null;
@@ -179,6 +179,31 @@
         var ev = c.eventos[evIdx];
         if (!ev) return;
         abrirModalEditarStatus(ev, cliIdx, evIdx);
+      });
+    });
+
+    // Bind botoes "Novo atendimento" do card do cliente
+    div.querySelectorAll('.cli-card-novo-at').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var idx = parseInt(btn.dataset.idx);
+        var c = clientesResultado[idx];
+        if (!c) return;
+        // Seta preFill com dados do cliente para o wizard de atendimento
+        var modeloDoEvento = '';
+        if (c.eventos && c.eventos.length) {
+          for (var i = 0; i < c.eventos.length; i++) {
+            var ev = c.eventos[i];
+            if (ev.modelo) { modeloDoEvento = ev.modelo; break; }
+          }
+        }
+        window.__preFillAtendimento = {
+          nome: c.nome || '',
+          telefone: c.telefones && c.telefones[0] ? c.telefones[0] : '',
+          cpfCnpj: c.cpfs && c.cpfs[0] ? c.cpfs[0] : '',
+          notaFiscal: c.nfs && c.nfs[0] ? c.nfs[0] : '',
+          modelo: modeloDoEvento
+        };
+        navigateTo('atendimento');
       });
     });
   }
@@ -416,8 +441,9 @@
           '<div><strong style="color:#e8e8f0;">Telefone:</strong> ' + telTxt + '</div>' +
           '<div><strong style="color:#e8e8f0;">NFs:</strong> ' + nfsTxt + '</div>' +
         '</div>' +
-        '<div style="padding:0 1rem 0.75rem;">' +
+        '<div style="padding:0 1rem 0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;">' +
           '<button type="button" class="btn-secundario btn-sm cli-card-toggle" data-idx="' + idx + '" style="font-size:0.85rem;">Ver timeline &#9660;</button>' +
+          '<button type="button" class="btn-primario btn-sm cli-card-novo-at" data-idx="' + idx + '" style="font-size:0.85rem;background:#c6ff00;color:#0f0f1a;">&#43; Novo atendimento</button>' +
         '</div>' +
         '<div id="cli-timeline-' + idx + '" class="cli-timeline" style="display:none;padding:0 1rem 1rem;">' +
           renderTimeline(c.eventos || [], idx) +

@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.16 - Atendimento (Wizard Fase 2c-2f) ===== */
+/* ===== NXT SAC V2.17 - Atendimento (Wizard Fase 2c-2f) ===== */
 
 (function() {
   var SCRIPT_URL = null;
@@ -28,6 +28,19 @@
     passo = 1;
     dados = { acoes: [] };
     clienteEncontrado = null;
+
+    // Se veio da aba Clientes com preFill, ja popula passo 1
+    if (window.__preFillAtendimento) {
+      dados.cliente = {
+        nome: window.__preFillAtendimento.nome || '',
+        telefone: window.__preFillAtendimento.telefone || '',
+        cpfCnpj: window.__preFillAtendimento.cpfCnpj || '',
+        notaFiscal: window.__preFillAtendimento.notaFiscal || '',
+        modelo: window.__preFillAtendimento.modelo || ''
+      };
+      window.__preFillAtendimento = null;
+    }
+
     container.innerHTML = buildShell();
     renderPasso();
     console.log('Atendimento Wizard inicializado');
@@ -193,7 +206,7 @@
           var cpf = c.cpfs[0] || '';
           var tel = c.telefones[0] || '';
           var nf = c.nfs[0] || '';
-          return '<div class="secao-form" style="margin:0.5rem 0;background:#1c1c1c;padding:0.75rem;border-radius:6px;cursor:pointer;border:1px solid #2a2a2a;" data-idx="' + idx + '" class="p1-cliente-card">' +
+          return '<div class="p1-cliente-card" style="margin:0.5rem 0;background:#1c1c1c;padding:0.75rem;border-radius:6px;cursor:pointer;border:1px solid #2a2a2a;transition:all 0.15s;" data-idx="' + idx + '" onmouseover="this.style.borderColor=&quot;#c6ff00&quot;;this.style.background=&quot;#22221a&quot;" onmouseout="this.style.borderColor=&quot;#2a2a2a&quot;;this.style.background=&quot;#1c1c1c&quot;">' +
             '<div style="font-weight:700;color:#fff;">' + escapeHtmlAt(c.nome) + '</div>' +
             '<div style="font-size:0.8rem;color:#9a9a9a;margin-top:0.25rem;">' +
               (cpf ? 'CPF: ' + cpf + ' &bull; ' : '') +

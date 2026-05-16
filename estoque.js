@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.16 - Estoque (Movimentacoes Fase E2) ===== */
+/* ===== NXT SAC V2.17 - Estoque (Movimentacoes Fase E2) ===== */
 
 (function() {
   var SCRIPT_URL = null;
