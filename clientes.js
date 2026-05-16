@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.15 - Clientes (Timeline Fase 2b) ===== */
+/* ===== NXT SAC V2.16 - Clientes (Timeline Fase 2b) ===== */
 
 (function() {
   var SCRIPT_URL = null;
@@ -168,6 +168,119 @@
         abrirModalVincular(ev, c);
       });
     });
+
+    // Bind botoes "Editar status" (atendimentos)
+    div.querySelectorAll('.cli-btn-editar-status').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var cliIdx = parseInt(btn.dataset.cli);
+        var evIdx = parseInt(btn.dataset.ev);
+        var c = clientesResultado[cliIdx];
+        if (!c) return;
+        var ev = c.eventos[evIdx];
+        if (!ev) return;
+        abrirModalEditarStatus(ev, cliIdx, evIdx);
+      });
+    });
+  }
+
+  function abrirModalEditarStatus(ev, cliIdx, evIdx) {
+    var existente = document.getElementById('cliModalStatus');
+    if (existente) existente.remove();
+
+    var statusAtual = ev.status || 'Aberto';
+    var statusOpts = ['Aberto', 'Em andamento', 'Aguardando cliente', 'Resolvido', 'Fechado']
+      .map(function(s) {
+        return '<option value="' + s + '"' + (s === statusAtual ? ' selected' : '') + '>' + s + '</option>';
+      }).join('');
+
+    var modal = document.createElement('div');
+    modal.id = 'cliModalStatus';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:1000;padding:1rem;';
+
+    modal.innerHTML =
+      '<div style="background:#1c1c1c;border:1px solid #2a2a2a;border-radius:8px;max-width:480px;width:100%;">' +
+        '<div style="background:#1a1a2e;color:#fff;padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;border-radius:8px 8px 0 0;">' +
+          '<div>' +
+            '<div style="font-size:11px;letter-spacing:1.5px;color:#c6ff00;font-weight:700;">EDITAR STATUS</div>' +
+            '<div style="font-size:16px;font-weight:700;margin-top:2px;">' + escapeHtmlCli(ev.id) + '</div>' +
+          '</div>' +
+          '<button id="cliStatusClose" style="background:transparent;border:none;color:#fff;font-size:28px;cursor:pointer;line-height:1;">&times;</button>' +
+        '</div>' +
+        '<div style="padding:1.25rem;color:#e8e8f0;">' +
+          '<div style="margin-bottom:1rem;">' +
+            '<label style="display:block;font-size:0.8rem;color:#9a9a9a;text-transform:uppercase;margin-bottom:0.5rem;">Novo status</label>' +
+            '<select id="cliStatusSelect" style="width:100%;padding:0.6rem;background:#161625;border:1px solid #2a2a2a;border-radius:6px;color:#fff;font-size:0.95rem;">' + statusOpts + '</select>' +
+          '</div>' +
+          '<div id="cliStatusMotivoWrap" style="margin-bottom:1rem;display:' + (statusAtual === 'Resolvido' || statusAtual === 'Fechado' ? 'block' : 'none') + ';">' +
+            '<label style="display:block;font-size:0.8rem;color:#9a9a9a;text-transform:uppercase;margin-bottom:0.5rem;">Motivo do fechamento (opcional)</label>' +
+            '<input type="text" id="cliStatusMotivo" placeholder="Ex: Pe&ccedil;a entregue / Cliente n&atilde;o retornou" style="width:100%;padding:0.6rem;background:#161625;border:1px solid #2a2a2a;border-radius:6px;color:#fff;font-size:0.95rem;">' +
+          '</div>' +
+          '<div id="cliStatusFeedback" style="margin-top:0.5rem;"></div>' +
+          '<div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem;">' +
+            '<button type="button" class="btn-secundario" id="cliStatusCancelar">Cancelar</button>' +
+            '<button type="button" class="btn-primario" id="cliStatusConfirmar">Salvar</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+    document.body.appendChild(modal);
+
+    function fechar() { modal.remove(); }
+    document.getElementById('cliStatusClose').addEventListener('click', fechar);
+    document.getElementById('cliStatusCancelar').addEventListener('click', fechar);
+
+    document.getElementById('cliStatusSelect').addEventListener('change', function() {
+      var fechamento = (this.value === 'Resolvido' || this.value === 'Fechado');
+      document.getElementById('cliStatusMotivoWrap').style.display = fechamento ? 'block' : 'none';
+    });
+
+    document.getElementById('cliStatusConfirmar').addEventListener('click', function() {
+      var novoStatus = document.getElementById('cliStatusSelect').value;
+      var motivo = (document.getElementById('cliStatusMotivo').value || '').trim();
+
+      var btn = this;
+      btn.disabled = true;
+      btn.textContent = 'Salvando...';
+      setStatusFeedback('Atualizando...', 'info');
+
+      fetch(resolverUrl(), {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'atualizar_atendimento',
+          id: ev.id,
+          status: novoStatus,
+          motivoFechamento: motivo
+        }),
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(resp) {
+        if (resp && resp.sucesso) {
+          setStatusFeedback('Status atualizado!', 'sucesso');
+          // Atualiza local
+          ev.status = novoStatus;
+          var spans = document.querySelectorAll('.cli-ev-status-' + cliIdx + '-' + evIdx);
+          spans.forEach(function(s) { s.textContent = novoStatus; });
+          setTimeout(fechar, 700);
+        } else {
+          setStatusFeedback('Erro: ' + (resp && resp.erro ? resp.erro : 'sem resposta'), 'erro');
+        }
+      })
+      .catch(function(err) {
+        setStatusFeedback('Erro de rede: ' + err.message, 'erro');
+      })
+      .finally(function() {
+        btn.disabled = false;
+        btn.textContent = 'Salvar';
+      });
+    });
+  }
+
+  function setStatusFeedback(msg, tipo) {
+    var el = document.getElementById('cliStatusFeedback');
+    if (!el) return;
+    var bg = tipo === 'erro' ? '#ef4444' : tipo === 'sucesso' ? '#22c55e' : '#3b82f6';
+    el.innerHTML = '<div style="background:' + bg + ';color:#fff;padding:0.5rem 0.75rem;border-radius:6px;text-align:center;font-weight:600;font-size:0.85rem;">' + msg + '</div>';
   }
 
   function abrirModalVincular(ev, cliente) {
@@ -326,14 +439,17 @@
         var cor = getCorTipo(ev.tipo);
         var dataStr = formatarDataCli(ev.data);
         var badgeAt = '';
-        var btnVincular = '';
+        var btnAcao = '';
         if (ev.tipo !== 'atendimento') {
           if (ev.atendimentoId) {
             badgeAt = '<span style="background:#22c55e22;color:#22c55e;font-size:0.7rem;padding:0.15rem 0.5rem;border-radius:4px;margin-left:0.5rem;font-weight:600;">' + escapeHtmlCli(ev.atendimentoId) + '</span>';
           } else {
             badgeAt = '<span style="background:#5a5a5a44;color:#9a9a9a;font-size:0.7rem;padding:0.15rem 0.5rem;border-radius:4px;margin-left:0.5rem;font-style:italic;">sem atendimento</span>';
-            btnVincular = '<button type="button" class="cli-btn-vincular" data-cli="' + clienteIdx + '" data-ev="' + evIdx + '" style="margin-top:0.5rem;background:transparent;color:#c6ff00;border:1px solid #c6ff00;border-radius:4px;padding:0.25rem 0.7rem;font-size:0.75rem;cursor:pointer;font-weight:600;">&#128279; Vincular a atendimento</button>';
+            btnAcao = '<button type="button" class="cli-btn-vincular" data-cli="' + clienteIdx + '" data-ev="' + evIdx + '" style="margin-top:0.5rem;background:transparent;color:#c6ff00;border:1px solid #c6ff00;border-radius:4px;padding:0.25rem 0.7rem;font-size:0.75rem;cursor:pointer;font-weight:600;">&#128279; Vincular a atendimento</button>';
           }
+        } else {
+          // Atendimento: botao editar status
+          btnAcao = '<button type="button" class="cli-btn-editar-status" data-cli="' + clienteIdx + '" data-ev="' + evIdx + '" style="margin-top:0.5rem;background:transparent;color:#c6ff00;border:1px solid #c6ff00;border-radius:4px;padding:0.25rem 0.7rem;font-size:0.75rem;cursor:pointer;font-weight:600;">&#9998; Editar status</button>';
         }
         return '<div style="display:flex;gap:0.75rem;padding:0.6rem 0.75rem;background:#161625;border-left:3px solid ' + cor + ';border-radius:6px;">' +
           '<div style="font-size:1.5rem;">' + icone + '</div>' +
@@ -345,8 +461,8 @@
             '<div style="font-size:0.85rem;color:#e8e8f0;margin-top:0.15rem;">' +
               escapeHtmlCli(ev.resumo || '') + badgeAt +
             '</div>' +
-            (ev.status ? '<div style="font-size:0.75rem;color:#9a9a9a;margin-top:0.15rem;">Status: ' + escapeHtmlCli(ev.status) + '</div>' : '') +
-            btnVincular +
+            (ev.status ? '<div style="font-size:0.75rem;color:#9a9a9a;margin-top:0.15rem;">Status: <span class="cli-ev-status-' + clienteIdx + '-' + evIdx + '">' + escapeHtmlCli(ev.status) + '</span></div>' : '') +
+            btnAcao +
           '</div>' +
         '</div>';
       }).join('') +

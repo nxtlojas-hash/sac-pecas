@@ -912,6 +912,9 @@ function doPost(e) {
       case 'vincular_doc_atendimento':
         return jsonResponse(vincularDocAtendimento(body));
 
+      case 'atualizar_atendimento':
+        return jsonResponse(atualizarAtendimento(body));
+
       // --- Movimentacoes de Estoque (Fase E1 NXT SAC) ---
       case 'registrar_movimentacao':
         return jsonResponse(registrarMovimentacao(body));
@@ -2046,6 +2049,60 @@ function registrarAtendimento(payload) {
     return { sucesso: true, id: id };
   } catch (err) {
     return { sucesso: false, erro: String(err) };
+  }
+}
+
+/**
+ * Atualiza status de um atendimento existente.
+ * payload: { id, status, motivoFechamento? }
+ * Se status = 'Resolvido' ou 'Fechado', preenche dataFechamento com agora.
+ */
+function atualizarAtendimento(payload) {
+  if (!payload || !payload.id) return { sucesso: false, erro: 'id obrigatorio' };
+  if (!payload.status) return { sucesso: false, erro: 'status obrigatorio' };
+
+  var statusValidos = ['Aberto', 'Em andamento', 'Aguardando cliente', 'Resolvido', 'Fechado'];
+  if (statusValidos.indexOf(payload.status) === -1) {
+    return { sucesso: false, erro: 'status invalido' };
+  }
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName(SHEET_ATENDIMENTOS);
+    if (!sheet) return { sucesso: false, erro: 'Aba Atendimentos nao encontrada' };
+
+    var ultLinha = sheet.getLastRow();
+    if (ultLinha < 2) return { sucesso: false, erro: 'Aba vazia' };
+
+    var dados = sheet.getRange(2, 1, ultLinha - 1, 1).getValues();
+    var linha = 0;
+    for (var i = 0; i < dados.length; i++) {
+      if (String(dados[i][0]) === String(payload.id)) { linha = i + 2; break; }
+    }
+    if (linha === 0) return { sucesso: false, erro: 'Atendimento ' + payload.id + ' nao encontrado' };
+
+    // Coluna M (13) = status, N (14) = dataFechamento, O (15) = motivoFechamento
+    sheet.getRange(linha, 13).setValue(payload.status);
+
+    var fechamento = (payload.status === 'Resolvido' || payload.status === 'Fechado');
+    if (fechamento) {
+      sheet.getRange(linha, 14).setValue(new Date());
+      if (payload.motivoFechamento) {
+        sheet.getRange(linha, 15).setValue(payload.motivoFechamento);
+      }
+    } else {
+      // Limpa data e motivo se voltou pra status nao-final
+      sheet.getRange(linha, 14).setValue('');
+      sheet.getRange(linha, 15).setValue('');
+    }
+
+    return { sucesso: true, id: payload.id, status: payload.status };
+  } catch (err) {
+    return { sucesso: false, erro: String(err) };
+  } finally {
+    lock.releaseLock();
   }
 }
 
