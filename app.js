@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.23 - App Core ===== */
+/* ===== NXT SAC V2.24 - App Core ===== */
 
 // --- Global State ---
 let currentView = 'home';
@@ -127,6 +127,30 @@ function renderHome() {
   ];
 
   homeWrap.innerHTML =
+    '<section class="home-section home-instrucoes">' +
+      '<h2 class="home-section-titulo">Como usar</h2>' +
+      '<div class="home-passos">' +
+        '<div class="home-passo">' +
+          '<div class="home-passo-num">1</div>' +
+          '<div class="home-passo-texto"><strong>Cliente faz contato</strong> (WhatsApp, telefone, loja). Abra <span style="color:var(--cor-primaria);font-weight:600;">📝 Atendimento</span> e busque pelo CPF/telefone.</div>' +
+        '</div>' +
+        '<div class="home-passo">' +
+          '<div class="home-passo-num">2</div>' +
+          '<div class="home-passo-texto"><strong>Identifique o motivo</strong> (P&oacute;s-venda, Pr&eacute;-venda, Outro) e marque o que vai gerar: venda, or&ccedil;amento, OS ou s&oacute; registrar.</div>' +
+        '</div>' +
+        '<div class="home-passo">' +
+          '<div class="home-passo-num">3</div>' +
+          '<div class="home-passo-texto"><strong>Salve o atendimento</strong> com protocolo <code style="color:var(--cor-primaria);background:#0f0f1a;padding:2px 6px;border-radius:3px;">PV-AAAA-NNNN</code>. Docs gerados ficam vinculados automaticamente.</div>' +
+        '</div>' +
+        '<div class="home-passo">' +
+          '<div class="home-passo-num">4</div>' +
+          '<div class="home-passo-texto"><strong>Acompanhe</strong> em <span style="color:var(--cor-primaria);font-weight:600;">📋 Atendimentos</span> (lista filtrada) ou <span style="color:var(--cor-primaria);font-weight:600;">👤 Clientes</span> (timeline por CPF/tel).</div>' +
+        '</div>' +
+      '</div>' +
+      '<div style="text-align:center;margin-top:1rem;">' +
+        '<a href="https://github.com/nxtlojas-hash/sac-pecas/blob/master/docs/GUIA-USO-SAC.md" target="_blank" rel="noopener" style="color:var(--cor-primaria);text-decoration:none;font-weight:600;font-size:0.9rem;">&#128214; Ver guia completo &rarr;</a>' +
+      '</div>' +
+    '</section>' +
     '<section class="home-section">' +
       '<h2 class="home-section-titulo">A&ccedil;&otilde;es</h2>' +
       '<div class="home-grid">' +

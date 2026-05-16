@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.23 - Atendimento (Wizard Fase 2c-2f) ===== */
+/* ===== NXT SAC V2.24 - Atendimento (Wizard Fase 2c-2f) ===== */
 
 (function() {
   var SCRIPT_URL = null;

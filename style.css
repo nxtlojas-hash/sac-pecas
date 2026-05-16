@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.23 - Styles ===== */
+/* ===== NXT SAC V2.24 - Styles ===== */
 
 :root {
   --cor-fundo: #0f0f1a;
@@ -1802,6 +1802,71 @@ body {
   border-radius: 6px;
   background: #fff;
   padding: 4px;
+}
+
+.home-instrucoes {
+  background: linear-gradient(135deg, #161625 0%, #1c1c30 100%);
+  border: 1px solid #2a2a45;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+}
+
+.home-passos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.home-passo {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 0.85rem;
+  background: rgba(15, 15, 26, 0.6);
+  border: 1px solid #2a2a45;
+  border-radius: 8px;
+  transition: border-color 0.2s;
+}
+
+.home-passo:hover {
+  border-color: var(--cor-primaria);
+}
+
+.home-passo-num {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--cor-primaria);
+  color: #0f0f1a;
+  font-weight: 800;
+  font-size: 1rem;
+  border-radius: 50%;
+}
+
+.home-passo-texto {
+  flex: 1;
+  font-size: 0.85rem;
+  color: #e8e8f0;
+  line-height: 1.5;
+}
+
+.home-guia-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--cor-primaria);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.5rem 0;
+}
+
+.home-guia-link:hover {
+  text-decoration: underline;
 }
 
 .home-card-titulo {
