@@ -1510,17 +1510,18 @@ function gerenciarPeca(body) {
   }
 
   if (acao === 'editar') {
+    var nomeBusca = (body.nomeOriginal || nome).toString().toLowerCase();
     var data = sheet.getDataRange().getValues();
     var found = false;
     for (var i = 1; i < data.length; i++) {
-      if (data[i][1] === modelo && data[i][3].toString().toLowerCase() === nome.toLowerCase()) {
+      if (data[i][1] === modelo && data[i][3].toString().toLowerCase() === nomeBusca) {
         sheet.getRange(i + 1, 1, 1, 7).setValues([[timestamp, modelo, modeloNome, nome, preco, peso, img]]);
         found = true;
         break;
       }
     }
     if (!found) {
-      sheet.appendRow([timestamp, modelo, modeloNome, nome, preco, peso, img]);
+      return { sucesso: false, erro: 'Peca nao encontrada para editar: ' + nomeBusca + ' (modelo ' + modelo + ')', imagemUrl: imagemUrl };
     }
     return { sucesso: true, mensagem: 'Peca atualizada: ' + nome, imagemUrl: imagemUrl };
   }

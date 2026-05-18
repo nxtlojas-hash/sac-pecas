@@ -447,13 +447,18 @@ function saveAdminPart(isEdit, editModelId, editIdx) {
 
     if (isEdit) {
       var peca = CATALOGO_MODELOS[editModelId].pecas[editIdx];
+      var nomeOriginal = peca.nome;
       peca.nome = nome;
       peca.preco = preco;
       peca.peso = peso;
       if (imgPath) peca.img = imgPath;
 
       // Save to Sheets and get Drive URL back
-      savePartToSheets('editar', editModelId, editIdx, peca, imagemBase64, imagemNome).then(function(resp) {
+      savePartToSheets('editar', editModelId, editIdx, peca, imagemBase64, imagemNome, nomeOriginal).then(function(resp) {
+        if (resp && resp.sucesso === false) {
+          mostrarFeedback('Erro ao atualizar peca na planilha: ' + (resp.erro || 'desconhecido'), 'erro');
+          return;
+        }
         if (resp && resp.imagemUrl) {
           peca.img = resp.imagemUrl;
           refreshAdminTable();
@@ -551,7 +556,7 @@ function confirmDeletePart(modelId, idx) {
 }
 
 // --- Save to Google Sheets ---
-function savePartToSheets(acao, modelId, idx, peca, imagemBase64, imagemNome) {
+function savePartToSheets(acao, modelId, idx, peca, imagemBase64, imagemNome, nomeOriginal) {
   if (typeof GOOGLE_SCRIPT_URL === 'undefined' || GOOGLE_SCRIPT_URL.indexOf('SUBSTITUIR') !== -1) {
     console.warn('Admin: Google Script URL nao configurada, salvamento apenas local.');
     return Promise.resolve(null);
@@ -568,6 +573,10 @@ function savePartToSheets(acao, modelId, idx, peca, imagemBase64, imagemNome) {
     peso: peca.peso,
     img: peca.img || ''
   };
+
+  if (nomeOriginal) {
+    payload.nomeOriginal = nomeOriginal;
+  }
 
   // Include base64 image if provided
   if (imagemBase64 && imagemNome) {
