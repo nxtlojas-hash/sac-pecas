@@ -1,9 +1,25 @@
-/* ===== NXT SAC V2.24 - Catalogo ===== */
+/* ===== NXT SAC V2.26 - Catalogo ===== */
 
 let catalogoPecas = [];
 let catalogoModelId = null;
 let isRevenda = false;
-let estoqueCache = {}; // Cache de estoque por modelo
+let estoqueCache = {}; // Cache de estoque por modelo, indexado por modelId
+
+// Resolve NOME do modelo (como vem da aba Estoque) para o ID em CATALOGO_MODELOS.
+// Necessario porque o backend armazena/retorna o nome (ex: "JUNA SMART") mas o
+// frontend faz lookup pelo id (ex: "juna-smart"). Para modelos onde
+// id.toLowerCase() === nome.toLowerCase() (Kay, Akasha, etc.) o lookup direto
+// funcionava por coincidencia; aqui normalizamos sempre via nome -> id.
+function getModelIdByName(nome) {
+  if (!nome) return '';
+  var target = String(nome).toLowerCase();
+  if (typeof CATALOGO_MODELOS !== 'undefined') {
+    for (var id in CATALOGO_MODELOS) {
+      if (CATALOGO_MODELOS[id].nome.toLowerCase() === target) return id;
+    }
+  }
+  return target; // fallback: nome legado nao mapeado -> indexa pelo proprio nome
+}
 
 // --- Mostra grid de modelos pra escolher (quando entra em Catalogo sem modelo selecionado) ---
 function mostrarSeletorModelos() {
@@ -92,9 +108,12 @@ function carregarEstoqueModelo(modelId) {
       }
       if (data && data.sucesso && data.estoque) {
         console.log('Catalogo: recebidos', data.estoque.length, 'itens de estoque');
-        // Indexar por modelo+peca
+        // Indexar por modelId+peca. Backend retorna item.modelo como NOME
+        // (ex: "JUNA SMART"); normalizamos pro id (ex: "juna-smart") via
+        // getModelIdByName pra alinhar com o lookup feito em renderEstoqueBadges
+        // e getEstoquePeca.
         data.estoque.forEach(function(item) {
-          var key = (item.modelo || '').toLowerCase();
+          var key = getModelIdByName(item.modelo);
           if (!estoqueCache[key]) estoqueCache[key] = {};
           estoqueCache[key][(item.peca || '').toLowerCase()] = {
             sumare: parseInt(item.sumare) || 0,

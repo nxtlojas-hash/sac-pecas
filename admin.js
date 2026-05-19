@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.25 - Admin / Gerenciar Pecas ===== */
+/* ===== NXT SAC V2.26 - Admin / Gerenciar Pecas ===== */
 
 // --- Admin State ---
 let adminAllParts = [];
@@ -720,10 +720,17 @@ function loadEstoqueAdmin() {
         return;
       }
 
+      // Indexa estoque da planilha por modelId|peca (ambos lowercase).
+      // Backend devolve item.modelo como NOME — normalizamos via
+      // getModelIdByName (definido em catalogo.js) pra casar com p.modelId
+      // do catalogo no lookup abaixo.
       var sheetEstoque = {};
       if (data && data.sucesso && data.estoque) {
         data.estoque.forEach(function(item) {
-          var key = (item.modelo || '').toLowerCase() + '|' + (item.peca || '').toLowerCase();
+          var modelId = (typeof getModelIdByName === 'function')
+            ? getModelIdByName(item.modelo)
+            : (item.modelo || '').toLowerCase();
+          var key = modelId + '|' + (item.peca || '').toLowerCase();
           sheetEstoque[key] = item;
         });
       }
