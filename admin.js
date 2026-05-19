@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.24 - Admin / Gerenciar Pecas ===== */
+/* ===== NXT SAC V2.25 - Admin / Gerenciar Pecas ===== */
 
 // --- Admin State ---
 let adminAllParts = [];
@@ -7,21 +7,14 @@ let adminSortAsc = true;
 let adminSearchQuery = '';
 let adminFilterModel = '';
 
-// --- Model IDs and names ---
-const ADMIN_MODELS = [
-  { id: 'gataka', nome: 'Gataka' },
-  { id: 'pancho', nome: 'Pancho' },
-  { id: 'luna', nome: 'LUNA' },
-  { id: 'juna-smart', nome: 'JUNA SMART' },
-  { id: 'hyphen', nome: 'Hyphen' },
-  { id: 'vega', nome: 'Vega' },
-  { id: 'zilla', nome: 'ZILLA' },
-  { id: 'shaka', nome: 'SHAKA' },
-  { id: 'jaya', nome: 'JAYA' },
-  { id: 'kay', nome: 'Kay' },
-  { id: 'kimbo', nome: 'Kimbo' },
-  { id: 'juna', nome: 'Juna' }
-];
+// --- Model IDs and names (derived from CATALOGO_MODELOS in data.js) ---
+// Lista dinamica: qualquer modelo novo adicionado ao data.js aparece automaticamente
+// no admin (filtros e cadastro de pecas), sem precisar editar este arquivo.
+function getAdminModels() {
+  return Object.keys(CATALOGO_MODELOS).map(function(id) {
+    return { id: id, nome: CATALOGO_MODELOS[id].nome };
+  });
+}
 
 // --- Admin Stock State ---
 let adminEstoque = [];
@@ -59,7 +52,7 @@ function buildAdminView() {
       '<input type="text" class="search-input admin-search" id="admin-search" placeholder="Buscar peca...">' +
       '<select class="admin-select-modelo" id="admin-filter-modelo">' +
         '<option value="">Todos os modelos</option>' +
-        ADMIN_MODELS.map(function(m) {
+        getAdminModels().map(function(m) {
           return '<option value="' + m.id + '">' + m.nome + '</option>';
         }).join('') +
       '</select>' +
@@ -91,7 +84,7 @@ function buildAdminView() {
       '<input type="text" class="search-input admin-search" id="estoque-search" placeholder="Buscar peca no estoque...">' +
       '<select class="admin-select-modelo" id="estoque-filter-modelo">' +
         '<option value="">Todos os modelos</option>' +
-        ADMIN_MODELS.map(function(m) {
+        getAdminModels().map(function(m) {
           return '<option value="' + m.id + '">' + m.nome + '</option>';
         }).join('') +
       '</select>' +
@@ -294,7 +287,7 @@ function openAdminPartModal(peca, modelId, idx) {
   var isEdit = peca !== null;
   var modal = document.getElementById('modal-admin');
 
-  var modelsCheckboxes = ADMIN_MODELS.map(function(m) {
+  var modelsCheckboxes = getAdminModels().map(function(m) {
     var checked = isEdit && modelId === m.id ? ' checked' : '';
     return '<label><input type="checkbox" name="admin-modelos" value="' + m.id + '"' + checked + '> ' + m.nome + '</label>';
   }).join('');
