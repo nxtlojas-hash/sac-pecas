@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.24 - Formulario de Registro ===== */
+/* ===== NXT SAC V2.27 - Formulario de Registro ===== */
 
 const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbytZgFvvhTvYRgufyvFTGbMb27sxHnIQp256XQ6r7VZuX2B0RTdO3MIpbf4EcF8KgnYlw/exec';
 
@@ -324,6 +324,10 @@ function buildFormHTML() {
           '<div class="checklist-item" id="checkBling">' +
             '<span class="checklist-icon">&#9203;</span>' +
             '<span>Enviando para Bling...</span>' +
+          '</div>' +
+          '<div class="checklist-item" id="checkEstoque">' +
+            '<span class="checklist-icon">&#9203;</span>' +
+            '<span>Atualizando estoque...</span>' +
           '</div>' +
         '</div>' +
         '<textarea id="textoResumoModal" rows="14" readonly></textarea>' +
@@ -1137,6 +1141,7 @@ function enviarParaGoogle(venda) {
     console.warn('Google Apps Script nao configurado');
     atualizarChecklist('checkPlanilha', false);
     atualizarChecklist('checkBling', false);
+    atualizarChecklist('checkEstoque', false, 'URL nao configurada');
     finalizarEnvio();
     return;
   }
@@ -1184,11 +1189,12 @@ function enviarParaGoogle(venda) {
     if (response.type === 'opaque' || response.ok) {
       atualizarChecklist('checkPlanilha', true);
       atualizarChecklist('checkBling', true);
-      // Baixa automatica de estoque
+      // Baixa automatica de estoque (atualiza checkEstoque internamente)
       baixaEstoqueVenda(venda);
     } else {
       atualizarChecklist('checkPlanilha', false);
       atualizarChecklist('checkBling', false);
+      atualizarChecklist('checkEstoque', false, 'Nao tentado - venda falhou');
     }
     finalizarEnvio();
   })
@@ -1196,6 +1202,7 @@ function enviarParaGoogle(venda) {
     console.error('Erro ao enviar:', error);
     atualizarChecklist('checkPlanilha', false);
     atualizarChecklist('checkBling', false);
+    atualizarChecklist('checkEstoque', false, 'Nao tentado - venda falhou');
     finalizarEnvio();
   });
 }
@@ -1241,18 +1248,26 @@ function verificarEstoquePeca(modelId, pecaNome) {
 }
 
 // --- Auto-decrement stock on sale ---
+// Antes era fire-and-forget com log no console; agora agrega resultados
+// via Promise.all e atualiza o item "checkEstoque" do checklist do modal de
+// resumo com sucesso/falha. Detalhes vao pro console pra debug.
 function baixaEstoqueVenda(venda) {
-  if (typeof GOOGLE_SCRIPT_URL === 'undefined' || GOOGLE_SCRIPT_URL.indexOf('SUBSTITUIR') !== -1) return;
+  if (typeof GOOGLE_SCRIPT_URL === 'undefined' || GOOGLE_SCRIPT_URL.indexOf('SUBSTITUIR') !== -1) {
+    atualizarChecklist('checkEstoque', false, 'URL nao configurada - estoque nao atualizado');
+    return;
+  }
 
   var pecas = venda.pecas || [];
-  pecas.forEach(function(p) {
-    // Determinar armazem pela tipo de atendimento
-    // Sumare = atendimento Sumare; demais = Jaragua (legado)
-    var ehSumare = venda.tipoAtendimento && venda.tipoAtendimento.toLowerCase().indexOf('sumare') !== -1;
-    var qtd = p.quantidade || 1;
+  if (pecas.length === 0) {
+    atualizarChecklist('checkEstoque', true, 'Sem pecas para atualizar');
+    return;
+  }
 
-    // Backend novo (Fase E4) espera sumare/jaragua + vendaId + vendedor
-    // pra criar movimentacao Saida vinculada na aba MovimentacoesEstoque
+  // Sumare = atendimento Sumare; demais = Jaragua (legado)
+  var ehSumare = venda.tipoAtendimento && venda.tipoAtendimento.toLowerCase().indexOf('sumare') !== -1;
+
+  var promessas = pecas.map(function(p) {
+    var qtd = p.quantidade || 1;
     var payload = {
       action: 'baixa_estoque',
       modelo: p.modelo || '',
@@ -1263,22 +1278,38 @@ function baixaEstoqueVenda(venda) {
       vendedor: venda.vendedor || ''
     };
 
-    fetch(GOOGLE_SCRIPT_URL, {
+    return fetch(GOOGLE_SCRIPT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify(payload)
-    }).then(function(resp) {
-      return resp.text();
-    }).then(function(text) {
-      try {
-        var data = JSON.parse(text);
-        console.log('Baixa estoque:', data);
-      } catch (e) {
-        console.warn('Baixa estoque: resposta nao-JSON', text);
-      }
-    }).catch(function(err) {
-      console.warn('Baixa estoque: erro', err);
-    });
+    })
+      .then(function(resp) { return resp.text(); })
+      .then(function(text) {
+        try {
+          var data = JSON.parse(text);
+          return { peca: p.descricao, ok: !!(data && data.sucesso), data: data };
+        } catch (e) {
+          return { peca: p.descricao, ok: false, erro: 'resposta nao-JSON: ' + String(text).substring(0, 120) };
+        }
+      })
+      .catch(function(err) {
+        return { peca: p.descricao, ok: false, erro: err.message || String(err) };
+      });
+  });
+
+  Promise.all(promessas).then(function(resultados) {
+    var falhas = resultados.filter(function(r) { return !r.ok; });
+    var total = resultados.length;
+    if (falhas.length === 0) {
+      atualizarChecklist('checkEstoque', true, 'Estoque atualizado (' + total + ' peca' + (total > 1 ? 's' : '') + ')');
+    } else if (falhas.length === total) {
+      atualizarChecklist('checkEstoque', false, 'Erro: 0 de ' + total + ' peca' + (total > 1 ? 's' : '') + ' atualizada' + (total > 1 ? 's' : ''));
+      console.warn('Baixa estoque: todas falharam', falhas);
+    } else {
+      var nomes = falhas.map(function(f) { return f.peca; }).join(', ');
+      atualizarChecklist('checkEstoque', false, 'Estoque: ' + falhas.length + ' de ' + total + ' falharam (' + nomes + ')');
+      console.warn('Baixa estoque: falhas parciais', falhas);
+    }
   });
 
   // Invalidar cache de estoque
@@ -1350,6 +1381,7 @@ function mostrarResumoModal(venda) {
   // Reset checklist
   resetChecklist('checkPlanilha', 'Enviando para planilha...');
   resetChecklist('checkBling', 'Enviando para Bling...');
+  resetChecklist('checkEstoque', 'Atualizando estoque...');
 
   var textarea = document.getElementById('textoResumoModal');
   if (textarea) textarea.value = texto;
@@ -1368,19 +1400,30 @@ function resetChecklist(elementId, label) {
   el.classList.remove('done');
 }
 
-function atualizarChecklist(elementId, sucesso) {
+function atualizarChecklist(elementId, sucesso, customText) {
   var el = document.getElementById(elementId);
   if (!el) return;
   var icon = el.querySelector('.checklist-icon');
   var span = el.querySelector('span:last-child');
 
+  var defaultOk = {
+    checkPlanilha: 'Enviado para planilha!',
+    checkBling: 'Enviado para Bling!',
+    checkEstoque: 'Estoque atualizado!'
+  };
+  var defaultErr = {
+    checkPlanilha: 'Erro ao enviar para planilha',
+    checkBling: 'Erro ao enviar para Bling',
+    checkEstoque: 'Erro ao atualizar estoque'
+  };
+
   if (sucesso) {
     if (icon) icon.textContent = '\u2705';
     el.classList.add('done');
-    if (span) span.textContent = elementId === 'checkPlanilha' ? 'Enviado para planilha!' : 'Enviado para Bling!';
+    if (span) span.textContent = customText || defaultOk[elementId] || 'Concluido';
   } else {
     if (icon) icon.textContent = '\u274C';
-    if (span) span.textContent = elementId === 'checkPlanilha' ? 'Erro ao enviar para planilha' : 'Erro ao enviar para Bling';
+    if (span) span.textContent = customText || defaultErr[elementId] || 'Erro';
   }
 }
 
