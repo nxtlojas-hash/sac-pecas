@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.29 - Catalogo ===== */
+/* ===== NXT SAC V2.30 - Catalogo ===== */
 
 let catalogoPecas = [];
 let catalogoModelId = null;
@@ -36,13 +36,13 @@ function mostrarSeletorModelos() {
   grid.innerHTML = '';
   grid.className = 'grid-modelos';
 
-  // So mostra modelos que ja tem peca cadastrada. Modelos com pecas:[]
-  // (ex: Jay, V0, Akasha, Y1, YZL, Outro, novos no admin) continuam
-  // disponiveis no admin pra cadastro, mas nao poluem a grid do catalogo.
+  // Mostra TODOS os modelos, mesmo com pecas:[]. O catalogo serve tambem
+  // pro vendedor saber quais modelos existem na linha NXT, nao so quais
+  // tem pecas cadastradas. Modelo vazio aparece com "0 pecas" — sinal pro
+  // admin cadastrar.
   Object.keys(CATALOGO_MODELOS).forEach(function(modelId) {
     var model = CATALOGO_MODELOS[modelId];
     var count = model.pecas.length;
-    if (count === 0) return;
     var icon = (typeof MODEL_ICONS !== 'undefined' && MODEL_ICONS[modelId]) ? MODEL_ICONS[modelId] : '🛠️';
     var card = document.createElement('div');
     card.className = 'modelo-card';
@@ -193,6 +193,26 @@ function renderCatalogo() {
   stats.textContent = filtered.length + ' de ' + catalogoPecas.length + ' pecas';
 
   grid.innerHTML = '';
+
+  // Empty state: modelo sem nenhuma peca cadastrada
+  if (catalogoPecas.length === 0) {
+    grid.innerHTML =
+      '<div class="catalogo-empty" style="grid-column:1/-1;padding:3rem 1.5rem;text-align:center;color:var(--cor-texto-claro);">' +
+        '<div style="font-size:2.5rem;margin-bottom:0.75rem;">📋</div>' +
+        '<div style="font-size:1rem;font-weight:600;margin-bottom:0.5rem;">Sem pecas cadastradas para este modelo</div>' +
+        '<div style="font-size:0.9rem;">Acesse <strong>Admin &gt; Nova Peca</strong> para comecar.</div>' +
+      '</div>';
+    return;
+  }
+
+  // Empty state filtrado: tem pecas mas a busca nao casou
+  if (filtered.length === 0) {
+    grid.innerHTML =
+      '<div class="catalogo-empty" style="grid-column:1/-1;padding:2rem 1.5rem;text-align:center;color:var(--cor-texto-claro);">' +
+        'Nenhuma peca encontrada com esse termo.' +
+      '</div>';
+    return;
+  }
 
   filtered.forEach(function(peca, i) {
     // Find original index
