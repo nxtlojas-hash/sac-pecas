@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.26 - Admin / Gerenciar Pecas ===== */
+/* ===== NXT SAC V2.28 - Admin / Gerenciar Pecas ===== */
 
 // --- Admin State ---
 let adminAllParts = [];
@@ -438,6 +438,12 @@ function saveAdminPart(isEdit, editModelId, editIdx) {
       imgPath = URL.createObjectURL(fileInput.files[0]);
     }
 
+    // Quando ha imagem nova, fazer upload UMA vez (na primeira chamada) e
+    // reutilizar a URL retornada do Drive nas chamadas seguintes. Antes, o
+    // base64 era enviado em N requests paralelos -> N copias do mesmo arquivo
+    // no Drive.
+    var hasNewImage = !!(imagemBase64 && imagemNome);
+
     if (isEdit) {
       var peca = CATALOGO_MODELOS[editModelId].pecas[editIdx];
       var nomeOriginal = peca.nome;
@@ -446,7 +452,8 @@ function saveAdminPart(isEdit, editModelId, editIdx) {
       peca.peso = peso;
       if (imgPath) peca.img = imgPath;
 
-      // Save to Sheets and get Drive URL back
+      // Save to Sheets and get Drive URL back. Propagacao pra outros modelos
+      // espera essa resposta pra reaproveitar a URL.
       savePartToSheets('editar', editModelId, editIdx, peca, imagemBase64, imagemNome, nomeOriginal).then(function(resp) {
         if (resp && resp.sucesso === false) {
           mostrarFeedback('Erro ao atualizar peca na planilha: ' + (resp.erro || 'desconhecido'), 'erro');
@@ -456,47 +463,80 @@ function saveAdminPart(isEdit, editModelId, editIdx) {
           peca.img = resp.imagemUrl;
           refreshAdminTable();
         }
-      });
 
-      // Add to newly selected models (that didn't have this part)
-      selectedModels.forEach(function(mid) {
-        if (mid === editModelId) return;
-        if (!CATALOGO_MODELOS[mid]) return;
-        var exists = CATALOGO_MODELOS[mid].pecas.some(function(p) {
-          return p.nome.toLowerCase() === nome.toLowerCase();
-        });
-        if (!exists) {
-          var newPeca = { nome: nome, preco: preco, peso: peso, img: imgPath || peca.img };
-          CATALOGO_MODELOS[mid].pecas.push(newPeca);
-          savePartToSheets('adicionar', mid, CATALOGO_MODELOS[mid].pecas.length - 1, newPeca, imagemBase64, imagemNome).then(function(resp) {
-            if (resp && resp.imagemUrl) {
-              newPeca.img = resp.imagemUrl;
-            }
+        // Propagar pra modelos novos (sem reupload da imagem)
+        selectedModels.forEach(function(mid) {
+          if (mid === editModelId) return;
+          if (!CATALOGO_MODELOS[mid]) return;
+          var exists = CATALOGO_MODELOS[mid].pecas.some(function(p) {
+            return p.nome.toLowerCase() === nome.toLowerCase();
           });
-        }
+          if (!exists) {
+            var newPeca = { nome: nome, preco: preco, peso: peso, img: peca.img };
+            CATALOGO_MODELOS[mid].pecas.push(newPeca);
+            // null base64/nome -> backend nao faz upload, so escreve newPeca.img na planilha
+            savePartToSheets('adicionar', mid, CATALOGO_MODELOS[mid].pecas.length - 1, newPeca, null, null);
+          }
+        });
       });
 
       mostrarFeedback('Peca "' + nome + '" atualizada em ' + selectedModels.length + ' modelo(s)!', 'sucesso');
     } else {
       // Add new part to selected models
-      selectedModels.forEach(function(mid) {
-        if (!CATALOGO_MODELOS[mid]) return;
-        var newPeca = {
+      var validModels = selectedModels.filter(function(mid) { return !!CATALOGO_MODELOS[mid]; });
+
+      function adicionarAosDemais(driveUrl, startIdx) {
+        for (var k = startIdx; k < validModels.length; k++) {
+          (function(mid) {
+            var img = driveUrl || imgPath || 'img/' + mid + '/' + nome + '.jpeg';
+            var otherPeca = { nome: nome, preco: preco, peso: peso, img: img };
+            CATALOGO_MODELOS[mid].pecas.push(otherPeca);
+            var otherIdx = CATALOGO_MODELOS[mid].pecas.length - 1;
+            // null base64/nome -> sem reupload
+            savePartToSheets('adicionar', mid, otherIdx, otherPeca, null, null);
+          })(validModels[k]);
+        }
+      }
+
+      if (hasNewImage && validModels.length > 0) {
+        // Faz a primeira chamada com base64, espera a URL do Drive,
+        // dispara as outras em paralelo sem base64.
+        var firstMid = validModels[0];
+        var firstPeca = {
           nome: nome,
           preco: preco,
           peso: peso,
-          img: imgPath || 'img/' + mid + '/' + nome + '.jpeg'
+          img: imgPath || 'img/' + firstMid + '/' + nome + '.jpeg'
         };
-        CATALOGO_MODELOS[mid].pecas.push(newPeca);
-
-        var newIdx = CATALOGO_MODELOS[mid].pecas.length - 1;
-        savePartToSheets('adicionar', mid, newIdx, newPeca, imagemBase64, imagemNome).then(function(resp) {
-          if (resp && resp.imagemUrl) {
-            newPeca.img = resp.imagemUrl;
+        CATALOGO_MODELOS[firstMid].pecas.push(firstPeca);
+        var firstIdx = CATALOGO_MODELOS[firstMid].pecas.length - 1;
+        savePartToSheets('adicionar', firstMid, firstIdx, firstPeca, imagemBase64, imagemNome).then(function(resp) {
+          var driveUrl = (resp && resp.imagemUrl) ? resp.imagemUrl : firstPeca.img;
+          if (driveUrl !== firstPeca.img) {
+            firstPeca.img = driveUrl;
             refreshAdminTable();
           }
+          adicionarAosDemais(driveUrl, 1);
         });
-      });
+      } else {
+        // Sem imagem nova: cada modelo usa seu proprio fallback path em paralelo
+        validModels.forEach(function(mid) {
+          var newPeca = {
+            nome: nome,
+            preco: preco,
+            peso: peso,
+            img: imgPath || 'img/' + mid + '/' + nome + '.jpeg'
+          };
+          CATALOGO_MODELOS[mid].pecas.push(newPeca);
+          var newIdx = CATALOGO_MODELOS[mid].pecas.length - 1;
+          savePartToSheets('adicionar', mid, newIdx, newPeca, null, null).then(function(resp) {
+            if (resp && resp.imagemUrl) {
+              newPeca.img = resp.imagemUrl;
+              refreshAdminTable();
+            }
+          });
+        });
+      }
       mostrarFeedback('Peca "' + nome + '" adicionada a ' + selectedModels.length + ' modelo(s)!', 'sucesso');
     }
 
