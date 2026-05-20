@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.26 - Catalogo ===== */
+/* ===== NXT SAC V2.29 - Catalogo ===== */
 
 let catalogoPecas = [];
 let catalogoModelId = null;
@@ -36,9 +36,13 @@ function mostrarSeletorModelos() {
   grid.innerHTML = '';
   grid.className = 'grid-modelos';
 
+  // So mostra modelos que ja tem peca cadastrada. Modelos com pecas:[]
+  // (ex: Jay, V0, Akasha, Y1, YZL, Outro, novos no admin) continuam
+  // disponiveis no admin pra cadastro, mas nao poluem a grid do catalogo.
   Object.keys(CATALOGO_MODELOS).forEach(function(modelId) {
     var model = CATALOGO_MODELOS[modelId];
     var count = model.pecas.length;
+    if (count === 0) return;
     var icon = (typeof MODEL_ICONS !== 'undefined' && MODEL_ICONS[modelId]) ? MODEL_ICONS[modelId] : '🛠️';
     var card = document.createElement('div');
     card.className = 'modelo-card';
