@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.28 - Admin / Gerenciar Pecas ===== */
+/* ===== NXT SAC V2.31 - Admin / Gerenciar Pecas ===== */
 
 // --- Admin State ---
 let adminAllParts = [];
@@ -287,9 +287,21 @@ function openAdminPartModal(peca, modelId, idx) {
   var isEdit = peca !== null;
   var modal = document.getElementById('modal-admin');
 
+  // Em edicao, pre-marca TODOS os modelos onde a peca ja existe (busca por
+  // nome). Antes so o de origem ficava marcado, escondendo o fato de que a
+  // peca pode estar em varios modelos. Desmarcar agora remove de fato (em
+  // vez de ser ignorado).
+  function partExistsInModel(mid, pecaNome) {
+    if (!CATALOGO_MODELOS[mid] || !pecaNome) return false;
+    var target = pecaNome.toLowerCase();
+    return CATALOGO_MODELOS[mid].pecas.some(function(p) {
+      return p.nome.toLowerCase() === target;
+    });
+  }
+
   var modelsCheckboxes = getAdminModels().map(function(m) {
-    var checked = isEdit && modelId === m.id ? ' checked' : '';
-    return '<label><input type="checkbox" name="admin-modelos" value="' + m.id + '"' + checked + '> ' + m.nome + '</label>';
+    var checked = isEdit && peca ? partExistsInModel(m.id, peca.nome) : false;
+    return '<label><input type="checkbox" name="admin-modelos" value="' + m.id + '"' + (checked ? ' checked' : '') + '> ' + m.nome + '</label>';
   }).join('');
 
   modal.querySelector('.modal-content').innerHTML =
@@ -445,42 +457,161 @@ function saveAdminPart(isEdit, editModelId, editIdx) {
     var hasNewImage = !!(imagemBase64 && imagemNome);
 
     if (isEdit) {
-      var peca = CATALOGO_MODELOS[editModelId].pecas[editIdx];
-      var nomeOriginal = peca.nome;
-      peca.nome = nome;
-      peca.preco = preco;
-      peca.peso = peso;
-      if (imgPath) peca.img = imgPath;
+      var sourcePeca = CATALOGO_MODELOS[editModelId].pecas[editIdx];
+      var nomeOriginal = sourcePeca.nome;
 
-      // Save to Sheets and get Drive URL back. Propagacao pra outros modelos
-      // espera essa resposta pra reaproveitar a URL.
-      savePartToSheets('editar', editModelId, editIdx, peca, imagemBase64, imagemNome, nomeOriginal).then(function(resp) {
-        if (resp && resp.sucesso === false) {
-          mostrarFeedback('Erro ao atualizar peca na planilha: ' + (resp.erro || 'desconhecido'), 'erro');
-          return;
-        }
-        if (resp && resp.imagemUrl) {
-          peca.img = resp.imagemUrl;
-          refreshAdminTable();
-        }
-
-        // Propagar pra modelos novos (sem reupload da imagem)
-        selectedModels.forEach(function(mid) {
-          if (mid === editModelId) return;
-          if (!CATALOGO_MODELOS[mid]) return;
-          var exists = CATALOGO_MODELOS[mid].pecas.some(function(p) {
-            return p.nome.toLowerCase() === nome.toLowerCase();
-          });
-          if (!exists) {
-            var newPeca = { nome: nome, preco: preco, peso: peso, img: peca.img };
-            CATALOGO_MODELOS[mid].pecas.push(newPeca);
-            // null base64/nome -> backend nao faz upload, so escreve newPeca.img na planilha
-            savePartToSheets('adicionar', mid, CATALOGO_MODELOS[mid].pecas.length - 1, newPeca, null, null);
+      // 1. Encontra todas as ocorrencias atuais da peca (por nomeOriginal)
+      //    para sincronizar update/add/remove conforme a selecao do usuario.
+      var preExisting = {}; // mid -> idx (em caso de duplicata, ultima ganha)
+      Object.keys(CATALOGO_MODELOS).forEach(function(mid) {
+        if (!CATALOGO_MODELOS[mid]) return;
+        CATALOGO_MODELOS[mid].pecas.forEach(function(p, i) {
+          if (p.nome.toLowerCase() === nomeOriginal.toLowerCase()) {
+            preExisting[mid] = i;
           }
         });
       });
 
-      mostrarFeedback('Peca "' + nome + '" atualizada em ' + selectedModels.length + ' modelo(s)!', 'sucesso');
+      // 2. Diff: pre-existentes x selecionados
+      var selSet = {};
+      selectedModels.forEach(function(mid) { selSet[mid] = true; });
+
+      var toUpdate = []; // [{mid, idx}] - em ambos
+      var toAdd = [];    // [mid]        - so em selecionados
+      var toRemove = []; // [{mid, idx, modelNome}] - so em pre-existentes
+
+      Object.keys(preExisting).forEach(function(mid) {
+        if (selSet[mid]) {
+          toUpdate.push({ mid: mid, idx: preExisting[mid] });
+        } else {
+          toRemove.push({ mid: mid, idx: preExisting[mid], modelNome: CATALOGO_MODELOS[mid].nome });
+        }
+      });
+      selectedModels.forEach(function(mid) {
+        if (preExisting[mid] === undefined && CATALOGO_MODELOS[mid]) {
+          toAdd.push(mid);
+        }
+      });
+
+      // 3. Confirmacao se vai remover de algum modelo
+      if (toRemove.length > 0) {
+        var nomesRemove = toRemove.map(function(r) { return r.modelNome; }).join(', ');
+        if (!confirm('A peca "' + nomeOriginal + '" sera REMOVIDA de ' + toRemove.length + ' modelo(s): ' + nomesRemove + '.\n\nContinuar?')) {
+          if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Salvar Alteracoes';
+          }
+          return;
+        }
+      }
+
+      // 4. Escolhe ancora pra fazer o upload da imagem (uma vez so).
+      //    Prefere o modelo de origem se ele estiver em toUpdate.
+      var anchorMid = null;
+      var anchorIdx = null;
+      var anchorAction = null;
+      if (toUpdate.length > 0) {
+        var sourceInUpdate = null;
+        for (var iu = 0; iu < toUpdate.length; iu++) {
+          if (toUpdate[iu].mid === editModelId) { sourceInUpdate = toUpdate[iu]; break; }
+        }
+        var anchor = sourceInUpdate || toUpdate[0];
+        anchorMid = anchor.mid;
+        anchorIdx = anchor.idx;
+        anchorAction = 'editar';
+      } else if (toAdd.length > 0) {
+        anchorMid = toAdd[0];
+        anchorAction = 'adicionar';
+      }
+
+      function applyRest(driveUrl) {
+        // Updates (pula a ancora)
+        toUpdate.forEach(function(u) {
+          if (u.mid === anchorMid && anchorAction === 'editar') return;
+          var p = CATALOGO_MODELOS[u.mid].pecas[u.idx];
+          if (!p) return;
+          p.nome = nome;
+          p.preco = preco;
+          p.peso = peso;
+          if (driveUrl) p.img = driveUrl;
+          else if (imgPath) p.img = imgPath;
+          savePartToSheets('editar', u.mid, u.idx, p, null, null, nomeOriginal);
+        });
+
+        // Adicoes (pula a ancora)
+        toAdd.forEach(function(mid) {
+          if (mid === anchorMid && anchorAction === 'adicionar') return;
+          var newP = {
+            nome: nome,
+            preco: preco,
+            peso: peso,
+            img: driveUrl || imgPath || 'img/' + mid + '/' + nome + '.jpeg'
+          };
+          CATALOGO_MODELOS[mid].pecas.push(newP);
+          var newIdx = CATALOGO_MODELOS[mid].pecas.length - 1;
+          savePartToSheets('adicionar', mid, newIdx, newP, null, null);
+        });
+
+        // Remocoes. Cada toRemove e em modelo distinto, entao o idx capturado
+        // continua valido (nenhum splice anterior afetou aquele array).
+        toRemove.forEach(function(r) {
+          var currentPeca = CATALOGO_MODELOS[r.mid].pecas[r.idx];
+          var stubForBackend = { nome: currentPeca ? currentPeca.nome : nomeOriginal };
+          CATALOGO_MODELOS[r.mid].pecas.splice(r.idx, 1);
+          savePartToSheets('excluir', r.mid, r.idx, stubForBackend, null, null);
+        });
+
+        // Feedback agregado
+        var partes = [];
+        if (toUpdate.length > 0) partes.push(toUpdate.length + ' atualizado(s)');
+        if (toAdd.length > 0) partes.push(toAdd.length + ' adicionado(s)');
+        if (toRemove.length > 0) partes.push(toRemove.length + ' removido(s)');
+        if (partes.length > 0) {
+          mostrarFeedback('Peca "' + nome + '": ' + partes.join(', '), 'sucesso');
+        }
+        refreshAdminTable();
+      }
+
+      if (anchorMid && anchorAction === 'editar') {
+        var pAnchor = CATALOGO_MODELOS[anchorMid].pecas[anchorIdx];
+        pAnchor.nome = nome;
+        pAnchor.preco = preco;
+        pAnchor.peso = peso;
+        if (imgPath) pAnchor.img = imgPath;
+
+        savePartToSheets('editar', anchorMid, anchorIdx, pAnchor, imagemBase64, imagemNome, nomeOriginal).then(function(resp) {
+          if (resp && resp.sucesso === false) {
+            mostrarFeedback('Erro ao atualizar peca na planilha: ' + (resp.erro || 'desconhecido'), 'erro');
+            return;
+          }
+          var driveUrl = (resp && resp.imagemUrl) ? resp.imagemUrl : null;
+          if (driveUrl) {
+            pAnchor.img = driveUrl;
+            refreshAdminTable();
+          }
+          applyRest(driveUrl);
+        });
+      } else if (anchorMid && anchorAction === 'adicionar') {
+        var newAnchor = {
+          nome: nome,
+          preco: preco,
+          peso: peso,
+          img: imgPath || 'img/' + anchorMid + '/' + nome + '.jpeg'
+        };
+        CATALOGO_MODELOS[anchorMid].pecas.push(newAnchor);
+        var newAnchorIdx = CATALOGO_MODELOS[anchorMid].pecas.length - 1;
+        savePartToSheets('adicionar', anchorMid, newAnchorIdx, newAnchor, imagemBase64, imagemNome).then(function(resp) {
+          var driveUrl = (resp && resp.imagemUrl) ? resp.imagemUrl : null;
+          if (driveUrl) {
+            newAnchor.img = driveUrl;
+            refreshAdminTable();
+          }
+          applyRest(driveUrl);
+        });
+      } else {
+        // So tem remocoes
+        applyRest(null);
+      }
     } else {
       // Add new part to selected models
       var validModels = selectedModels.filter(function(mid) { return !!CATALOGO_MODELOS[mid]; });
