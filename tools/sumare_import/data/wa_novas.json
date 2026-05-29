@@ -1,35 +1,5 @@
 [
   {
-    "modelo": "Shaka Verde",
-    "modelo_raw": "Shaka Verde",
-    "cor": "Militar",
-    "cliente": "Ludmila",
-    "cel_4dig": "9324",
-    "cidade": "Holambra",
-    "motivo": "Possivelmente módulo",
-    "fonte": "assistencia"
-  },
-  {
-    "modelo": "Zilla Prata",
-    "modelo_raw": "Zilla Prata",
-    "cor": "Antiga",
-    "cliente": "Janile",
-    "cel_4dig": "9991",
-    "cidade": "Hortolândia",
-    "motivo": "verificar…",
-    "fonte": "assistencia"
-  },
-  {
-    "modelo": "Luna",
-    "modelo_raw": "Luna",
-    "cor": "Prata",
-    "cliente": "Welker",
-    "cel_4dig": "7931",
-    "cidade": "Campinas",
-    "motivo": "caixa de direção e alarme",
-    "fonte": "assistencia"
-  },
-  {
     "modelo": "?Yzl",
     "modelo_raw": "Yzl",
     "cor": "Prata",
@@ -37,16 +7,6 @@
     "cel_4dig": "9975",
     "cidade": "Bragança",
     "motivo": "Verificar",
-    "fonte": "assistencia"
-  },
-  {
-    "modelo": "Kay",
-    "modelo_raw": "E-kay",
-    "cor": "Cinza",
-    "cliente": "Eduardo Rosa",
-    "cel_4dig": "7670",
-    "cidade": "Hortolândia",
-    "motivo": "motor",
     "fonte": "assistencia"
   },
   {
@@ -70,16 +30,6 @@
     "fonte": "assistencia"
   },
   {
-    "modelo": "Kimbo",
-    "modelo_raw": "Kimbo",
-    "cor": "Prata",
-    "cliente": "Rogério Dias",
-    "cel_4dig": "8212",
-    "cidade": "Hortolândia",
-    "motivo": "motor",
-    "fonte": "assistencia"
-  },
-  {
     "modelo": "Gataka",
     "modelo_raw": "Gataka",
     "cor": "Grafite",
@@ -87,26 +37,6 @@
     "cel_4dig": "2955",
     "cidade": "Bragança",
     "motivo": "tampa da bateria, barulho no freio e na suspensão e acelerador travando",
-    "fonte": "assistencia"
-  },
-  {
-    "modelo": "Juna Smart",
-    "modelo_raw": "Juna Smart",
-    "cor": "Cinza",
-    "cliente": "Luciele",
-    "cel_4dig": "7755",
-    "cidade": "Hortolândia",
-    "motivo": "Motor e buzina",
-    "fonte": "assistencia"
-  },
-  {
-    "modelo": "Hyphen Preta (caiu Na",
-    "modelo_raw": "Hyphen Preta (caiu Na",
-    "cor": "Piscina)",
-    "cliente": "Ademir",
-    "cel_4dig": "8776",
-    "cidade": null,
-    "motivo": "passado orçamento, esperando resposta do cliente",
     "fonte": "assistencia"
   },
   {
@@ -132,91 +62,11 @@
   {
     "modelo": "Kay",
     "modelo_raw": "Ekay",
-    "cor": "Prata",
-    "cliente": "Kelly Cristina",
-    "cel_4dig": "5105",
-    "cidade": "Hortolândia",
-    "motivo": "motor",
-    "fonte": "assistencia"
-  },
-  {
-    "modelo": "Kay",
-    "modelo_raw": "Ekay",
     "cor": "Preta",
     "cliente": "suelen maritan",
     "cel_4dig": "0657",
     "cidade": "Sumaré",
     "motivo": "sem força na subida, fazer revisão completa",
-    "fonte": "assistencia"
-  },
-  {
-    "modelo": "Kay",
-    "modelo_raw": "Ekay",
-    "cor": "Preta",
-    "cliente": "Antônio Edson",
-    "cel_4dig": "0103",
-    "cidade": "Sumaré",
-    "motivo": "motor e bateria",
-    "fonte": "assistencia"
-  },
-  {
-    "modelo": "Kay",
-    "modelo_raw": "Ekay",
-    "cor": "Cinza",
-    "cliente": "Elizete de Freitas",
-    "cel_4dig": "4069",
-    "cidade": null,
-    "motivo": "carregador ou conector",
-    "fonte": "assistencia"
-  },
-  {
-    "modelo": "Pancho",
-    "modelo_raw": "Pancho",
-    "cor": "Prateado",
-    "cliente": "Mari Estela",
-    "cel_4dig": "1468",
-    "cidade": null,
-    "motivo": "orçamento do escudo frontal, painel, pára-lama dianteiro l, caixa de direção e trava do banco",
-    "fonte": "assistencia"
-  },
-  {
-    "modelo": "Kay",
-    "modelo_raw": "Ekay",
-    "cor": "Preta",
-    "cliente": "Bianca Ferreira",
-    "cel_4dig": "6030",
-    "cidade": "Santa Bárbara",
-    "motivo": "motor e bateria",
-    "fonte": "assistencia"
-  },
-  {
-    "modelo": "Gataka",
-    "modelo_raw": "Gataka",
-    "cor": "Branca",
-    "cliente": "Édson Leite",
-    "cel_4dig": null,
-    "cidade": null,
-    "motivo": "Bateira, suspensão e garfo dianteiro",
-    "fonte": "assistencia"
-  },
-  {
-    "modelo": "Kay",
-    "modelo_raw": "Ekay",
-    "cor": "Cinza",
-    "cliente": "Juliana Sales",
-    "cel_4dig": "3407",
-    "cidade": "Campinas",
-    "motivo": "motor e bateria",
-    "fonte": "assistencia"
-  },
-  {
-    "modelo": "Luna",
-    "modelo_raw": "Luma",
-    "cor": "Grafite",
-    "cliente": "Isabella Rodrigues",
-    "cel_4dig": "4704",
-    "cidade": "aguai-Sp",
-    "motivo": "catraca do motor danificado e fazendo barulho, e barulho no freio dianteiro, avaliar cesta torta",
     "fonte": "assistencia"
   },
   {
@@ -237,16 +87,6 @@
     "cel_4dig": "8914",
     "cidade": "Jaguariúna",
     "motivo": "motor e bateria",
-    "fonte": "assistencia"
-  },
-  {
-    "modelo": "Pancho",
-    "modelo_raw": "Pancho",
-    "cor": "Preto",
-    "cliente": "Débora da silva",
-    "cel_4dig": "5994",
-    "cidade": "Cosmópolis",
-    "motivo": "não funciona nfc e trocar painel",
     "fonte": "assistencia"
   },
   {

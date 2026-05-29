@@ -33,44 +33,68 @@ def _name_similarity(a: str | None, b: str | None) -> float:
     return SequenceMatcher(None, a.lower().strip(), b.lower().strip()).ratio()
 
 
+def _phone_distance(a: str, b: str) -> int:
+    """Hamming distance on 4-digit strings. -1 if different lengths."""
+    if len(a) != len(b):
+        return -1
+    return sum(1 for x, y in zip(a, b) if x != y)
+
+
 def score_match(moto: dict, wa_entry: dict) -> tuple[int, list[str]]:
     """Score a moto vs whatsapp entry. Returns (score, reasons)."""
     score = 0
     reasons: list[str] = []
 
-    # 1. Phone match
+    # 1. Phone match (exato ou 1 digito de diferenca - tolerancia a typos)
     moto_p4 = _phone_last4(moto.get("telefone"))
     wa_p4 = wa_entry.get("cel_4dig")
-    if moto_p4 and wa_p4 and moto_p4 == wa_p4:
-        score += 50
-        reasons.append(f"tel_match:{moto_p4}")
+    if moto_p4 and wa_p4:
+        dist = _phone_distance(moto_p4, wa_p4)
+        if dist == 0:
+            score += 50
+            reasons.append(f"tel_exato:{moto_p4}")
+        elif dist == 1:
+            score += 30
+            reasons.append(f"tel_1typo:{moto_p4}≈{wa_p4}")
 
-    # 2. Name match (first token)
+    # 2. First name match
     moto_first = _first_token(moto.get("nome"))
     wa_first = _first_token(wa_entry.get("cliente"))
-    if moto_first and wa_first and moto_first == wa_first:
-        score += 25
-        reasons.append(f"nome_primeiro:{moto_first}")
-    elif moto_first and wa_first:
-        sim = _name_similarity(moto_first, wa_first)
-        if sim >= 0.8:
-            score += 15
-            reasons.append(f"nome_fuzzy:{moto_first}~{wa_first}({sim:.2f})")
+    if moto_first and wa_first:
+        if moto_first == wa_first:
+            score += 30
+            reasons.append(f"primeiro_nome:{moto_first}")
+        else:
+            sim = _name_similarity(moto_first, wa_first)
+            if sim >= 0.75:
+                score += 20
+                reasons.append(f"primeiro_nome_fuzzy:{moto_first}~{wa_first}({sim:.2f})")
 
     # 3. Full name fuzzy
     sim_full = _name_similarity(moto.get("nome"), wa_entry.get("cliente"))
     if sim_full >= 0.7:
-        score += 15
+        score += 20
         reasons.append(f"nome_completo_fuzzy:{sim_full:.2f}")
+    elif sim_full >= 0.5:
+        score += 10
+        reasons.append(f"nome_completo_fuzzy_baixo:{sim_full:.2f}")
 
-    # 4. Modelo match
+    # 4. Last token of full name (sobrenome)
+    moto_nome = (moto.get("nome") or "").strip().lower().split()
+    wa_nome = (wa_entry.get("cliente") or "").strip().lower().split()
+    if len(moto_nome) >= 2 and len(wa_nome) >= 2:
+        if moto_nome[-1] == wa_nome[-1]:
+            score += 15
+            reasons.append(f"sobrenome:{moto_nome[-1]}")
+
+    # 5. Modelo match
     if moto.get("modelo_nxt") and wa_entry.get("modelo"):
         if moto["modelo_nxt"].lower() in wa_entry["modelo"].lower() or \
            wa_entry["modelo"].lower().startswith(moto["modelo_nxt"].lower()):
             score += 10
             reasons.append(f"modelo:{moto['modelo_nxt']}")
 
-    # 5. Cor match
+    # 6. Cor match
     if moto.get("cor") and wa_entry.get("cor"):
         if moto["cor"].lower() == wa_entry["cor"].lower():
             score += 5
@@ -83,7 +107,7 @@ def match_all(motos: list[dict], wa_assistencia: list[dict]) -> tuple[list[dict]
     """Para cada moto, anota best match no WhatsApp. Retorna motos enriquecidas e indices WA utilizados."""
     used_wa: set[int] = set()
     enriched = []
-    THRESHOLD = 40
+    THRESHOLD = 30
 
     for m in motos:
         best_score = 0
