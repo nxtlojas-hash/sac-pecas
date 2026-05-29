@@ -103,29 +103,53 @@ def build_workbook(motos: list[Moto], path: Path) -> None:
     for i, w in enumerate([18, 10, 22, 22, 22, 50], start=1):
         ws_mov.column_dimensions[get_column_letter(i)].width = w
 
-    # --- Aba Não Identificadas ---
+    # --- Aba Não Identificadas (dados estáticos, snapshot do build) ---
     ws_ni = wb.create_sheet("Não Identificadas")
-    ws_ni["A1"] = "Esta aba é uma view automática. Edite as motos diretamente na aba 'Motos'."
+    ws_ni["A1"] = "Snapshot das motos não identificadas no momento do build. Re-rodar tools/sumare_import/run.py para regenerar."
     ws_ni["A1"].font = Font(italic=True, color="808080")
-    ws_ni["A3"] = '=QUERY(Motos!A1:AB; "SELECT A, G, L, M, R, W, X WHERE F = ' + "'Não'" + ' ORDER BY A"; 1)'
-    ws_ni["I3"] = "Pistas (preencher conforme investiga)"
-    ws_ni["I3"].font = Font(bold=True)
+    ni_headers = ["ID", "Nome (parcial)", "Modelo NXT", "Cor", "Problema relatado", "Foto checklist", "Foto moto", "Pistas (preencher conforme investiga)"]
+    for col_idx, h in enumerate(ni_headers, start=1):
+        c = ws_ni.cell(row=3, column=col_idx, value=h)
+        c.fill = HEADER_FILL
+        c.font = HEADER_FONT
+        c.alignment = HEADER_ALIGN
+    row = 4
+    for m in motos:
+        if m.identificada():
+            continue
+        ws_ni.cell(row=row, column=1, value=m.id)
+        ws_ni.cell(row=row, column=2, value=m.nome or "")
+        ws_ni.cell(row=row, column=3, value=m.modelo_nxt or "")
+        ws_ni.cell(row=row, column=4, value=m.cor or "")
+        ws_ni.cell(row=row, column=5, value=m.problema_relatado or "")
+        ws_ni.cell(row=row, column=6, value=m.foto_checklist or "")
+        ws_ni.cell(row=row, column=7, value=m.foto_moto or "")
+        row += 1
+    for i, w in enumerate([8, 26, 14, 14, 38, 32, 32, 32], start=1):
+        ws_ni.column_dimensions[get_column_letter(i)].width = w
+    ws_ni.freeze_panes = "A4"
 
     # --- Aba Dashboard ---
     ws_d = wb.create_sheet("Dashboard")
     _write_headers(ws_d, DASH_HEADERS)
-    ws_d.append(["Total motos", "=COUNTA(Motos!A2:A)"])
-    ws_d.append(["Identificadas", '=COUNTIF(Motos!F:F; "Sim")'])
-    ws_d.append(["Não identificadas", '=COUNTIF(Motos!F:F; "Não")'])
-    ws_d.append(["% identificadas", "=B3/B2"])
+    # Calcula valores no build pra garantir funcionar mesmo se as formulas falharem na conversao
+    total = len(motos)
+    identificadas = sum(1 for m in motos if m.identificada())
+    nao_id = total - identificadas
+    ws_d.append(["Total motos", total])
+    ws_d.append(["Identificadas", identificadas])
+    ws_d.append(["Não identificadas", nao_id])
+    ws_d.append(["% identificadas", f"{identificadas*100//max(total,1)}%"])
     ws_d.append([])
     ws_d.append(["Status", "Quantidade"])
     for s in STATUS_OPCOES:
-        ws_d.append([s, f'=COUNTIF(Motos!E:E; "{s}")'])
+        count = sum(1 for m in motos if m.status_atual == s)
+        ws_d.append([s, count])
     ws_d.append([])
     ws_d.append(["Modelo", "Quantidade"])
-    for m in MOTOS_NXT:
-        ws_d.append([m, f'=COUNTIF(Motos!L:L; "{m}")'])
+    for m_nome in MOTOS_NXT:
+        count = sum(1 for m in motos if m.modelo_nxt == m_nome)
+        ws_d.append([m_nome, count])
     ws_d.column_dimensions["A"].width = 28
     ws_d.column_dimensions["B"].width = 16
 
