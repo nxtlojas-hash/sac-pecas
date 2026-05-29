@@ -231,20 +231,93 @@ def build_workbook(
     ws_c = wb.create_sheet("Cemitério")
     ws_c["A1"] = "Motos da NXT canibalizadas para retirar peças e atender outras assistências."
     ws_c["A1"].font = Font(italic=True, color="808080")
-    cem_headers = ["Modelo", "Cor", "Motivo / Peças retiradas"]
+    cem_headers = ["ID", "Modelo", "Cor", "Motivo / Peças retiradas"]
     for col_idx, h in enumerate(cem_headers, start=1):
         c = ws_c.cell(row=3, column=col_idx, value=h)
         c.fill = HEADER_FILL
         c.font = HEADER_FONT
         c.alignment = HEADER_ALIGN
-    for entry in (cemiterio or []):
+    for idx, entry in enumerate((cemiterio or []), start=1):
         ws_c.append([
+            f"C{idx:03d}",
             entry.get("modelo") or "",
             entry.get("cor") or "",
             entry.get("motivo") or "",
         ])
-    for i, w in enumerate([18, 16, 52], start=1):
+    for i, w in enumerate([8, 18, 16, 52], start=1):
         ws_c.column_dimensions[get_column_letter(i)].width = w
+
+    # --- Aba Estoque Total Sumaré 29/05 (snapshot consolidado) ---
+    ws_e = wb.create_sheet("Estoque Total Sumaré 29-05")
+    ws_e["A1"] = "Snapshot de TODAS as motos no galpão de Sumaré em 29/05/2026 (3 fontes consolidadas)."
+    ws_e["A1"].font = Font(italic=True, color="808080")
+    est_headers = [
+        "ID", "Origem", "Categoria", "Cliente", "Telefone", "Cidade",
+        "Modelo", "Cor", "Motivo / Problema atual",
+        "Foto checklist", "Foto moto", "Status"
+    ]
+    for col_idx, h in enumerate(est_headers, start=1):
+        c = ws_e.cell(row=3, column=col_idx, value=h)
+        c.fill = HEADER_FILL
+        c.font = HEADER_FONT
+        c.alignment = HEADER_ALIGN
+
+    # 1. Todas as 75 motos in-loco
+    for m in motos:
+        ex = extras_by_id.get(m.id, {})
+        is_cemiterio = ex.get("categoria") == "Cemitério / Estoque NXT"
+        ws_e.append([
+            m.id,
+            "in-loco + WA" if ex.get("wa_match") == "Sim" else ("in-loco apenas" if not is_cemiterio else "in-loco (cemitério)"),
+            ex.get("categoria") or "Cliente (assistência)",
+            m.nome or "",
+            m.telefone[-4:] if m.telefone and len(m.telefone) >= 4 else "",
+            ex.get("wa_cidade_29_05") or m.cidade_uf or "",
+            m.modelo_nxt or "",
+            m.cor or "",
+            ex.get("wa_motivo_29_05") or m.problema_relatado or "",
+            m.foto_checklist or "",
+            m.foto_moto or "",
+            m.status_atual,
+        ])
+
+    # 2. WA novas (assistência sem match in-loco)
+    for idx, wa in enumerate((novas_wa or []), start=1):
+        ws_e.append([
+            f"W{idx:03d}",
+            "Só WA 29/05",
+            "Cliente (assistência) - novo",
+            wa.get("cliente") or "",
+            wa.get("cel_4dig") or "",
+            wa.get("cidade") or "",
+            wa.get("modelo") or "",
+            wa.get("cor") or "",
+            wa.get("motivo") or "",
+            "",
+            "",
+            "Aguardando diagnóstico",
+        ])
+
+    # 3. Cemitério (18 motos NXT pra retirada de peças)
+    for idx, entry in enumerate((cemiterio or []), start=1):
+        ws_e.append([
+            f"C{idx:03d}",
+            "Cemitério WA",
+            "Cemitério / Estoque NXT",
+            "NXT (cemitério)",
+            "",
+            "",
+            entry.get("modelo") or "",
+            entry.get("cor") or "",
+            entry.get("motivo") or "",
+            "",
+            "",
+            "Cemitério - retirada de peças",
+        ])
+
+    ws_e.freeze_panes = "A4"
+    for i, w in enumerate([8, 18, 24, 28, 14, 18, 16, 14, 50, 32, 32, 22], start=1):
+        ws_e.column_dimensions[get_column_letter(i)].width = w
 
     path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)
