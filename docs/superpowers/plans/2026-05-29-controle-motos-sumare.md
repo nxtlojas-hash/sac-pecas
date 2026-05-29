@@ -4,7 +4,7 @@
 
 **Goal:** Reconstruir o controle das motos na assistência Sumaré perdido no incêndio, extraindo dados via OCR dos checklists fotografados no WhatsApp em 28/05/2026 e gerando uma planilha Google Sheets compartilhável no Drive com pasta de fotos pareadas.
 
-**Architecture:** Pipeline em 3 fases — (1) toolchain Python com scripts TDD para parsing, schema, pareamento e geração de XLSX; (2) extração manual OCR feita por Claude Code lendo cada uma das ~130 imagens com Read+vision e salvando JSON estruturado; (3) montagem final do XLSX + pasta de fotos organizada + relatório de extração + cópia para o Drive (`H:\Meu Drive\NXT - Motos Assistência Sumaré\`).
+**Architecture:** Pipeline em 3 fases — (1) toolchain Python com scripts TDD para parsing, schema, pareamento e geração de XLSX; (2) extração manual OCR feita por Claude Code lendo cada uma das ~130 imagens com Read+vision e salvando JSON estruturado; (3) montagem final do XLSX + pasta de fotos organizada + relatório de extração + cópia para o Drive (`J:\Meu Drive\SAC\Motos Assistência Sumaré\`).
 
 **Tech Stack:** Python 3, `openpyxl` (XLSX), `pytest` (testes), Claude Code vision (OCR multimodal), Git, Google Drive (entrega via H: mapeado).
 
@@ -35,7 +35,7 @@
 
 **Diretório fonte (read-only):** `%TEMP%/sumare/` — já tem o ZIP extraído com 130 jpgs + `_chat.txt`.
 
-**Diretório de entrega:** `H:\Meu Drive\NXT - Motos Assistência Sumaré\` — cópia final do XLSX + pasta Fotos.
+**Diretório de entrega:** `J:\Meu Drive\SAC\Motos Assistência Sumaré\` — cópia final do XLSX + pasta Fotos.
 
 ---
 
@@ -1078,7 +1078,7 @@ BASE = Path(__file__).parent
 DATA = BASE / "data"
 OUT = BASE / "out"
 SOURCE_PHOTOS = Path(os.environ["TEMP"]) / "sumare"
-DRIVE_DST = Path(r"H:\Meu Drive\NXT - Motos Assistência Sumaré")
+DRIVE_DST = Path(r"J:\Meu Drive\SAC\Motos Assistência Sumaré")
 
 
 def main() -> None:
@@ -1211,26 +1211,26 @@ git commit -m "feat(sumare-import): orquestrador end-to-end"
 ### Task 13: Copiar para o Drive
 
 **Files:**
-- Copy: `out/Controle - Motos Sumaré.xlsx` → `H:\Meu Drive\NXT - Motos Assistência Sumaré\`
-- Copy: `out/Fotos/` → `H:\Meu Drive\NXT - Motos Assistência Sumaré\Fotos\`
-- Copy: `out/relatorio-extracao.md` → `H:\Meu Drive\NXT - Motos Assistência Sumaré\`
+- Copy: `out/Controle - Motos Sumaré.xlsx` → `J:\Meu Drive\SAC\Motos Assistência Sumaré\`
+- Copy: `out/Fotos/` → `J:\Meu Drive\SAC\Motos Assistência Sumaré\Fotos\`
+- Copy: `out/relatorio-extracao.md` → `J:\Meu Drive\SAC\Motos Assistência Sumaré\`
 
 - [ ] **Step 1: Verificar acesso ao Drive**
 
-Run: `ls "H:/Meu Drive/"`
+Run: `ls "J:/Meu Drive/"`
 Expected: lista o conteúdo do Drive (já mapeado).
 
 - [ ] **Step 2: Criar pasta de destino**
 
-Run: `mkdir -p "H:/Meu Drive/NXT - Motos Assistência Sumaré/Fotos"`
+Run: `mkdir -p "J:/Meu Drive/SAC/Motos Assistência Sumaré/Fotos"`
 
 - [ ] **Step 3: Copiar arquivos**
 
 Run:
 ```bash
-cp "tools/sumare-import/out/Controle - Motos Sumaré.xlsx" "H:/Meu Drive/NXT - Motos Assistência Sumaré/"
-cp -r tools/sumare-import/out/Fotos/* "H:/Meu Drive/NXT - Motos Assistência Sumaré/Fotos/"
-cp tools/sumare-import/out/relatorio-extracao.md "H:/Meu Drive/NXT - Motos Assistência Sumaré/"
+cp "tools/sumare-import/out/Controle - Motos Sumaré.xlsx" "J:/Meu Drive/SAC/Motos Assistência Sumaré/"
+cp -r tools/sumare-import/out/Fotos/* "J:/Meu Drive/SAC/Motos Assistência Sumaré/Fotos/"
+cp tools/sumare-import/out/relatorio-extracao.md "J:/Meu Drive/SAC/Motos Assistência Sumaré/"
 ```
 
 - [ ] **Step 4: Confirmar sincronização**

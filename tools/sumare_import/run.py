@@ -15,6 +15,7 @@ BASE = Path(__file__).parent
 DATA = BASE / "data"
 OUT = BASE / "out"
 SOURCE_PHOTOS = Path(os.environ["TEMP"]) / "sumare"
+DRIVE_DST = Path(r"J:\Meu Drive\SAC\Motos Assistência Sumaré")
 
 
 def _safe_str(v):

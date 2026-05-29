@@ -41,7 +41,7 @@ Estimativa: **~65 motos** (130 fotos ÷ pares checklist+moto). Algumas motos pro
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  Google Drive: H:\Meu Drive\NXT - Motos Assistência Sumaré\  │
+│  Google Drive: J:\Meu Drive\SAC\Motos Assistência Sumaré\  │
 │                                                              │
 │  ┌────────────────────────────────────────────────────────┐  │
 │  │  Controle - Motos Sumaré.xlsx (Google Sheets)          │  │
@@ -180,8 +180,8 @@ Coluna extra (manual, fora do QUERY): `Pistas` — campo livre pra equipe ir ano
 
 ## Entregáveis V1
 
-- `H:\Meu Drive\NXT - Motos Assistência Sumaré\Controle - Motos Sumaré.xlsx`
-- `H:\Meu Drive\NXT - Motos Assistência Sumaré\Fotos\` (130 jpgs renomeados)
+- `J:\Meu Drive\SAC\Motos Assistência Sumaré\Controle - Motos Sumaré.xlsx`
+- `J:\Meu Drive\SAC\Motos Assistência Sumaré\Fotos\` (130 jpgs renomeados)
 - `relatorio-extracao.md` — resumo da execução
 - Instruções de compartilhamento da pasta Drive com a equipe Sumaré
 
