@@ -1,0 +1,140 @@
+[
+  {
+    "arquivo": "IMG-20260528-WA0137.jpg",
+    "classification": "moto",
+    "ocr": null
+  },
+  {
+    "arquivo": "IMG-20260528-WA0139.jpg",
+    "classification": "moto",
+    "ocr": null
+  },
+  {
+    "arquivo": "IMG-20260528-WA0144.jpg",
+    "classification": "moto",
+    "ocr": null
+  },
+  {
+    "arquivo": "IMG-20260528-WA0145.jpg",
+    "classification": "checklist",
+    "ocr": {
+      "arquivo": "IMG-20260528-WA0145.jpg",
+      "nome": "Danubia Helena",
+      "cpf": null,
+      "telefone": null,
+      "endereco": null,
+      "cidade_uf": null,
+      "modelo": "Kay",
+      "cor": "Preta",
+      "chassi": null,
+      "motor": null,
+      "data_compra": null,
+      "loja": null,
+      "problema_relatado": null,
+      "componentes_danificados": [],
+      "tipo_atendimento": null,
+      "pecas_substituidas": null,
+      "tecnico_responsavel": null,
+      "numero_os": null,
+      "data_entrada": null,
+      "campos_baixa_confianca": ["nome", "cpf", "telefone", "endereco", "problema_relatado", "componentes_danificados", "chassi", "motor"],
+      "observacoes_ocr": "Foto distante; formulario ilegivel em maior parte; nome confirmado por legenda WhatsApp"
+    }
+  },
+  {
+    "arquivo": "IMG-20260528-WA0146.jpg",
+    "classification": "moto",
+    "ocr": null
+  },
+  {
+    "arquivo": "IMG-20260528-WA0147.jpg",
+    "classification": "checklist",
+    "ocr": {
+      "arquivo": "IMG-20260528-WA0147.jpg",
+      "nome": "Joana Sales",
+      "cpf": "371.346.108-18",
+      "telefone": "(22) 99287-3907",
+      "endereco": "Rua Bartolo Martins, 7336, Chácara Santa M.",
+      "cidade_uf": null,
+      "modelo": "Kay",
+      "cor": "Cinza",
+      "chassi": "0796",
+      "motor": "0337",
+      "data_compra": null,
+      "loja": null,
+      "problema_relatado": "Problema no motor e bateria",
+      "componentes_danificados": ["Lâmpadas", "Pneu traseiro", "Bateria/carregador"],
+      "tipo_atendimento": null,
+      "pecas_substituidas": null,
+      "tecnico_responsavel": null,
+      "numero_os": null,
+      "data_entrada": null,
+      "campos_baixa_confianca": ["cpf", "nome"],
+      "observacoes_ocr": "Form parcialmente coberto; legenda WhatsApp diz 'Juliana Sales' mas form mostra 'Joana Sales' — pode ser nome real ou erro de leitura"
+    }
+  },
+  {
+    "arquivo": "IMG-20260528-WA0148.jpg",
+    "classification": "moto",
+    "ocr": null
+  },
+  {
+    "arquivo": "IMG-20260528-WA0149.jpg",
+    "classification": "checklist",
+    "ocr": {
+      "arquivo": "IMG-20260528-WA0149.jpg",
+      "nome": "José Acvino",
+      "cpf": null,
+      "telefone": "(19) 99130-8482",
+      "endereco": "Rua Jacaranda, 329 - Ao lado da Igreja",
+      "cidade_uf": "Monte Mor",
+      "modelo": "Jaya",
+      "cor": "Preta",
+      "chassi": null,
+      "motor": "0070",
+      "data_compra": "16/04/2026",
+      "loja": null,
+      "problema_relatado": "Farol não conecta, ver acoplamento; trocar placa; trocar motor",
+      "componentes_danificados": ["Faróis/lanternas", "Lâmpadas", "Pisca-pisca", "Buzina", "Motor/tração"],
+      "tipo_atendimento": null,
+      "pecas_substituidas": "Farol, placa, motor, pinhão, alarme",
+      "tecnico_responsavel": null,
+      "numero_os": null,
+      "data_entrada": "16/04/2026",
+      "campos_baixa_confianca": ["nome", "cpf"],
+      "observacoes_ocr": "Formato CHECKLIST ENTREGAS NXT"
+    }
+  },
+  {
+    "arquivo": "IMG-20260528-WA0150.jpg",
+    "classification": "checklist",
+    "ocr": {
+      "arquivo": "IMG-20260528-WA0150.jpg",
+      "nome": "Matheus Teixeira",
+      "cpf": null,
+      "telefone": "(17) 99693-9306",
+      "endereco": "Rua das Camaradas, 729",
+      "cidade_uf": null,
+      "modelo": "Kay",
+      "cor": "Cinza",
+      "chassi": "0207",
+      "motor": "0044",
+      "data_compra": null,
+      "loja": null,
+      "problema_relatado": "Cliente pediu para verificar; trocar motor; possíveis problemas na troca",
+      "componentes_danificados": ["Motor/tração"],
+      "tipo_atendimento": null,
+      "pecas_substituidas": null,
+      "tecnico_responsavel": "João Vitor",
+      "numero_os": null,
+      "data_entrada": "23/05/2026",
+      "campos_baixa_confianca": ["cpf", "telefone", "endereco", "problema_relatado"],
+      "observacoes_ocr": "Formato CHECKLIST NXT ASSISTENCIA TECNICA; motorista Joao Vitor; cliente fez retirada"
+    }
+  },
+  {
+    "arquivo": "IMG-20260528-WA0151.jpg",
+    "classification": "moto",
+    "ocr": null
+  }
+]

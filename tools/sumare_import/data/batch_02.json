@@ -1,0 +1,152 @@
+[
+  {
+    "arquivo": "IMG-20260528-WA0112.jpg",
+    "classification": "checklist",
+    "ocr": {
+      "arquivo": "IMG-20260528-WA0112.jpg",
+      "nome": "Antonio Edson Pereira",
+      "cpf": "343.863.318-12",
+      "telefone": "(19) 99683-8746",
+      "endereco": null,
+      "cidade_uf": "Sumaré",
+      "modelo": null,
+      "cor": null,
+      "chassi": null,
+      "motor": "0304",
+      "data_compra": null,
+      "loja": null,
+      "problema_relatado": "Há mais 5 dias está dando sem força para andar",
+      "componentes_danificados": [],
+      "tipo_atendimento": null,
+      "pecas_substituidas": null,
+      "tecnico_responsavel": "Victor Vieira",
+      "numero_os": null,
+      "data_entrada": "19/05/2026",
+      "campos_baixa_confianca": ["cpf", "telefone", "endereco", "problema_relatado"],
+      "observacoes_ocr": "Foto da formulario de cabeca para baixo; varios campos parciais; WhatsApp diff visivel 19996706068"
+    }
+  },
+  {
+    "arquivo": "IMG-20260528-WA0114.jpg",
+    "classification": "moto",
+    "ocr": null
+  },
+  {
+    "arquivo": "IMG-20260528-WA0117.jpg",
+    "classification": "checklist",
+    "ocr": {
+      "arquivo": "IMG-20260528-WA0117.jpg",
+      "nome": "Ademir amigo do Marcelo",
+      "cpf": null,
+      "telefone": "(19) 99663-8796",
+      "endereco": null,
+      "cidade_uf": null,
+      "modelo": null,
+      "cor": null,
+      "chassi": null,
+      "motor": "0423",
+      "data_compra": null,
+      "loja": null,
+      "problema_relatado": "Ver o que danificou e avisar",
+      "componentes_danificados": [],
+      "tipo_atendimento": null,
+      "pecas_substituidas": null,
+      "tecnico_responsavel": null,
+      "numero_os": null,
+      "data_entrada": null,
+      "campos_baixa_confianca": ["modelo", "cor", "chassi"],
+      "observacoes_ocr": "Formato resumido 'CHECKLIST ENTREGAS NXT' (nao o checklist padrao). Acessorios: 2 chaves, carregador SIM, suporte celular SIM"
+    }
+  },
+  {
+    "arquivo": "IMG-20260528-WA0119.jpg",
+    "classification": "outro",
+    "ocr": {
+      "arquivo": "IMG-20260528-WA0119.jpg",
+      "nome": null,
+      "cpf": null,
+      "telefone": null,
+      "endereco": null,
+      "cidade_uf": null,
+      "modelo": null,
+      "cor": null,
+      "chassi": null,
+      "motor": null,
+      "data_compra": null,
+      "loja": null,
+      "problema_relatado": null,
+      "componentes_danificados": [],
+      "tipo_atendimento": null,
+      "pecas_substituidas": "Chicote, painel, alarme, conversor, frente completa farol e LED, conjunto farol traseiro completo",
+      "tecnico_responsavel": null,
+      "numero_os": null,
+      "data_entrada": null,
+      "campos_baixa_confianca": [],
+      "observacoes_ocr": "Anotacao 'PECAS PARA TROCA' associada provavelmente a moto do Ademir (foto anterior)"
+    }
+  },
+  {
+    "arquivo": "IMG-20260528-WA0121.jpg",
+    "classification": "moto",
+    "ocr": null
+  },
+  {
+    "arquivo": "IMG-20260528-WA0122.jpg",
+    "classification": "checklist",
+    "ocr": {
+      "arquivo": "IMG-20260528-WA0122.jpg",
+      "nome": "Vera Lucia Castilho",
+      "cpf": "290.768.058-73",
+      "telefone": "(19) 99068-4984",
+      "endereco": "Rua Gothardo, Nº 116",
+      "cidade_uf": null,
+      "modelo": "Kay",
+      "cor": "Preta",
+      "chassi": "0192",
+      "motor": "0195",
+      "data_compra": "31/03/2026",
+      "loja": null,
+      "problema_relatado": "Sem força pra ir pra frente. Motor dando tranco",
+      "componentes_danificados": ["Pintura/lataria"],
+      "tipo_atendimento": null,
+      "pecas_substituidas": null,
+      "tecnico_responsavel": "Ricardo Damasco",
+      "numero_os": null,
+      "data_entrada": "31/03/2026",
+      "campos_baixa_confianca": ["chassi"],
+      "observacoes_ocr": "Formato 'CHECKLIST NXT ASSISTENCIA' (mais curto); observacao: Colocar pra carregar; Carregador NAO; Tapete SIM"
+    }
+  },
+  {
+    "arquivo": "IMG-20260528-WA0127.jpg",
+    "classification": "checklist",
+    "ocr": {
+      "arquivo": "IMG-20260528-WA0127.jpg",
+      "nome": "Alessandra de Souza Santos",
+      "cpf": "280.970.005-99",
+      "telefone": "(19) 99386-3881",
+      "endereco": "Vila Maria, 76 - Imigrantes",
+      "cidade_uf": "Holambra",
+      "modelo": "Kay",
+      "cor": "Cinza",
+      "chassi": null,
+      "motor": "0523",
+      "data_compra": null,
+      "loja": null,
+      "problema_relatado": "Começa andar, perde força e começa dar tranco",
+      "componentes_danificados": ["Pneu dianteiro", "Pneu traseiro", "Freio dianteiro", "Freio traseiro", "Motor/tração", "Bateria/carregador", "Banco/assento", "Retrovisor(es)", "Estrutura/quadro"],
+      "tipo_atendimento": null,
+      "pecas_substituidas": null,
+      "tecnico_responsavel": null,
+      "numero_os": null,
+      "data_entrada": null,
+      "campos_baixa_confianca": ["cpf"],
+      "observacoes_ocr": "Acessorios: tapete X"
+    }
+  },
+  {
+    "arquivo": "IMG-20260528-WA0128.jpg",
+    "classification": "moto",
+    "ocr": null
+  }
+]

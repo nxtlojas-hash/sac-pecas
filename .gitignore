@@ -18,9 +18,13 @@ desktop.ini
 *.log
 *.tmp
 
-# Sumare import — binarios e JSON intermediarios sao reproduziveis
+# Sumare import — binarios e JSON gerados (reproduziveis dos batches)
 tools/sumare_import/out/
-tools/sumare_import/data/*.json
+tools/sumare_import/data/events.json
+tools/sumare_import/data/ocr_results.json
+tools/sumare_import/data/motos.json
+# Batch files SAO persistentes (fonte da verdade do OCR manual)
+!tools/sumare_import/data/batch_*.json
 __pycache__/
 *.pyc
 .pytest_cache/

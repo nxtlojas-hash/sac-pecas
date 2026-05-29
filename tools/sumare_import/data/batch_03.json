@@ -1,0 +1,152 @@
+[
+  {
+    "arquivo": "IMG-20260528-WA0129.jpg",
+    "classification": "moto",
+    "ocr": null
+  },
+  {
+    "arquivo": "IMG-20260528-WA0126.jpg",
+    "classification": "checklist",
+    "ocr": {
+      "arquivo": "IMG-20260528-WA0126.jpg",
+      "nome": "Kelly Cristina Ribeiro Figueiredo",
+      "cpf": null,
+      "telefone": null,
+      "endereco": "Rua Lidia Lopes Moreira, 300",
+      "cidade_uf": "Hortolândia",
+      "modelo": "Kay",
+      "cor": "Cinza",
+      "chassi": null,
+      "motor": null,
+      "data_compra": null,
+      "loja": null,
+      "problema_relatado": "Problema no motor — fazer troca",
+      "componentes_danificados": [],
+      "tipo_atendimento": null,
+      "pecas_substituidas": null,
+      "tecnico_responsavel": "Victor Vieira",
+      "numero_os": null,
+      "data_entrada": null,
+      "campos_baixa_confianca": ["cpf", "telefone", "motor"],
+      "observacoes_ocr": "WhatsApp diff: (19) 99150-5105; tomada plug bloqueando parte do formulario"
+    }
+  },
+  {
+    "arquivo": "IMG-20260528-WA0130.jpg",
+    "classification": "moto",
+    "ocr": null
+  },
+  {
+    "arquivo": "IMG-20260528-WA0131.jpg",
+    "classification": "checklist",
+    "ocr": {
+      "arquivo": "IMG-20260528-WA0131.jpg",
+      "nome": "Ilda Mendes Soares",
+      "cpf": null,
+      "telefone": "(19) 99841-5294",
+      "endereco": "Rua Valentinho Calsavara, 122 - Jardim",
+      "cidade_uf": "Valinhos",
+      "modelo": "Kay",
+      "cor": "Azul",
+      "chassi": null,
+      "motor": "0164",
+      "data_compra": "26/03/2026",
+      "loja": null,
+      "problema_relatado": "Esta perdendo força e dando tranco. Bateria não está segurando carga e o motor esquentando. Testar baterias",
+      "componentes_danificados": [],
+      "tipo_atendimento": null,
+      "pecas_substituidas": null,
+      "tecnico_responsavel": null,
+      "numero_os": null,
+      "data_entrada": "26/03/2026",
+      "campos_baixa_confianca": ["cpf"],
+      "observacoes_ocr": "Formato CHECKLIST NXT ASSISTENCIA; Carregador SIM, Suporte celular SIM, Tapete SIM/NAO; assinatura cliente vazia"
+    }
+  },
+  {
+    "arquivo": "IMG-20260528-WA0135.jpg",
+    "classification": "checklist",
+    "ocr": {
+      "arquivo": "IMG-20260528-WA0135.jpg",
+      "nome": "Rosemary Aparecida Andrade Romero",
+      "cpf": null,
+      "telefone": "(19) 98162-4588",
+      "endereco": "Rua Henrique Jacobs, 831 - Parque Eduardo Lacerda",
+      "cidade_uf": "Limeira",
+      "modelo": "Kay",
+      "cor": "Preta",
+      "chassi": "0066",
+      "motor": "0258",
+      "data_compra": "01/04/2026",
+      "loja": null,
+      "problema_relatado": "Motor dando tranco ao acelerar",
+      "componentes_danificados": [],
+      "tipo_atendimento": null,
+      "pecas_substituidas": null,
+      "tecnico_responsavel": "Rose ?",
+      "numero_os": null,
+      "data_entrada": "01/04/2026",
+      "campos_baixa_confianca": ["nome", "cpf", "tecnico_responsavel"],
+      "observacoes_ocr": "Formato CHECKLIST NXT ASSISTENCIA; nome parcial; Carregador NAO, Suporte celular NAO, Tapete NAO"
+    }
+  },
+  {
+    "arquivo": "IMG-20260528-WA0136.jpg",
+    "classification": "moto",
+    "ocr": null
+  },
+  {
+    "arquivo": "IMG-20260528-WA0138.jpg",
+    "classification": "checklist",
+    "ocr": {
+      "arquivo": "IMG-20260528-WA0138.jpg",
+      "nome": "Daniela Souza",
+      "cpf": "405.406.318-??",
+      "telefone": "(19) 98144-1839",
+      "endereco": "Rua Rio Grande do Sul, 374",
+      "cidade_uf": "Jaguariúna",
+      "modelo": "Kay",
+      "cor": "Preta",
+      "chassi": "0078",
+      "motor": "0032",
+      "data_compra": null,
+      "loja": null,
+      "problema_relatado": "Estava indo para escola quando perdeu força e ficou andando bem devagar. Provavelmente motor (?) sem som",
+      "componentes_danificados": ["Pneu dianteiro", "Pneu traseiro", "Freio dianteiro", "Freio traseiro", "Bateria/carregador", "Pintura/lataria"],
+      "tipo_atendimento": null,
+      "pecas_substituidas": null,
+      "tecnico_responsavel": null,
+      "numero_os": null,
+      "data_entrada": null,
+      "campos_baixa_confianca": ["cpf", "problema_relatado", "chassi"],
+      "observacoes_ocr": "CPF ultimos digitos ilegiveis"
+    }
+  },
+  {
+    "arquivo": "IMG-20260528-WA0133.jpg",
+    "classification": "checklist",
+    "ocr": {
+      "arquivo": "IMG-20260528-WA0133.jpg",
+      "nome": "Bianca Pereira",
+      "cpf": "498.904.918-69",
+      "telefone": "(19) 99159-6630",
+      "endereco": "Rua Angela de Marcel, 444",
+      "cidade_uf": "Santa Bárbara",
+      "modelo": "Kay",
+      "cor": "Preta",
+      "chassi": null,
+      "motor": "0625",
+      "data_compra": "09/05/2026",
+      "loja": null,
+      "problema_relatado": "Sem força para andar / Troca motor",
+      "componentes_danificados": ["Pneu dianteiro", "Pneu traseiro", "Freio dianteiro", "Freio traseiro", "Motor/tração", "Banco/assento", "Retrovisor(es)"],
+      "tipo_atendimento": null,
+      "pecas_substituidas": null,
+      "tecnico_responsavel": null,
+      "numero_os": null,
+      "data_entrada": "09/05/2026",
+      "campos_baixa_confianca": ["cpf"],
+      "observacoes_ocr": "Foto inclinada; formulario padrao"
+    }
+  }
+]
