@@ -22,11 +22,35 @@ def _safe_str(v):
     return v if v is not None else None
 
 
+def _load_drive_ids() -> dict[str, str]:
+    """Load mapping {filename: file_id} from drive_file_ids.json if it exists."""
+    ids_path = DATA / "drive_file_ids.json"
+    if not ids_path.exists():
+        return {}
+    return json.loads(ids_path.read_text(encoding="utf-8"))
+
+
+def _foto_link(filename: str, drive_ids: dict[str, str], label: str) -> str:
+    """Return HYPERLINK formula if file ID known, else relative path.
+
+    Usa virgula (formato XLSX padrao). Google Sheets converte automaticamente
+    para ponto-virgula em locales que usam virgula como separador decimal.
+    """
+    file_id = drive_ids.get(filename)
+    if file_id:
+        url = f"https://drive.google.com/file/d/{file_id}/view"
+        return f'=HYPERLINK("{url}","{label}")'
+    return f"Fotos/{filename}"
+
+
 def main() -> None:
     events = json.loads((DATA / "events.json").read_text(encoding="utf-8"))
     ocr = json.loads((DATA / "ocr_results.json").read_text(encoding="utf-8"))
     classifications = {x["arquivo"]: x["classification"] for x in ocr if x["classification"]}
     ocr_by_file = {x["arquivo"]: x for x in ocr}
+    drive_ids = _load_drive_ids()
+    if drive_ids:
+        print(f"Drive IDs carregados: {len(drive_ids)} fotos com link clicavel")
 
     pairs, orphans = pair_checklists_with_motos(events, classifications)
     print(f"Pairs: {len(pairs)} | Orphans: {len(orphans)}")
@@ -59,8 +83,8 @@ def main() -> None:
             tipo_atendimento=c.get("tipo_atendimento"),
             pecas_substituidas=c.get("pecas_substituidas"),
             tecnico_responsavel=c.get("tecnico_responsavel"),
-            foto_checklist=f"Fotos/{mid}-checklist.jpg",
-            foto_moto=f"Fotos/{mid}-moto.jpg",
+            foto_checklist=_foto_link(f"{mid}-checklist.jpg", drive_ids, "Ver checklist"),
+            foto_moto=_foto_link(f"{mid}-moto.jpg", drive_ids, "Ver moto"),
             quem_registrou=p["sender"],
         )
         bc = c.get("campos_baixa_confianca") or []
@@ -98,7 +122,7 @@ def main() -> None:
                 motor=c.get("motor"),
                 problema_relatado=c.get("problema_relatado"),
                 componentes_danificados=c.get("componentes_danificados") or [],
-                foto_moto=f"Fotos/{mid}-moto.jpg",
+                foto_moto=_foto_link(f"{mid}-moto.jpg", drive_ids, "Ver moto"),
                 quem_registrou=ckl.get("sender"),
                 observacoes=(c.get("observacoes_ocr") or "") + " | Sem checklist pareado",
             )
@@ -127,7 +151,7 @@ def main() -> None:
                 tipo_atendimento=c.get("tipo_atendimento"),
                 pecas_substituidas=c.get("pecas_substituidas"),
                 tecnico_responsavel=c.get("tecnico_responsavel"),
-                foto_checklist=f"Fotos/{mid}-checklist.jpg",
+                foto_checklist=_foto_link(f"{mid}-checklist.jpg", drive_ids, "Ver checklist"),
                 quem_registrou=ckl.get("sender"),
                 observacoes="Checklist sem foto-moto pareada — foto da moto pode estar entre as orfas",
             )

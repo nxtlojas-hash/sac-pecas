@@ -25,6 +25,8 @@ tools/sumare_import/data/ocr_results.json
 tools/sumare_import/data/motos.json
 # Batch files SAO persistentes (fonte da verdade do OCR manual)
 !tools/sumare_import/data/batch_*.json
+# Drive file IDs SAO persistentes (snapshot do upload pro Drive)
+!tools/sumare_import/data/drive_file_ids.json
 __pycache__/
 *.pyc
 .pytest_cache/
