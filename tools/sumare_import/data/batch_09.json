@@ -1,0 +1,162 @@
+[
+  {
+    "arquivo": "IMG-20260528-WA0196.jpg",
+    "classification": "moto",
+    "ocr": null
+  },
+  {
+    "arquivo": "IMG-20260528-WA0197.jpg",
+    "classification": "moto",
+    "ocr": null
+  },
+  {
+    "arquivo": "IMG-20260528-WA0198.jpg",
+    "classification": "checklist",
+    "ocr": {
+      "arquivo": "IMG-20260528-WA0198.jpg",
+      "nome": "Marcela Torres",
+      "cpf": null,
+      "telefone": null,
+      "endereco": "Rua Francisco Ribeiro Junior, 72",
+      "cidade_uf": null,
+      "modelo": null,
+      "cor": "Preto",
+      "chassi": null,
+      "motor": "0445",
+      "data_compra": null,
+      "loja": null,
+      "problema_relatado": "Sem 1 retrovisor com avarias no Cabral. Cliente relatou problemas na bateria",
+      "componentes_danificados": ["Bateria/carregador", "Retrovisor(es)"],
+      "tipo_atendimento": null,
+      "pecas_substituidas": null,
+      "tecnico_responsavel": null,
+      "numero_os": null,
+      "data_entrada": null,
+      "campos_baixa_confianca": ["nome", "cpf", "telefone", "modelo"],
+      "observacoes_ocr": "Formato CHECKLIST NXT ASSISTENCIA TECNICA simplificado; nome secundario 'Elton Luis Mauro' tambem aparece"
+    }
+  },
+  {
+    "arquivo": "IMG-20260528-WA0199.jpg",
+    "classification": "checklist",
+    "ocr": {
+      "arquivo": "IMG-20260528-WA0199.jpg",
+      "nome": "Marco Antonio Alberti",
+      "cpf": "130.597.318-44",
+      "telefone": "(19) 99751-1690",
+      "endereco": "Rua das Magnólias, 70",
+      "cidade_uf": "Itapira",
+      "modelo": "Kay",
+      "cor": "Cinza",
+      "chassi": "0182",
+      "motor": "0450",
+      "data_compra": null,
+      "loja": null,
+      "problema_relatado": "Bateria piscando no painel. Trocar bateria",
+      "componentes_danificados": ["Faróis/lanternas", "Lâmpadas", "Pisca-pisca", "Bateria/carregador", "Banco/assento", "Retrovisor(es)"],
+      "tipo_atendimento": null,
+      "pecas_substituidas": null,
+      "tecnico_responsavel": null,
+      "numero_os": null,
+      "data_entrada": "12/0?/2026",
+      "campos_baixa_confianca": ["data_entrada"],
+      "observacoes_ocr": "Assinatura cliente visivel"
+    }
+  },
+  {
+    "arquivo": "IMG-20260528-WA0200.jpg",
+    "classification": "moto",
+    "ocr": null
+  },
+  {
+    "arquivo": "IMG-20260528-WA0201.jpg",
+    "classification": "checklist",
+    "ocr": {
+      "arquivo": "IMG-20260528-WA0201.jpg",
+      "nome": "Adilson Clovis",
+      "cpf": "130.510.208-94",
+      "telefone": "(16) 99645-0129",
+      "endereco": "Av. Bahia Mantiqueira, 153",
+      "cidade_uf": "São Carlos",
+      "modelo": null,
+      "cor": null,
+      "chassi": "0464",
+      "motor": "583",
+      "data_compra": null,
+      "loja": null,
+      "problema_relatado": "Maioria papa fadina e bateria. Trocar motor",
+      "componentes_danificados": [],
+      "tipo_atendimento": null,
+      "pecas_substituidas": null,
+      "tecnico_responsavel": null,
+      "numero_os": null,
+      "data_entrada": null,
+      "campos_baixa_confianca": ["modelo", "problema_relatado"],
+      "observacoes_ocr": "Modelo escrito como 'NXT' generico no form"
+    }
+  },
+  {
+    "arquivo": "IMG-20260528-WA0202.jpg",
+    "classification": "moto",
+    "ocr": null
+  },
+  {
+    "arquivo": "IMG-20260528-WA0205.jpg",
+    "classification": "checklist",
+    "ocr": {
+      "arquivo": "IMG-20260528-WA0205.jpg",
+      "nome": "Maristela Vitor",
+      "cpf": "035.116.808-28",
+      "telefone": "(19) 99239-1968",
+      "endereco": "Rua Acha Gonçalves, B. Hencaday, 152",
+      "cidade_uf": "Mogi Guaçu",
+      "modelo": "Pancho",
+      "cor": null,
+      "chassi": "0324",
+      "motor": "0373",
+      "data_compra": null,
+      "loja": null,
+      "problema_relatado": "Pintura danificada, cesta escudo, painel, para-barro dianteiro. Direção completa vencida. Avaliar troca do banco",
+      "componentes_danificados": ["Pintura/lataria", "Banco/assento", "Estrutura/quadro"],
+      "tipo_atendimento": null,
+      "pecas_substituidas": null,
+      "tecnico_responsavel": null,
+      "numero_os": null,
+      "data_entrada": null,
+      "campos_baixa_confianca": ["nome", "cpf"],
+      "observacoes_ocr": "Modelo escrito como 'Pancho 40' no form"
+    }
+  },
+  {
+    "arquivo": "IMG-20260528-WA0206.jpg",
+    "classification": "moto",
+    "ocr": null
+  },
+  {
+    "arquivo": "IMG-20260528-WA0208.jpg",
+    "classification": "checklist",
+    "ocr": {
+      "arquivo": "IMG-20260528-WA0208.jpg",
+      "nome": "Pablo Henrique",
+      "cpf": "047.953.318-40",
+      "telefone": "(19) 98753-3691",
+      "endereco": "Rua Virgilio Rossi, 1144",
+      "cidade_uf": "Limeira",
+      "modelo": "Kay",
+      "cor": "Prata",
+      "chassi": null,
+      "motor": "0064",
+      "data_compra": null,
+      "loja": null,
+      "problema_relatado": "Motor está dando tranco e não tem força. Setas não estão funcionando. Trocar motor",
+      "componentes_danificados": ["Faróis/lanternas", "Lâmpadas", "Pisca-pisca", "Buzina", "Painel/display", "Pneu dianteiro", "Pneu traseiro", "Freio dianteiro", "Freio traseiro", "Motor/tração", "Bateria/carregador", "Banco/assento", "Retrovisor(es)", "Estrutura/quadro"],
+      "tipo_atendimento": null,
+      "pecas_substituidas": null,
+      "tecnico_responsavel": "Fernanda",
+      "numero_os": null,
+      "data_entrada": "09/05/2026",
+      "campos_baixa_confianca": ["cpf"],
+      "observacoes_ocr": "Acessorios: 2 chaves, 2 controles"
+    }
+  }
+]

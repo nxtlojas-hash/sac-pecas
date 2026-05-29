@@ -1,0 +1,162 @@
+[
+  {
+    "arquivo": "IMG-20260528-WA0218.jpg",
+    "classification": "checklist",
+    "ocr": {
+      "arquivo": "IMG-20260528-WA0218.jpg",
+      "nome": "Felipe Moura Pinto",
+      "cpf": "465.547.918-13",
+      "telefone": "(11) 95038-2895",
+      "endereco": "Alameda das Sertanellas, 360",
+      "cidade_uf": null,
+      "modelo": null,
+      "cor": "Cinza",
+      "chassi": "5125",
+      "motor": "9614",
+      "data_compra": null,
+      "loja": null,
+      "problema_relatado": "Quando para o sistema escapa locuro. Banheira está travado. Os tecnicos viram",
+      "componentes_danificados": ["Faróis/lanternas", "Lâmpadas", "Pisca-pisca", "Buzina", "Pneu dianteiro", "Pneu traseiro", "Freio dianteiro", "Motor/tração", "Bateria/carregador", "Estrutura/quadro"],
+      "tipo_atendimento": null,
+      "pecas_substituidas": null,
+      "tecnico_responsavel": "Jefferson Rosa",
+      "numero_os": null,
+      "data_entrada": null,
+      "campos_baixa_confianca": ["nome", "cpf", "modelo", "problema_relatado"],
+      "observacoes_ocr": "Letra dificil de ler"
+    }
+  },
+  {
+    "arquivo": "IMG-20260528-WA0219.jpg",
+    "classification": "moto",
+    "ocr": null
+  },
+  {
+    "arquivo": "IMG-20260528-WA0220.jpg",
+    "classification": "moto",
+    "ocr": null
+  },
+  {
+    "arquivo": "IMG-20260528-WA0222.jpg",
+    "classification": "checklist",
+    "ocr": {
+      "arquivo": "IMG-20260528-WA0222.jpg",
+      "nome": "Luís Antonio",
+      "cpf": "016.058.318-94",
+      "telefone": "(19) 98152-5709",
+      "endereco": "Rua São Marcos, 714",
+      "cidade_uf": "Estiva Gerbi",
+      "modelo": "Kay",
+      "cor": "Preta",
+      "chassi": "0201",
+      "motor": "0243",
+      "data_compra": null,
+      "loja": null,
+      "problema_relatado": "Pneu dianteiro, não acelera",
+      "componentes_danificados": ["Faróis/lanternas", "Lâmpadas", "Pisca-pisca", "Buzina", "Painel/display", "Pneu dianteiro", "Freio dianteiro", "Freio traseiro", "Bateria/carregador", "Estrutura/quadro"],
+      "tipo_atendimento": null,
+      "pecas_substituidas": null,
+      "tecnico_responsavel": null,
+      "numero_os": null,
+      "data_entrada": null,
+      "campos_baixa_confianca": ["cpf"],
+      "observacoes_ocr": "Assinatura cliente entrada visivel"
+    }
+  },
+  {
+    "arquivo": "IMG-20260528-WA0221.jpg",
+    "classification": "moto",
+    "ocr": null
+  },
+  {
+    "arquivo": "IMG-20260528-WA0223.jpg",
+    "classification": "checklist",
+    "ocr": {
+      "arquivo": "IMG-20260528-WA0223.jpg",
+      "nome": "Alex Olivo",
+      "cpf": "947.792.948-07",
+      "telefone": "(19) 98924-3037",
+      "endereco": "Rua do Bairo, 738",
+      "cidade_uf": "Campinas",
+      "modelo": "Vega",
+      "cor": "Prata",
+      "chassi": null,
+      "motor": "9658",
+      "data_compra": null,
+      "loja": null,
+      "problema_relatado": "Para acionar falha; forma deixado da frente; para emolho dianteiro; pintura; fazer revisão completa e ver se tem algo quebrando",
+      "componentes_danificados": ["Faróis/lanternas", "Lâmpadas", "Pisca-pisca", "Pneu dianteiro", "Pneu traseiro", "Freio dianteiro", "Freio traseiro", "Bateria/carregador", "Pintura/lataria"],
+      "tipo_atendimento": "Reparo pago",
+      "pecas_substituidas": null,
+      "tecnico_responsavel": "Alex Olivo Comargo",
+      "numero_os": null,
+      "data_entrada": null,
+      "campos_baixa_confianca": ["cpf", "problema_relatado"],
+      "observacoes_ocr": "Modelo escrito como 'VEG-7' melhor match Vega"
+    }
+  },
+  {
+    "arquivo": "IMG-20260528-WA0226.jpg",
+    "classification": "checklist",
+    "ocr": {
+      "arquivo": "IMG-20260528-WA0226.jpg",
+      "nome": "Pablo Henrique",
+      "cpf": "460.038.948-?",
+      "telefone": "(11) 94849-0781",
+      "endereco": "Rua Bolivia, 130",
+      "cidade_uf": "Sumaré",
+      "modelo": "Hyphen",
+      "cor": null,
+      "chassi": null,
+      "motor": "0040",
+      "data_compra": null,
+      "loja": null,
+      "problema_relatado": "Passar revisar a cuider, ponto de freio fazendo barulho. Testar bateria",
+      "componentes_danificados": ["Lâmpadas", "Pneu dianteiro", "Freio dianteiro", "Freio traseiro", "Bateria/carregador", "Pintura/lataria", "Banco/assento", "Retrovisor(es)", "Estrutura/quadro"],
+      "tipo_atendimento": null,
+      "pecas_substituidas": null,
+      "tecnico_responsavel": null,
+      "numero_os": null,
+      "data_entrada": null,
+      "campos_baixa_confianca": ["nome", "cpf", "problema_relatado"],
+      "observacoes_ocr": "POSSIVEL DUPLICATA do IMG-WA0208 (Pablo) — revisar"
+    }
+  },
+  {
+    "arquivo": "IMG-20260528-WA0227.jpg",
+    "classification": "moto",
+    "ocr": null
+  },
+  {
+    "arquivo": "IMG-20260528-WA0228.jpg",
+    "classification": "checklist",
+    "ocr": {
+      "arquivo": "IMG-20260528-WA0228.jpg",
+      "nome": "Simone Sanches",
+      "cpf": "285.434.998-65",
+      "telefone": "(19) 99215-5399",
+      "endereco": "Rua A. Calixto, 173",
+      "cidade_uf": null,
+      "modelo": "Kay",
+      "cor": "Preta",
+      "chassi": null,
+      "motor": "0478",
+      "data_compra": null,
+      "loja": null,
+      "problema_relatado": "Estava em uma subida quando a bateria caiu e não anda mais",
+      "componentes_danificados": ["Faróis/lanternas", "Pneu dianteiro", "Pneu traseiro", "Freio dianteiro", "Freio traseiro", "Bateria/carregador", "Pintura/lataria", "Banco/assento", "Retrovisor(es)"],
+      "tipo_atendimento": null,
+      "pecas_substituidas": null,
+      "tecnico_responsavel": null,
+      "numero_os": null,
+      "data_entrada": null,
+      "campos_baixa_confianca": ["cpf"],
+      "observacoes_ocr": "Tecnico Guilherme assinou"
+    }
+  },
+  {
+    "arquivo": "IMG-20260528-WA0229.jpg",
+    "classification": "moto",
+    "ocr": null
+  }
+]

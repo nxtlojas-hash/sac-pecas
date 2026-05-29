@@ -1,0 +1,140 @@
+[
+  {
+    "arquivo": "IMG-20260528-WA0209.jpg",
+    "classification": "moto",
+    "ocr": null
+  },
+  {
+    "arquivo": "IMG-20260528-WA0210.jpg",
+    "classification": "moto",
+    "ocr": null
+  },
+  {
+    "arquivo": "IMG-20260528-WA0211.jpg",
+    "classification": "checklist",
+    "ocr": {
+      "arquivo": "IMG-20260528-WA0211.jpg",
+      "nome": "Maicon Vasconcelos",
+      "cpf": "465.306.408-44",
+      "telefone": "(11) 95604-1114",
+      "endereco": "Rua da Fraternidade, 20",
+      "cidade_uf": "Magalhães",
+      "modelo": null,
+      "cor": "Prata",
+      "chassi": "0703",
+      "motor": "0123",
+      "data_compra": null,
+      "loja": null,
+      "problema_relatado": "Estava indo trabalhar quando a moto parou e começou a andar (?)",
+      "componentes_danificados": [],
+      "tipo_atendimento": null,
+      "pecas_substituidas": null,
+      "tecnico_responsavel": null,
+      "numero_os": null,
+      "data_entrada": null,
+      "campos_baixa_confianca": ["nome", "cpf", "modelo", "problema_relatado"],
+      "observacoes_ocr": "Letra muito enrolada; varios campos parciais"
+    }
+  },
+  {
+    "arquivo": "IMG-20260528-WA0212.jpg",
+    "classification": "checklist",
+    "ocr": {
+      "arquivo": "IMG-20260528-WA0212.jpg",
+      "nome": "Thaís Machado",
+      "cpf": null,
+      "telefone": null,
+      "endereco": null,
+      "cidade_uf": null,
+      "modelo": "Kay",
+      "cor": "Verde",
+      "chassi": null,
+      "motor": "0095",
+      "data_compra": "02/02/2026",
+      "loja": null,
+      "problema_relatado": "Motor — verificar; pintura ralada",
+      "componentes_danificados": ["Pneu dianteiro", "Pintura/lataria"],
+      "tipo_atendimento": null,
+      "pecas_substituidas": null,
+      "tecnico_responsavel": null,
+      "numero_os": null,
+      "data_entrada": "02/02/2026",
+      "campos_baixa_confianca": [],
+      "observacoes_ocr": "Formato com desenho de moto pra marcar avarias; assinatura motorista visivel"
+    }
+  },
+  {
+    "arquivo": "IMG-20260528-WA0225.jpg",
+    "classification": "moto",
+    "ocr": null
+  },
+  {
+    "arquivo": "IMG-20260528-WA0213.jpg",
+    "classification": "moto",
+    "ocr": null
+  },
+  {
+    "arquivo": "IMG-20260528-WA0224.jpg",
+    "classification": "moto",
+    "ocr": null
+  },
+  {
+    "arquivo": "IMG-20260528-WA0214.jpg",
+    "classification": "checklist",
+    "ocr": {
+      "arquivo": "IMG-20260528-WA0214.jpg",
+      "nome": "Katia Aparecida Boto",
+      "cpf": "222.493.988-32",
+      "telefone": "(19) 85830-80??",
+      "endereco": "Av. Antonio Bartori, 17, Centro",
+      "cidade_uf": "Mogi Guaçu",
+      "modelo": "Kimbo",
+      "cor": "Preta",
+      "chassi": null,
+      "motor": "0068",
+      "data_compra": null,
+      "loja": null,
+      "problema_relatado": "Cliente relata que não anda só 32 km/h; parece estar uma força. Trocar retrovisor",
+      "componentes_danificados": ["Retrovisor(es)"],
+      "tipo_atendimento": null,
+      "pecas_substituidas": null,
+      "tecnico_responsavel": null,
+      "numero_os": null,
+      "data_entrada": null,
+      "campos_baixa_confianca": ["cpf", "telefone"],
+      "observacoes_ocr": "Modelo escrito como 'KIM80' melhor match Kimbo"
+    }
+  },
+  {
+    "arquivo": "IMG-20260528-WA0216.jpg",
+    "classification": "checklist",
+    "ocr": {
+      "arquivo": "IMG-20260528-WA0216.jpg",
+      "nome": "Letícia Rodrigues",
+      "cpf": null,
+      "telefone": "(19) 99923-2755",
+      "endereco": null,
+      "cidade_uf": "Hortolândia",
+      "modelo": "Juna Smart",
+      "cor": "Cinza",
+      "chassi": null,
+      "motor": "0330",
+      "data_compra": null,
+      "loja": null,
+      "problema_relatado": "Moto vem dando tranco e não liga. Fiz a troca; possíveis problemas com tranca da bateria. Decoração da bateria",
+      "componentes_danificados": [],
+      "tipo_atendimento": null,
+      "pecas_substituidas": null,
+      "tecnico_responsavel": null,
+      "numero_os": null,
+      "data_entrada": null,
+      "campos_baixa_confianca": ["cpf", "endereco", "problema_relatado"],
+      "observacoes_ocr": "Form mancha agua; varios campos parciais"
+    }
+  },
+  {
+    "arquivo": "IMG-20260528-WA0217.jpg",
+    "classification": "moto",
+    "ocr": null
+  }
+]
