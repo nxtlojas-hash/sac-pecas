@@ -22,8 +22,10 @@ MOTOS_HEADERS = [
     # Cruzamento CASOS SAC E SUMARE
     "SAC Aguardando match", "SAC Status", "SAC Peças solicitadas",
     "SAC Peças match", "SAC Resumo peças",
+    # Cruzamento Leads RespondIO (19k clientes)
+    "Lead match", "Telefone Leads", "Cidade Leads", "Estado Leads", "Lifecycle Leads",
 ]
-assert len(MOTOS_HEADERS) == 38
+assert len(MOTOS_HEADERS) == 43
 
 MOV_HEADERS = ["Data/hora", "ID Moto", "Status anterior", "Status novo", "Responsável", "Observação"]
 DASH_HEADERS = ["Métrica", "Valor"]
@@ -64,6 +66,12 @@ def _moto_row(m: Moto, extras: dict | None = None) -> list:
         extras.get("sac_pecas_solicitadas", "") or "",
         extras.get("sac_match_pecas", ""),
         extras.get("sac_resumo_pecas", "") or "",
+        # Leads
+        extras.get("lead_match", "") or "",
+        extras.get("lead_telefone_completo", "") or "",
+        extras.get("lead_cidade", "") or "",
+        extras.get("lead_estado", "") or "",
+        extras.get("lead_lifecycle", "") or "",
     ]
 
 
@@ -107,7 +115,8 @@ def build_workbook(
         ws_motos.append(_moto_row(m, extras_by_id.get(m.id)))
     _add_validations(ws_motos, len(motos))
     widths = [8, 12, 10, 14, 22, 13, 28, 18, 16, 38, 16, 14, 14, 16, 16, 12, 22, 38, 32, 18, 28, 22, 32, 32, 22, 22, 22, 38,
-              22, 13, 38, 16, 32, 16, 18, 32, 16, 32]
+              22, 13, 38, 16, 32, 16, 18, 32, 16, 32,
+              12, 18, 18, 14, 16]
     for i, w in enumerate(widths, start=1):
         ws_motos.column_dimensions[get_column_letter(i)].width = w
 
@@ -263,17 +272,19 @@ def build_workbook(
         c.font = HEADER_FONT
         c.alignment = HEADER_ALIGN
 
-    # 1. Todas as 75 motos in-loco
+    # 1. Todas as 75 motos in-loco — prefere telefone completo (Leads) sobre 4 dig
     for m in motos:
         ex = extras_by_id.get(m.id, {})
         is_cemiterio = ex.get("categoria") == "Cemitério / Estoque NXT"
+        tel_completo = ex.get("lead_telefone_completo") or m.telefone or ""
+        cidade = ex.get("lead_cidade") or ex.get("wa_cidade_29_05") or m.cidade_uf or ""
         ws_e.append([
             m.id,
             "in-loco + WA" if ex.get("wa_match") == "Sim" else ("in-loco apenas" if not is_cemiterio else "in-loco (cemitério)"),
             ex.get("categoria") or "Cliente (assistência)",
             m.nome or "",
-            m.telefone[-4:] if m.telefone and len(m.telefone) >= 4 else "",
-            ex.get("wa_cidade_29_05") or m.cidade_uf or "",
+            tel_completo,
+            cidade,
             m.modelo_nxt or "",
             m.cor or "",
             ex.get("wa_motivo_29_05") or m.problema_relatado or "",
@@ -282,15 +293,17 @@ def build_workbook(
             m.status_atual,
         ])
 
-    # 2. WA novas (assistência sem match in-loco)
+    # 2. WA novas (assistência sem match in-loco) — usa telefone completo de Leads se possível
     for idx, wa in enumerate((novas_wa or []), start=1):
+        tel = wa.get("telefone_completo") or wa.get("cel_4dig") or ""
+        cidade = wa.get("lead_cidade") or wa.get("cidade") or ""
         ws_e.append([
             f"W{idx:03d}",
-            "Só WA 29/05",
+            "Só WA 29/05" + (" + Leads" if wa.get("lead_match") == "Sim" else ""),
             "Cliente (assistência) - novo",
             wa.get("cliente") or "",
-            wa.get("cel_4dig") or "",
-            wa.get("cidade") or "",
+            tel,
+            cidade,
             wa.get("modelo") or "",
             wa.get("cor") or "",
             wa.get("motivo") or "",
@@ -360,6 +373,27 @@ def build_workbook(
     ws_cx.freeze_panes = "A4"
     for i, w in enumerate([14, 8, 26, 12, 18, 10, 50], start=1):
         ws_cx.column_dimensions[get_column_letter(i)].width = w
+
+    # --- Aba Motos para Venda/Transferência (placeholder) ---
+    ws_v = wb.create_sheet("Motos Venda-Transferência")
+    ws_v["A1"] = "Motos NXT disponíveis no galpão para venda ou transferência para lojas. Equipe preenche conforme catalogação."
+    ws_v["A1"].font = Font(italic=True, color="808080")
+    v_headers = ["ID", "Modelo", "Cor", "Nº Chassi", "Nº Motor", "Estado", "Destino (venda/loja)", "Observações", "Data"]
+    for col_idx, h in enumerate(v_headers, start=1):
+        c = ws_v.cell(row=3, column=col_idx, value=h)
+        c.fill = HEADER_FILL
+        c.font = HEADER_FONT
+        c.alignment = HEADER_ALIGN
+    # Add dropdowns
+    dv_modelo = DataValidation(type="list", formula1='"' + ",".join(MOTOS_NXT) + '"', allow_blank=True)
+    dv_modelo.add("B4:B200")
+    ws_v.add_data_validation(dv_modelo)
+    dv_estado = DataValidation(type="list", formula1='"Nova,Seminova,Avariada,Para reparo"', allow_blank=True)
+    dv_estado.add("F4:F200")
+    ws_v.add_data_validation(dv_estado)
+    ws_v.freeze_panes = "A4"
+    for i, w in enumerate([8, 16, 14, 18, 18, 16, 32, 38, 14], start=1):
+        ws_v.column_dimensions[get_column_letter(i)].width = w
 
     path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)

@@ -4,18 +4,18 @@ from tools.sumare_import.schema import Moto
 from tools.sumare_import.build_xlsx import build_workbook
 
 
-def test_workbook_has_8_sheets(tmp_path: Path):
+def test_workbook_has_9_sheets(tmp_path: Path):
     out = tmp_path / "test.xlsx"
     build_workbook(motos=[], path=out)
     wb = load_workbook(out)
     assert set(wb.sheetnames) == {
         "Motos", "Movimentações", "Não Identificadas", "Dashboard",
         "Motos no Galpão", "Cemitério", "Estoque Total Sumaré 29-05",
-        "Estoque de Caixas 29-05",
+        "Estoque de Caixas 29-05", "Motos Venda-Transferência",
     }
 
 
-def test_motos_sheet_has_38_columns_header(tmp_path: Path):
+def test_motos_sheet_has_43_columns_header(tmp_path: Path):
     out = tmp_path / "test.xlsx"
     build_workbook(motos=[], path=out)
     wb = load_workbook(out)
@@ -27,7 +27,9 @@ def test_motos_sheet_has_38_columns_header(tmp_path: Path):
     assert "WA 29/05 match" in headers
     assert "SAC Aguardando match" in headers
     assert "Categoria" in headers
-    assert len([h for h in headers if h]) == 38
+    assert "Lead match" in headers
+    assert "Telefone Leads" in headers
+    assert len([h for h in headers if h]) == 43
 
 
 def test_motos_sheet_populates_data_rows(tmp_path: Path):

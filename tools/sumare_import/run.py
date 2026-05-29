@@ -194,6 +194,38 @@ def main() -> None:
         total_caixas = sum(c.get("total", 0) for c in caixas.get("caixas", []))
         print(f"Caixas: {total_caixas} unidades")
 
+    # Enriquecimento via Leads RespondIO (19k clientes)
+    leads_path = DATA / "leads_respondio.json"
+    if leads_path.exists():
+        from tools.sumare_import.match_leads import enrich_motos as enrich_with_leads, enrich_wa_novas as enrich_novas_leads
+        leads = json.loads(leads_path.read_text(encoding="utf-8"))
+        moto_dicts_enriched = enrich_with_leads(moto_dicts, leads)
+        leads_match = sum(1 for m in moto_dicts_enriched if m.get("lead_match") == "Sim")
+        print(f"Leads RespondIO: {leads_match}/{len(moto_dicts_enriched)} motos enriquecidas")
+        # Merge lead info into extras_by_id
+        leads_by_id = {m["id"]: m for m in moto_dicts_enriched}
+        for mid, ex in extras_by_id.items():
+            le = leads_by_id.get(mid, {})
+            ex["lead_match"] = le.get("lead_match", "Não")
+            ex["lead_telefone_completo"] = le.get("lead_telefone_completo", "")
+            ex["lead_cidade"] = le.get("lead_cidade", "")
+            ex["lead_estado"] = le.get("lead_estado", "")
+            ex["lead_lifecycle"] = le.get("lead_lifecycle", "")
+        # IDs in extras but not yet - add them
+        for mid, le in leads_by_id.items():
+            if mid not in extras_by_id:
+                extras_by_id[mid] = {
+                    "lead_match": le.get("lead_match", "Não"),
+                    "lead_telefone_completo": le.get("lead_telefone_completo", ""),
+                    "lead_cidade": le.get("lead_cidade", ""),
+                    "lead_estado": le.get("lead_estado", ""),
+                    "lead_lifecycle": le.get("lead_lifecycle", ""),
+                }
+        # WA novas
+        novas_wa = enrich_novas_leads(novas_wa, leads)
+        nw_match = sum(1 for n in novas_wa if n.get("lead_match") == "Sim")
+        print(f"WA novas com Lead: {nw_match}/{len(novas_wa)}")
+
     OUT.mkdir(parents=True, exist_ok=True)
     xlsx = OUT / "Controle - Motos Sumaré.xlsx"
     build_workbook(motos, xlsx, extras_by_id=extras_by_id, cemiterio=cemiterio, novas_wa=novas_wa, caixas=caixas)
