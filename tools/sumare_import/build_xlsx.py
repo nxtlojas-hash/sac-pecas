@@ -95,6 +95,7 @@ def build_workbook(
     extras_by_id: dict[str, dict] | None = None,
     cemiterio: list[dict] | None = None,
     novas_wa: list[dict] | None = None,
+    caixas: dict | None = None,
 ) -> None:
     extras_by_id = extras_by_id or {}
     wb = Workbook()
@@ -318,6 +319,47 @@ def build_workbook(
     ws_e.freeze_panes = "A4"
     for i, w in enumerate([8, 18, 24, 28, 14, 18, 16, 14, 50, 32, 32, 22], start=1):
         ws_e.column_dimensions[get_column_letter(i)].width = w
+
+    # --- Aba Estoque de Caixas ---
+    ws_cx = wb.create_sheet("Estoque de Caixas 29-05")
+    if caixas:
+        ws_cx["A1"] = f"Contagem geral de caixas em {caixas.get('data','')} por {caixas.get('responsavel','')} ({caixas.get('fonte','')})."
+    else:
+        ws_cx["A1"] = "Estoque de caixas (vazio - sem dados)."
+    ws_cx["A1"].font = Font(italic=True, color="808080")
+    cx_headers = ["Modelo", "OK", "Com avarias (a confirmar)", "Queimados", "A confirmar uso", "Total", "Observações"]
+    for col_idx, h in enumerate(cx_headers, start=1):
+        c = ws_cx.cell(row=3, column=col_idx, value=h)
+        c.fill = HEADER_FILL
+        c.font = HEADER_FONT
+        c.alignment = HEADER_ALIGN
+    total_ok = total_avarias = total_queimados = total_a_conf = total_geral = 0
+    for entry in (caixas.get("caixas", []) if caixas else []):
+        ok = entry.get("ok", 0) or 0
+        av = entry.get("avarias", 0) or 0
+        qu = entry.get("queimados", 0) or 0
+        ac = entry.get("a_confirmar", 0) or 0
+        tt = entry.get("total", 0) or 0
+        total_ok += ok
+        total_avarias += av
+        total_queimados += qu
+        total_a_conf += ac
+        total_geral += tt
+        ws_cx.append([
+            entry.get("modelo") or "",
+            ok, av, qu, ac, tt,
+            entry.get("obs") or "",
+        ])
+    # Linha total
+    if caixas:
+        ws_cx.append([])
+        total_row = ws_cx.max_row + 1
+        ws_cx.append(["TOTAL", total_ok, total_avarias, total_queimados, total_a_conf, total_geral, ""])
+        for col in range(1, 8):
+            ws_cx.cell(row=total_row, column=col).font = Font(bold=True)
+    ws_cx.freeze_panes = "A4"
+    for i, w in enumerate([14, 8, 26, 12, 18, 10, 50], start=1):
+        ws_cx.column_dimensions[get_column_letter(i)].width = w
 
     path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)

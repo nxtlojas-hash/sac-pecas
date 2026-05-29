@@ -186,9 +186,17 @@ def main() -> None:
         cemiterio = json.loads(wa_cem_path.read_text(encoding="utf-8"))
         print(f"Cemitério: {len(cemiterio)} motos")
 
+    # Estoque de caixas (29/05)
+    caixas = None
+    caixas_path = DATA / "estoque_caixas_29_05.json"
+    if caixas_path.exists():
+        caixas = json.loads(caixas_path.read_text(encoding="utf-8"))
+        total_caixas = sum(c.get("total", 0) for c in caixas.get("caixas", []))
+        print(f"Caixas: {total_caixas} unidades")
+
     OUT.mkdir(parents=True, exist_ok=True)
     xlsx = OUT / "Controle - Motos Sumaré.xlsx"
-    build_workbook(motos, xlsx, extras_by_id=extras_by_id, cemiterio=cemiterio, novas_wa=novas_wa)
+    build_workbook(motos, xlsx, extras_by_id=extras_by_id, cemiterio=cemiterio, novas_wa=novas_wa, caixas=caixas)
     print(f"XLSX: {xlsx} ({len(motos)} motos)")
 
     photos_out = OUT / "Fotos"

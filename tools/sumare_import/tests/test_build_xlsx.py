@@ -4,13 +4,14 @@ from tools.sumare_import.schema import Moto
 from tools.sumare_import.build_xlsx import build_workbook
 
 
-def test_workbook_has_7_sheets(tmp_path: Path):
+def test_workbook_has_8_sheets(tmp_path: Path):
     out = tmp_path / "test.xlsx"
     build_workbook(motos=[], path=out)
     wb = load_workbook(out)
     assert set(wb.sheetnames) == {
         "Motos", "Movimentações", "Não Identificadas", "Dashboard",
         "Motos no Galpão", "Cemitério", "Estoque Total Sumaré 29-05",
+        "Estoque de Caixas 29-05",
     }
 
 

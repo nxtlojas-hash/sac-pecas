@@ -1,0 +1,34 @@
+{
+  "data": "2026-05-29",
+  "responsavel": "Marcelo Beto",
+  "fonte": "WhatsApp 29/05/2026 14:11",
+  "caixas": [
+    {
+      "modelo": "Luna",
+      "ok": 161,
+      "avarias": 22,
+      "queimados": 0,
+      "a_confirmar": 0,
+      "total": 183,
+      "obs": "22 com avarias a confirmar"
+    },
+    {
+      "modelo": "Pancho",
+      "ok": 68,
+      "avarias": 0,
+      "queimados": 4,
+      "a_confirmar": 1,
+      "total": 73,
+      "obs": "1 pouco danificado, a confirmar uso"
+    },
+    {
+      "modelo": "Vega",
+      "ok": 2,
+      "avarias": 0,
+      "queimados": 0,
+      "a_confirmar": 0,
+      "total": 2,
+      "obs": ""
+    }
+  ]
+}
