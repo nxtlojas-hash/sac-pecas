@@ -16,8 +16,14 @@ MOTOS_HEADERS = [
     "Peças substituídas", "Técnico responsável",
     "Foto checklist", "Foto moto", "Fotos extras",
     "Origem do registro", "Quem registrou", "Observações",
+    # Cruzamento WhatsApp 29/05
+    "Categoria", "WA 29/05 match", "WA Motivo 29/05", "WA Cidade 29/05",
+    "WA Conflitos",
+    # Cruzamento CASOS SAC E SUMARE
+    "SAC Aguardando match", "SAC Status", "SAC Peças solicitadas",
+    "SAC Peças match", "SAC Resumo peças",
 ]
-assert len(MOTOS_HEADERS) == 28
+assert len(MOTOS_HEADERS) == 38
 
 MOV_HEADERS = ["Data/hora", "ID Moto", "Status anterior", "Status novo", "Responsável", "Observação"]
 DASH_HEADERS = ["Métrica", "Valor"]
@@ -36,7 +42,8 @@ def _write_headers(ws, headers: list[str]) -> None:
     ws.freeze_panes = "A2"
 
 
-def _moto_row(m: Moto) -> list:
+def _moto_row(m: Moto, extras: dict | None = None) -> list:
+    extras = extras or {}
     return [
         m.id, m.data_registro, m.numero_os, m.data_entrada_checklist, m.status_atual,
         "Sim" if m.identificada() else "Não",
@@ -46,6 +53,17 @@ def _moto_row(m: Moto) -> list:
         m.tipo_atendimento, m.pecas_substituidas, m.tecnico_responsavel,
         m.foto_checklist, m.foto_moto, ", ".join(m.fotos_extras),
         m.origem_registro, m.quem_registrou, m.observacoes,
+        # Extras (cruzamento)
+        extras.get("categoria", ""),
+        extras.get("wa_match", ""),
+        extras.get("wa_motivo_29_05", "") or "",
+        extras.get("wa_cidade_29_05", "") or "",
+        extras.get("wa_conflitos", "") or "",
+        extras.get("sac_match_aguardando", ""),
+        extras.get("sac_status_aguardando", "") or "",
+        extras.get("sac_pecas_solicitadas", "") or "",
+        extras.get("sac_match_pecas", ""),
+        extras.get("sac_resumo_pecas", "") or "",
     ]
 
 
@@ -71,16 +89,24 @@ def _add_validations(ws, motos_count: int) -> None:
     ws.add_data_validation(dv_tipo)
 
 
-def build_workbook(motos: list[Moto], path: Path) -> None:
+def build_workbook(
+    motos: list[Moto],
+    path: Path,
+    extras_by_id: dict[str, dict] | None = None,
+    cemiterio: list[dict] | None = None,
+    novas_wa: list[dict] | None = None,
+) -> None:
+    extras_by_id = extras_by_id or {}
     wb = Workbook()
     # --- Aba Motos ---
     ws_motos = wb.active
     ws_motos.title = "Motos"
     _write_headers(ws_motos, MOTOS_HEADERS)
     for m in motos:
-        ws_motos.append(_moto_row(m))
+        ws_motos.append(_moto_row(m, extras_by_id.get(m.id)))
     _add_validations(ws_motos, len(motos))
-    widths = [8, 12, 10, 14, 22, 13, 28, 18, 16, 38, 16, 14, 14, 16, 16, 12, 22, 38, 32, 18, 28, 22, 32, 32, 22, 22, 22, 38]
+    widths = [8, 12, 10, 14, 22, 13, 28, 18, 16, 38, 16, 14, 14, 16, 16, 12, 22, 38, 32, 18, 28, 22, 32, 32, 22, 22, 22, 38,
+              22, 13, 38, 16, 32, 16, 18, 32, 16, 32]
     for i, w in enumerate(widths, start=1):
         ws_motos.column_dimensions[get_column_letter(i)].width = w
 
@@ -152,6 +178,73 @@ def build_workbook(motos: list[Moto], path: Path) -> None:
         ws_d.append([m_nome, count])
     ws_d.column_dimensions["A"].width = 28
     ws_d.column_dimensions["B"].width = 16
+
+    # --- Aba Motos no Galpão (visão consolidada 29/05) ---
+    ws_g = wb.create_sheet("Motos no Galpão")
+    galpao_headers = [
+        "Origem", "ID nosso", "Cliente", "Telefone (4 últ)", "Modelo", "Cor",
+        "Cidade", "Motivo / Problema atual", "Categoria", "Foto checklist", "Foto moto"
+    ]
+    for col_idx, h in enumerate(galpao_headers, start=1):
+        c = ws_g.cell(row=1, column=col_idx, value=h)
+        c.fill = HEADER_FILL
+        c.font = HEADER_FONT
+        c.alignment = HEADER_ALIGN
+    ws_g.freeze_panes = "A2"
+    # Linhas: 1 por moto da nossa planilha (com info do WA quando matched)
+    for m in motos:
+        ex = extras_by_id.get(m.id, {})
+        if ex.get("categoria") == "Cemitério / Estoque NXT":
+            continue  # cemiterio vai para aba dedicada
+        ws_g.append([
+            "in-loco + WA" if ex.get("wa_match") == "Sim" else "in-loco apenas",
+            m.id,
+            m.nome or "",
+            m.telefone[-4:] if m.telefone and len(m.telefone) >= 4 else "",
+            m.modelo_nxt or "",
+            m.cor or "",
+            m.cidade_uf or "",
+            ex.get("wa_motivo_29_05") or m.problema_relatado or "",
+            ex.get("categoria") or "Cliente (assistência)",
+            m.foto_checklist or "",
+            m.foto_moto or "",
+        ])
+    # Linhas: motos do WA que NÃO bateram (novas no galpão pós-28/05)
+    for wa in (novas_wa or []):
+        ws_g.append([
+            "Só WA 29/05",
+            "",
+            wa.get("cliente") or "",
+            wa.get("cel_4dig") or "",
+            wa.get("modelo") or "",
+            wa.get("cor") or "",
+            wa.get("cidade") or "",
+            wa.get("motivo") or "",
+            "Cliente (assistência) - novo",
+            "",
+            "",
+        ])
+    for i, w in enumerate([18, 10, 28, 14, 16, 14, 18, 50, 24, 32, 32], start=1):
+        ws_g.column_dimensions[get_column_letter(i)].width = w
+
+    # --- Aba Cemitério ---
+    ws_c = wb.create_sheet("Cemitério")
+    ws_c["A1"] = "Motos da NXT canibalizadas para retirar peças e atender outras assistências."
+    ws_c["A1"].font = Font(italic=True, color="808080")
+    cem_headers = ["Modelo", "Cor", "Motivo / Peças retiradas"]
+    for col_idx, h in enumerate(cem_headers, start=1):
+        c = ws_c.cell(row=3, column=col_idx, value=h)
+        c.fill = HEADER_FILL
+        c.font = HEADER_FONT
+        c.alignment = HEADER_ALIGN
+    for entry in (cemiterio or []):
+        ws_c.append([
+            entry.get("modelo") or "",
+            entry.get("cor") or "",
+            entry.get("motivo") or "",
+        ])
+    for i, w in enumerate([18, 16, 52], start=1):
+        ws_c.column_dimensions[get_column_letter(i)].width = w
 
     path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)

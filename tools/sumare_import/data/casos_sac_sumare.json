@@ -1,0 +1,873 @@
+{
+  "ASSISTÊNCIA SUMARE - AGUARDANDO": [
+    {
+      "DATA ATEND SAC": null,
+      "Cliente": "Maria Eduarda",
+      "PEÇAS ": "PAINEL / BATERIA ",
+      "Modelo": "Juna Smart",
+      "Ação / Status": "Enviar peça (painel/bateria)",
+      "TELEFONE ": "(19) 98854-7437",
+      "STATUS ": "peça enviada carreta 15/04"
+    },
+    {
+      "DATA ATEND SAC": null,
+      "Cliente": "Monalisa",
+      "PEÇAS ": "MODULO / MOTOR",
+      "Modelo": "YZL VERMELHA",
+      "Ação / Status": "Peça já enviada, sem mais estoque",
+      "TELEFONE ": "(11) 95587-3819",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": null,
+      "Cliente": "Lotieli Aparecida",
+      "PEÇAS ": "PAINEL / BATERIA ",
+      "Modelo": "Juna Smart",
+      "Ação / Status": "Enviar peça (painel/bateria)",
+      "TELEFONE ": "(19) 98394-5066",
+      "STATUS ": "peça enviada carreta 15/04"
+    },
+    {
+      "DATA ATEND SAC": "2026-04-10 00:00:00",
+      "Cliente": "Luiz Juliano",
+      "PEÇAS ": "MOTOR / BATERIA",
+      "Modelo": "E-Kay",
+      "Ação / Status": "Não temos motor / envio bateria",
+      "TELEFONE ": "(35) 99805-2951",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": null,
+      "Cliente": "Igor Soares",
+      "PEÇAS ": "PAINEL ",
+      "Modelo": "Juna Smart",
+      "Ação / Status": "Enviar peça (painel)",
+      "TELEFONE ": "(19) 99183-5624",
+      "STATUS ": "peça enviada carreta 15/04"
+    },
+    {
+      "DATA ATEND SAC": "2026-04-23 00:00:00",
+      "Cliente": "Thais Machado",
+      "PEÇAS ": "BATERIA/ MOTOR",
+      "Modelo": "E-Kay VERDE",
+      "Ação / Status": "Não temos motor / envio bateria",
+      "TELEFONE ": "(19) 99467-1538",
+      "STATUS ": "confirmei sobre o caso dia 23/04/2025 ela chamou no sac"
+    },
+    {
+      "DATA ATEND SAC": null,
+      "Cliente": "Milena Jaque",
+      "PEÇAS ": "BATERIA ",
+      "Modelo": "Zila",
+      "Ação / Status": "Não temos peça se for modelo 2024",
+      "TELEFONE ": "(19) 99359-3501",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": null,
+      "Cliente": "Maurício",
+      "PEÇAS ": "BATERIA",
+      "Modelo": "Zila",
+      "Ação / Status": "Não temos peça se for modelo 2024",
+      "TELEFONE ": "(19)99763-6981",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": null,
+      "Cliente": "Ana Carolina",
+      "PEÇAS ": "BATERIA",
+      "Modelo": "Zila",
+      "Ação / Status": "Não temos peça se for modelo 2024",
+      "TELEFONE ": "(19) 99599-6911",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": null,
+      "Cliente": "Zilda Soares",
+      "PEÇAS ": "MOTOR /BATERIA",
+      "Modelo": "E-Kay",
+      "Ação / Status": "Não temos motor / envio bateria",
+      "TELEFONE ": "(19) 99841-5294",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": null,
+      "Cliente": "Diego Galvão",
+      "PEÇAS ": "MOTOR / MODULO",
+      "Modelo": "Kimbo",
+      "Ação / Status": "Não temos motor",
+      "TELEFONE ": "(19) 97405-9896",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": null,
+      "Cliente": "Ana Clara",
+      "PEÇAS ": "MOTOR ",
+      "Modelo": "E-Kay",
+      "Ação / Status": "Não temos motor",
+      "TELEFONE ": "(19) 99429-3178 ",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": null,
+      "Cliente": "Matheus Silva",
+      "PEÇAS ": "MOTOR/ BATERIA",
+      "Modelo": "E-Kay",
+      "Ação / Status": "Não temos motor / envio bateria",
+      "TELEFONE ": "(11) 98789-6430",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": null,
+      "Cliente": "Cauã Vitor",
+      "PEÇAS ": "PAINEL ",
+      "Modelo": "Juna Smart",
+      "Ação / Status": "Enviar peça (painel)",
+      "TELEFONE ": "(19)99622-8904",
+      "STATUS ": "peça enviada carreta 15/04"
+    },
+    {
+      "DATA ATEND SAC": null,
+      "Cliente": "Danúbia",
+      "PEÇAS ": "MOTOR ",
+      "Modelo": "E-Kay",
+      "Ação / Status": "Não temos motor",
+      "TELEFONE ": "(19) 99184-3812",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": null,
+      "Cliente": "Cristiano Lucas",
+      "PEÇAS ": "BATERIA",
+      "Modelo": "Juna Smart",
+      "Ação / Status": "Enviar peça (bateria)",
+      "TELEFONE ": "(19) 98925-3343",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": null,
+      "Cliente": "Elizete",
+      "PEÇAS ": "BATERIA/ CARREGADOR",
+      "Modelo": "E-Kay",
+      "Ação / Status": "Não temos carregador original Kay",
+      "TELEFONE ": "(11) 97086-4069",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": null,
+      "Cliente": "Vera Lúcia",
+      "PEÇAS ": "MOTOR",
+      "Modelo": "E-Kay",
+      "Ação / Status": "Não temos motor",
+      "TELEFONE ": "(19) 99968-4981",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": null,
+      "Cliente": "Maria",
+      "PEÇAS ": "MOTOR/ PAINEL",
+      "Modelo": "E-Kay",
+      "Ação / Status": "Não temos motor",
+      "TELEFONE ": "(41) 99612-0893",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": null,
+      "Cliente": "Paula Vitória",
+      "PEÇAS ": "MODULO / MOTOR",
+      "Modelo": "Y1",
+      "Ação / Status": "Não temos peça",
+      "TELEFONE ": "(11)98080-4178",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": null,
+      "Cliente": "Daniel",
+      "PEÇAS ": "MOTOR",
+      "Modelo": "E-Kay",
+      "Ação / Status": "Não temos motor",
+      "TELEFONE ": "(11) 94783-9059",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": null,
+      "Cliente": "Claudemir",
+      "PEÇAS ": "CHICOTE E MOTOR ",
+      "Modelo": "Kimbo",
+      "Ação / Status": "Não temos motor",
+      "TELEFONE ": "(19)99897-5914",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": null,
+      "Cliente": "Murilo",
+      "PEÇAS ": "MOTOR ",
+      "Modelo": "Kimbo",
+      "Ação / Status": "Não temos motor",
+      "TELEFONE ": "(35) 99805-2951",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": null,
+      "Cliente": "Edna",
+      "PEÇAS ": "MOTOR/ BATERIA",
+      "Modelo": "E-Kay",
+      "Ação / Status": "Não temos motor",
+      "TELEFONE ": "(19) 99113-7549",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": "2026-04-23 00:00:00",
+      "Cliente": "KAREN SILVA",
+      "PEÇAS ": null,
+      "Modelo": "KAY",
+      "Ação / Status": null,
+      "TELEFONE ": "19 99150-7363",
+      "STATUS ": "confirmei sobre o caso dia 23/04/2025 ela chamou no sac"
+    },
+    {
+      "DATA ATEND SAC": "2026-05-05 00:00:00",
+      "Cliente": "ROSAMARY ANDRIOLI ",
+      "PEÇAS ": null,
+      "Modelo": "KAY",
+      "Ação / Status": null,
+      "TELEFONE ": 19981624588.0,
+      "STATUS ": "confirmando com marcus mazzoti sobre peças que faltam "
+    },
+    {
+      "DATA ATEND SAC": "2026-04-08 00:00:00",
+      "Cliente": "Eduarda Rosa de Jesus",
+      "PEÇAS ": "Motor Ekay/Retrovisores",
+      "Modelo": "KAY",
+      "Ação / Status": null,
+      "TELEFONE ": "(19)992837670",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": "2026-04-16 00:00:00",
+      "Cliente": "José Alvino",
+      "PEÇAS ": "Motor Ekay",
+      "Modelo": "KAY",
+      "Ação / Status": null,
+      "TELEFONE ": "(19)991303482",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": "2026-04-15 00:00:00",
+      "Cliente": "Andrea Fernandes",
+      "PEÇAS ": "Motor Gataka",
+      "Modelo": "GATAKA",
+      "Ação / Status": null,
+      "TELEFONE ": "(19)988028113",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": "2026-04-13 00:00:00",
+      "Cliente": "Carolina Fernandes",
+      "PEÇAS ": "Baterias/Carregador Luna",
+      "Modelo": "LUNA",
+      "Ação / Status": null,
+      "TELEFONE ": "(19)993924574",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": "2026-04-13 00:00:00",
+      "Cliente": "Luana Lima",
+      "PEÇAS ": "Motor Jaya",
+      "Modelo": "JAYA",
+      "Ação / Status": null,
+      "TELEFONE ": "(19)987525728",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": "2026-04-13 00:00:00",
+      "Cliente": "Matheus Teixeira",
+      "PEÇAS ": "Motor Ekay",
+      "Modelo": "KAY",
+      "Ação / Status": null,
+      "TELEFONE ": "(11)942259005",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": "2026-04-06 00:00:00",
+      "Cliente": "Telma dos Santos",
+      "PEÇAS ": "Baterias Ekay",
+      "Modelo": "KAY",
+      "Ação / Status": "NFE 102",
+      "TELEFONE ": "(19)989143917",
+      "STATUS ": "entrou em contato com sac 28/05/2026 "
+    },
+    {
+      "DATA ATEND SAC": "2026-04-15 00:00:00",
+      "Cliente": "João Vitor",
+      "PEÇAS ": "Motor/Baterias",
+      "Modelo": "KAY",
+      "Ação / Status": null,
+      "TELEFONE ": "(19)993667700",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": "2026-04-08 00:00:00",
+      "Cliente": "Daniel Felipe",
+      "PEÇAS ": "Motor Ekay",
+      "Modelo": "KAY",
+      "Ação / Status": null,
+      "TELEFONE ": "(11)995349965",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": "2026-05-04 00:00:00",
+      "Cliente": "Guilherme Souza",
+      "PEÇAS ": "Painel Ekay",
+      "Modelo": "KAY",
+      "Ação / Status": null,
+      "TELEFONE ": "(19)999591177",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": "2026-05-04 00:00:00",
+      "Cliente": "Daniela Souza",
+      "PEÇAS ": "MOTOR Ekay",
+      "Modelo": "KAY",
+      "Ação / Status": null,
+      "TELEFONE ": "(19)989441837",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": "2026-05-04 00:00:00",
+      "Cliente": "Alessandra de Souza Santos",
+      "PEÇAS ": "MOTOR Ekay",
+      "Modelo": "KAY",
+      "Ação / Status": null,
+      "TELEFONE ": "(19)993867881",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": "2026-05-04 00:00:00",
+      "Cliente": "Selma Aparecida",
+      "PEÇAS ": "MOTOR Ekay",
+      "Modelo": "KAY",
+      "Ação / Status": null,
+      "TELEFONE ": "(19)997991144",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": "2026-05-04 00:00:00",
+      "Cliente": "Claudia Cristina",
+      "PEÇAS ": "MOTOR kimbo",
+      "Modelo": "KIMBO",
+      "Ação / Status": null,
+      "TELEFONE ": "(19)999542012",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": "2026-05-04 00:00:00",
+      "Cliente": "Adilson Clovis",
+      "PEÇAS ": "MOTOR E BATERIA Ekay",
+      "Modelo": "KAY",
+      "Ação / Status": null,
+      "TELEFONE ": "(16)996010139",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": "2026-05-04 00:00:00",
+      "Cliente": "Isabeli Nogueira",
+      "PEÇAS ": "Baterias Zilla",
+      "Modelo": "ZILLA",
+      "Ação / Status": null,
+      "TELEFONE ": "(19)999223212",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": "2026-05-04 00:00:00",
+      "Cliente": "Suelen Maritan Amaral",
+      "PEÇAS ": "MOTOR Ekay",
+      "Modelo": "KAY",
+      "Ação / Status": null,
+      "TELEFONE ": "(19)9974200657",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": "2026-05-04 00:00:00",
+      "Cliente": "Marcio Antônio da Silva",
+      "PEÇAS ": "Carenagem e Bengalas Jaya",
+      "Modelo": "JAYA",
+      "Ação / Status": null,
+      "TELEFONE ": "(19)996666729",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": "2026-05-04 00:00:00",
+      "Cliente": "Paula Maria",
+      "PEÇAS ": "MOTOR Ekay",
+      "Modelo": "KAY",
+      "Ação / Status": null,
+      "TELEFONE ": "(19)997165038",
+      "STATUS ": null
+    },
+    {
+      "DATA ATEND SAC": "2026-05-04 00:00:00",
+      "Cliente": "Ana",
+      "PEÇAS ": "MOTOR Luna",
+      "Modelo": "LUNA",
+      "Ação / Status": null,
+      "TELEFONE ": "(19)998940289",
+      "STATUS ": null
+    }
+  ],
+  "CLIENTES SAC PEÇAS - KAY E OUTR": [
+    {
+      "DATA": "2026-04-23 00:00:00",
+      "ATENDENTE": "jacqueline",
+      "NOTA FISCAL (NF)": null,
+      "Cliente - PENDÊNCIAS": "gislaine",
+      "TELEFONE": "19 97119-2082",
+      "Modelo": "KAY",
+      "SITUAÇÃO ": "NÃO TEM PEÇA",
+      "RESUMO ": "ESPERANDO BATERIA KAY",
+      "STATUS ": "ok 05/05/2026"
+    },
+    {
+      "DATA": "2026-05-08 00:00:00",
+      "ATENDENTE": "Samantha",
+      "NOTA FISCAL (NF)": null,
+      "Cliente - PENDÊNCIAS": "SAHARI VALERIO ",
+      "TELEFONE": 5547988976731,
+      "Modelo": "KIMBO",
+      "SITUAÇÃO ": "NÃO TEM PEÇA",
+      "RESUMO ": "AGUARDANDO BATERIAS E MÓDULO ",
+      "STATUS ": null
+    },
+    {
+      "DATA": "2026-05-08 00:00:00",
+      "ATENDENTE": "SAMANTHA",
+      "NOTA FISCAL (NF)": null,
+      "Cliente - PENDÊNCIAS": "PAULO VICTOR DE SOUZA ",
+      "TELEFONE": 5511958074257,
+      "Modelo": "KAY",
+      "SITUAÇÃO ": "NÃO TEM PEÇA",
+      "RESUMO ": "AGUARDANDO MOTOR BATATA",
+      "STATUS ": null
+    },
+    {
+      "DATA": "2026-05-13 00:00:00",
+      "ATENDENTE": "samantha",
+      "NOTA FISCAL (NF)": null,
+      "Cliente - PENDÊNCIAS": "Gomercino Mattei Junior",
+      "TELEFONE": "(47) 99928-3582",
+      "Modelo": "KIMBO ",
+      "SITUAÇÃO ": "NÃO TEM PEÇA",
+      "RESUMO ": "AGUARDANDO CARREGADOR/ ESTÁ NA SAINTS",
+      "STATUS ": null
+    },
+    {
+      "DATA": "2026-05-14 00:00:00",
+      "ATENDENTE": "samantha",
+      "NOTA FISCAL (NF)": null,
+      "Cliente - PENDÊNCIAS": "ELZI DA SILVA GONCALVES",
+      "TELEFONE": null,
+      "Modelo": null,
+      "SITUAÇÃO ": null,
+      "RESUMO ": null,
+      "STATUS ": null
+    },
+    {
+      "DATA": "2026-05-26 00:00:00",
+      "ATENDENTE": "jacqueline",
+      "NOTA FISCAL (NF)": null,
+      "Cliente - PENDÊNCIAS": "Mega Eletron",
+      "TELEFONE": " 41 3264-2395",
+      "Modelo": "kay",
+      "SITUAÇÃO ": "NÃO TEM PEÇA",
+      "RESUMO ": " motor de uma Kay NXT 1000W",
+      "STATUS ": "SAC 26/05/2026"
+    },
+    {
+      "DATA": "2026-05-26 00:00:00",
+      "ATENDENTE": "samantha",
+      "NOTA FISCAL (NF)": null,
+      "Cliente - PENDÊNCIAS": "RENE LINO BORGES",
+      "TELEFONE": 5518988123234,
+      "Modelo": "kay",
+      "SITUAÇÃO ": "NÃO TEM PEÇA",
+      "RESUMO ": "MOTOR E MÓDULO ",
+      "STATUS ": "AGUARDANDO "
+    },
+    {
+      "DATA": "2026-05-26 00:00:00",
+      "ATENDENTE": "Rafaela ",
+      "NOTA FISCAL (NF)": null,
+      "Cliente - PENDÊNCIAS": "Luana  Marques",
+      "TELEFONE": "11 94208-4982",
+      "Modelo": "KAY",
+      "SITUAÇÃO ": "NÃO TEM PEÇA",
+      "RESUMO ": "MOTOR (ASSISTÊNCIA BATATA)",
+      "STATUS ": "AGUARDANDO "
+    },
+    {
+      "DATA": "2026-05-26 00:00:00",
+      "ATENDENTE": "Jacqueline",
+      "NOTA FISCAL (NF)": "nfe 223 26/08/2025",
+      "Cliente - PENDÊNCIAS": "alex hilario",
+      "TELEFONE": 19971548816.0,
+      "Modelo": "kay",
+      "SITUAÇÃO ": "NÃO TEM PEÇA",
+      "RESUMO ": "bateria ( indicaco a assistencia sos motos holambra)",
+      "STATUS ": null
+    },
+    {
+      "DATA": "2026-05-26 00:00:00",
+      "ATENDENTE": "samantha",
+      "NOTA FISCAL (NF)": "000.000.091 NF",
+      "Cliente - PENDÊNCIAS": "Glaucia Basaglia Zanqui",
+      "TELEFONE": 5518997925900,
+      "Modelo": "KAY",
+      "SITUAÇÃO ": "NÃO TEM PEÇA",
+      "RESUMO ": "KIT BATERIAS ",
+      "STATUS ": "AGAURDANDO"
+    },
+    {
+      "DATA": "2026-05-26 00:00:00",
+      "ATENDENTE": "jacqueline",
+      "NOTA FISCAL (NF)": "nfe 479 - 07/07/2026",
+      "Cliente - PENDÊNCIAS": "ademir de freitas",
+      "TELEFONE": 7312430805.0,
+      "Modelo": "kay",
+      "SITUAÇÃO ": "não tem peça",
+      "RESUMO ": "bateria ",
+      "STATUS ": null
+    },
+    {
+      "DATA": "2026-05-15 00:00:00",
+      "ATENDENTE": "Rafaela ",
+      "NOTA FISCAL (NF)": "nfe 012638 - 02/06/2025",
+      "Cliente - PENDÊNCIAS": "KAUAN RODRIGUES QUEIROZ",
+      "TELEFONE": "19 99428-2830",
+      "Modelo": "KAY",
+      "SITUAÇÃO ": "não tem peça",
+      "RESUMO ": "MOTOR (ASSISTENCIA - MARCUS (SUMARÉ)",
+      "STATUS ": "AGUARDANDO"
+    },
+    {
+      "DATA": "2026-05-21 00:00:00",
+      "ATENDENTE": "Rafaela ",
+      "NOTA FISCAL (NF)": "nfe  011355 - 21/04/2025",
+      "Cliente - PENDÊNCIAS": "Mirian Fávaro ",
+      "TELEFONE": "11 95227-1655",
+      "Modelo": "kay",
+      "SITUAÇÃO ": "não tem peça",
+      "RESUMO ": "MOTOR - ASSISTÊNCIA BATATA",
+      "STATUS ": "AGUARDANDO"
+    },
+    {
+      "DATA": "2026-05-27 00:00:00",
+      "ATENDENTE": "jacqueline",
+      "NOTA FISCAL (NF)": "nfe bruno 305 - 13/08/2025",
+      "Cliente - PENDÊNCIAS": "RONIFREN",
+      "TELEFONE": null,
+      "Modelo": "KAY",
+      "SITUAÇÃO ": null,
+      "RESUMO ": "MOTOR",
+      "STATUS ": null
+    },
+    {
+      "DATA": "2026-05-27 00:00:00",
+      "ATENDENTE": "samantha",
+      "NOTA FISCAL (NF)": null,
+      "Cliente - PENDÊNCIAS": null,
+      "TELEFONE": null,
+      "Modelo": null,
+      "SITUAÇÃO ": null,
+      "RESUMO ": null,
+      "STATUS ": null
+    },
+    {
+      "DATA": "2026-05-27 00:00:00",
+      "ATENDENTE": "Gabrielle",
+      "NOTA FISCAL (NF)": "NF 63 - 28/08/2025",
+      "Cliente - PENDÊNCIAS": "Felipe Giriboni",
+      "TELEFONE": "(19) 98825-4010",
+      "Modelo": "Kay",
+      "SITUAÇÃO ": "Carregador",
+      "RESUMO ": "Troca feita mais de uma vez, Cliente RA",
+      "STATUS ": "PENDENTE"
+    },
+    {
+      "DATA": "2026-04-28 00:00:00",
+      "ATENDENTE": "Rafaela ",
+      "NOTA FISCAL (NF)": "NF 011981 - 02/05/2025",
+      "Cliente - PENDÊNCIAS": "Everton Gomes Dias",
+      "TELEFONE": "(47) 99702-9291",
+      "Modelo": "KAY",
+      "SITUAÇÃO ": "MOTOR",
+      "RESUMO ": "ASSISTÊNCIA - HERCILIO ",
+      "STATUS ": "AGUARDANDO "
+    },
+    {
+      "DATA": "2025-04-28 00:00:00",
+      "ATENDENTE": "samnatha",
+      "NOTA FISCAL (NF)": "000479 - venda",
+      "Cliente - PENDÊNCIAS": "Ademir de Freitas Barboza",
+      "TELEFONE": "(19) 99747-4395",
+      "Modelo": "kay ",
+      "SITUAÇÃO ": null,
+      "RESUMO ": "hj",
+      "STATUS ": "aguardando "
+    },
+    {
+      "DATA": "2025-05-27 00:00:00",
+      "ATENDENTE": "SAMANTHA",
+      "NOTA FISCAL (NF)": " Nº 000080\n                               ",
+      "Cliente - PENDÊNCIAS": "Renata de Cassia Beltrame",
+      "TELEFONE": "(11) 99016-4518",
+      "Modelo": "kay ",
+      "SITUAÇÃO ": "Baterias ",
+      "RESUMO ": "BATATA",
+      "STATUS ": "AGUARDANDO "
+    },
+    {
+      "DATA": "2025-10-01 00:00:00",
+      "ATENDENTE": "Rafaela ",
+      "NOTA FISCAL (NF)": " 000.000.091 - 01/10/2025",
+      "Cliente - PENDÊNCIAS": "Glaucia Basaglia Zanqui",
+      "TELEFONE": "18 99792-5900",
+      "Modelo": "kay",
+      "SITUAÇÃO ": "BATERIAS ",
+      "RESUMO ": "Assistência - Bike Shop Mazotti ",
+      "STATUS ": "AGUARDANDO "
+    },
+    {
+      "DATA": "2025-04-28 00:00:00",
+      "ATENDENTE": "SAMANTHA",
+      "NOTA FISCAL (NF)": "º 000024",
+      "Cliente - PENDÊNCIAS": "FRANCO CONSTRUTORA ",
+      "TELEFONE": 5547989120168,
+      "Modelo": "kimbo",
+      "SITUAÇÃO ": "MOTOR",
+      "RESUMO ": "ADRIANO ASS TEC NAVEGANTES",
+      "STATUS ": "AGUARDANDO "
+    },
+    {
+      "DATA": "2026-05-06 00:00:00",
+      "ATENDENTE": "Rafaela ",
+      "NOTA FISCAL (NF)": "NF11751 - 22/04/2025",
+      "Cliente - PENDÊNCIAS": "Amanda Camila Ferro",
+      "TELEFONE": "19 99120-5349",
+      "Modelo": "KAY ",
+      "SITUAÇÃO ": "MOTOR",
+      "RESUMO ": "Oficina jack motos",
+      "STATUS ": "AGUARDANDO "
+    },
+    {
+      "DATA": "2025-05-25 00:00:00",
+      "ATENDENTE": "Rafaela ",
+      "NOTA FISCAL (NF)": "NF 000.000.199 - 31/03/2025",
+      "Cliente - PENDÊNCIAS": "João Pedro Bernadoni Silva",
+      "TELEFONE": 18996097429.0,
+      "Modelo": "KAY",
+      "SITUAÇÃO ": "MOTOR",
+      "RESUMO ": "MAZZOTI - SUMARE",
+      "STATUS ": "AGUARDANDO "
+    },
+    {
+      "DATA": "2026-05-28 00:00:00",
+      "ATENDENTE": "SAMANTHA ",
+      "NOTA FISCAL (NF)": "Nº. 000.000.124",
+      "Cliente - PENDÊNCIAS": "JOAO OTTON LIMA RODRIGUES",
+      "TELEFONE": "120.994.319-06",
+      "Modelo": "KAY ",
+      "SITUAÇÃO ": "MOTOR",
+      "RESUMO ": "MEGA ELETRON ",
+      "STATUS ": null
+    },
+    {
+      "DATA": "2026-05-29 00:00:00",
+      "ATENDENTE": "SAMANTHA ",
+      "NOTA FISCAL (NF)": "Nº 000465",
+      "Cliente - PENDÊNCIAS": "Marjorie de Freitas Mendonça",
+      "TELEFONE": "437.052.248-08",
+      "Modelo": "KAY",
+      "SITUAÇÃO ": "CARREGADOR",
+      "RESUMO ": "GARAGEM DAS BIKES",
+      "STATUS ": "GARANTIA "
+    },
+    {
+      "DATA": null,
+      "ATENDENTE": "SAMANTHA",
+      "NOTA FISCAL (NF)": null,
+      "Cliente - PENDÊNCIAS": "EDUARDO GRATIERI ",
+      "TELEFONE": 8830808695.0,
+      "Modelo": "KAY ",
+      "SITUAÇÃO ": "CARREGADOR ",
+      "RESUMO ": null,
+      "STATUS ": "VENDA"
+    },
+    {
+      "DATA": "2026-05-29 00:00:00",
+      "ATENDENTE": "jacqueline",
+      "NOTA FISCAL (NF)": null,
+      "Cliente - PENDÊNCIAS": "Ludmilla Féo",
+      "TELEFONE": 5518996490161,
+      "Modelo": "kay",
+      "SITUAÇÃO ": "BATERIAS ",
+      "RESUMO ": "sac ",
+      "STATUS ": null
+    },
+    {
+      "DATA": "2026-05-29 00:00:00",
+      "ATENDENTE": "jacqueline",
+      "NOTA FISCAL (NF)": "593   16/7/2025",
+      "Cliente - PENDÊNCIAS": "Vivian de Souza Carvalho",
+      "TELEFONE": "19) 99656-9467",
+      "Modelo": "kay",
+      "SITUAÇÃO ": "motor",
+      "RESUMO ": "foi pra avaliação na assistencia sos motos holambra",
+      "STATUS ": null
+    }
+  ],
+  "CASOS CRITICOS SAC (GERAL)": [
+    {
+      "DATA": null,
+      "ATENDENTE": null,
+      "Cliente - PENDÊNCIAS": "LEONARDO PREBILL ",
+      "TELEFONE": "19 98182-9090",
+      "CASO": "Devolução bike",
+      "Modelo": "jaya",
+      "SITUAÇÃO ": "ESTORNO",
+      "RESUMO ": "cliente comprou achou bike pequena e quer devolução NFE 2493  DESDE 26/02. Comprou pela internet , devolução ate 7 dias ",
+      "Ação / Status": "comprou e quer devolver",
+      "STATUS ": null,
+      "FEEDBACK RESOLUÇÃO ": null
+    },
+    {
+      "DATA": null,
+      "ATENDENTE": null,
+      "Cliente - PENDÊNCIAS": "Maria cristina Rey",
+      "TELEFONE": "11 99208-5451",
+      "CASO": "acidente / contato assistencia",
+      "Modelo": "pancho ",
+      "SITUAÇÃO ": "conserto",
+      "RESUMO ": "cliente sofreu acidente e a assistencia não consegue contato com nos ",
+      "Ação / Status": null,
+      "STATUS ": null,
+      "FEEDBACK RESOLUÇÃO ": null
+    },
+    {
+      "DATA": null,
+      "ATENDENTE": null,
+      "Cliente - PENDÊNCIAS": "carla almeida",
+      "TELEFONE": "(19) 99742-7790\n",
+      "CASO": "módulo",
+      "Modelo": "yzl",
+      "SITUAÇÃO ": "conserto",
+      "RESUMO ": "cliente teve problema com produto, porém produto já sem peça de reposição disponível",
+      "Ação / Status": "aguardando reposição",
+      "STATUS ": null,
+      "FEEDBACK RESOLUÇÃO ": null
+    },
+    {
+      "DATA": null,
+      "ATENDENTE": null,
+      "Cliente - PENDÊNCIAS": "Antonio Donizete Paulo",
+      "TELEFONE": 11941700049.0,
+      "CASO": "peças reposição",
+      "Modelo": "kay",
+      "SITUAÇÃO ": "conserto",
+      "RESUMO ": "cliente aguardando disponibilidade de peças kay reposição",
+      "Ação / Status": "aguardando reposição",
+      "STATUS ": null,
+      "FEEDBACK RESOLUÇÃO ": null
+    },
+    {
+      "DATA": null,
+      "ATENDENTE": null,
+      "Cliente - PENDÊNCIAS": "Leonardo  Fagner",
+      "TELEFONE": 19987118921.0,
+      "CASO": "troca de bike",
+      "Modelo": "kay",
+      "SITUAÇÃO ": "troca",
+      "RESUMO ": "cliente não foi atendido dentro do prazo e quer trocar por outro modelo ou devolução",
+      "Ação / Status": "ja sendo tratado pelo procon",
+      "STATUS ": "NÃO RESOLVIDO",
+      "FEEDBACK RESOLUÇÃO ": "FOI DADO PROPOSTAS PORÉM CLIENTE NÃO ACEITOU NENHUMA"
+    },
+    {
+      "DATA": null,
+      "ATENDENTE": null,
+      "Cliente - PENDÊNCIAS": "Kellen Juliana Prado\n",
+      "TELEFONE": "(19) 98375-1575",
+      "CASO": null,
+      "Modelo": "yzl",
+      "SITUAÇÃO ": "conserto",
+      "RESUMO ": null,
+      "Ação / Status": "aguardando reposição",
+      "STATUS ": null,
+      "FEEDBACK RESOLUÇÃO ": null
+    },
+    {
+      "DATA": null,
+      "ATENDENTE": null,
+      "Cliente - PENDÊNCIAS": "RENATA CARVALHO\n",
+      "TELEFONE": "(19) 98120-3746\n",
+      "CASO": null,
+      "Modelo": "juna smart",
+      "SITUAÇÃO ": "atendimento",
+      "RESUMO ": "reclamou de falta de atendimento em um dia sem resposta",
+      "Ação / Status": "EM ATENDIMENTO SUMARE  16/04",
+      "STATUS ": "RESOLVIDO ",
+      "FEEDBACK RESOLUÇÃO ": "FOI FEITO AVALIAÇÃO NA MOTO E EXPLICADO PARA CLIENTE E RESOLVIDO O PROBLEMA."
+    },
+    {
+      "DATA": null,
+      "ATENDENTE": null,
+      "Cliente - PENDÊNCIAS": "recanto das bikes",
+      "TELEFONE": 11947285803.0,
+      "CASO": "garantias",
+      "Modelo": "multiplas",
+      "SITUAÇÃO ": "revendedor",
+      "RESUMO ": "acionou garantia de varios produtos, dificuldade em solução",
+      "Ação / Status": "pedido de peças já feito",
+      "STATUS ": "RESOLVIDO ",
+      "FEEDBACK RESOLUÇÃO ": "PEDIDO FEITO"
+    },
+    {
+      "DATA": null,
+      "ATENDENTE": null,
+      "Cliente - PENDÊNCIAS": "RAFAEL DE FARIAS CAMPOS\n",
+      "TELEFONE": "(19) 99000-5884\n",
+      "CASO": null,
+      "Modelo": "zilla",
+      "SITUAÇÃO ": "atendimento",
+      "RESUMO ": "cliente reclamando de falta de atendimento",
+      "Ação / Status": "repassado ao sac para ser atendida",
+      "STATUS ": "RESOLVIDO ",
+      "FEEDBACK RESOLUÇÃO ": "foi realizado atendimento e resolvido"
+    },
+    {
+      "DATA": null,
+      "ATENDENTE": null,
+      "Cliente - PENDÊNCIAS": "Ednilson Aurafi\n",
+      "TELEFONE": "(12) 99709-8039\n",
+      "CASO": null,
+      "Modelo": "juna smart",
+      "SITUAÇÃO ": "atendimento",
+      "RESUMO ": "produto com varios detalhes, sendo direcionado para assistencia",
+      "Ação / Status": "já sendo atendido no sac",
+      "STATUS ": null,
+      "FEEDBACK RESOLUÇÃO ": null
+    },
+    {
+      "DATA": "2026-04-22 00:00:00",
+      "ATENDENTE": "EMERSON",
+      "Cliente - PENDÊNCIAS": "Ysacc Deschamps nfe 140",
+      "TELEFONE": "48 98425-6479",
+      "CASO": "peças , reclame aqui",
+      "Modelo": "jaya",
+      "SITUAÇÃO ": "peças",
+      "RESUMO ": "PEÇAS",
+      "Ação / Status": "pedido de peças já feito , enviado",
+      "STATUS ": "AGUARDANDO",
+      "FEEDBACK RESOLUÇÃO ": "fez pedido"
+    }
+  ]
+}

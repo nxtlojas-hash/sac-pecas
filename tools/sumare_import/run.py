@@ -163,9 +163,32 @@ def main() -> None:
         json.dumps(moto_dicts, ensure_ascii=False, indent=2, default=str), encoding="utf-8"
     )
 
+    # Cruzar com WhatsApp 29/05 e CASOS SAC E SUMARE
+    from tools.sumare_import.match_whatsapp import match_all as match_wa
+    from tools.sumare_import.match_sac import match_against_sac
+    wa_ass_path = DATA / "assistencia_29_05.json"
+    wa_cem_path = DATA / "cemiterio_29_05.json"
+    sac_path = DATA / "casos_sac_sumare.json"
+    extras_by_id: dict[str, dict] = {}
+    cemiterio = []
+    novas_wa = []
+    if wa_ass_path.exists():
+        wa_ass = json.loads(wa_ass_path.read_text(encoding="utf-8"))
+        wa_enriched, used = match_wa(moto_dicts, wa_ass)
+        if sac_path.exists():
+            sac = json.loads(sac_path.read_text(encoding="utf-8"))
+            wa_enriched = match_against_sac(wa_enriched, sac)
+        for e in wa_enriched:
+            extras_by_id[e["id"]] = e
+        novas_wa = [w for i, w in enumerate(wa_ass) if i not in used]
+        print(f"Cruzamento WA: {sum(1 for e in wa_enriched if e.get('wa_match') == 'Sim')} matches; {len(novas_wa)} novas")
+    if wa_cem_path.exists():
+        cemiterio = json.loads(wa_cem_path.read_text(encoding="utf-8"))
+        print(f"Cemitério: {len(cemiterio)} motos")
+
     OUT.mkdir(parents=True, exist_ok=True)
     xlsx = OUT / "Controle - Motos Sumaré.xlsx"
-    build_workbook(motos, xlsx)
+    build_workbook(motos, xlsx, extras_by_id=extras_by_id, cemiterio=cemiterio, novas_wa=novas_wa)
     print(f"XLSX: {xlsx} ({len(motos)} motos)")
 
     photos_out = OUT / "Fotos"

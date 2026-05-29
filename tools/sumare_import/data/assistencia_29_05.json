@@ -1,0 +1,592 @@
+[
+  {
+    "modelo": "Shaka Verde",
+    "modelo_raw": "Shaka Verde",
+    "cor": "Militar",
+    "cliente": "Ludmila",
+    "cel_4dig": "9324",
+    "cidade": "Holambra",
+    "motivo": "Possivelmente módulo",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Zilla Prata",
+    "modelo_raw": "Zilla Prata",
+    "cor": "Antiga",
+    "cliente": "Janile",
+    "cel_4dig": "9991",
+    "cidade": "Hortolândia",
+    "motivo": "verificar…",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Luna",
+    "modelo_raw": "Luna",
+    "cor": "Prata",
+    "cliente": "Welker",
+    "cel_4dig": "7931",
+    "cidade": "Campinas",
+    "motivo": "caixa de direção e alarme",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "?Yzl",
+    "modelo_raw": "Yzl",
+    "cor": "Prata",
+    "cliente": "Tamires Cristina",
+    "cel_4dig": "9975",
+    "cidade": "Bragança",
+    "motivo": "Verificar",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kimbo",
+    "modelo_raw": "Kimbo",
+    "cor": "Prata",
+    "cliente": "Claudia Cristina",
+    "cel_4dig": "2012",
+    "cidade": "Mogi Guaçu",
+    "motivo": "motor",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kay",
+    "modelo_raw": "E-kay",
+    "cor": "Cinza",
+    "cliente": "Eduardo Rosa",
+    "cel_4dig": "7670",
+    "cidade": "Hortolândia",
+    "motivo": "motor",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kay",
+    "modelo_raw": "Ekay",
+    "cor": "Cinza",
+    "cliente": "Ana clara",
+    "cel_4dig": "3178",
+    "cidade": "Hortolândia",
+    "motivo": "motor",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Maria",
+    "modelo_raw": "Maria",
+    "cor": "Vizan",
+    "cliente": "jaya preta",
+    "cel_4dig": "9372",
+    "cidade": null,
+    "motivo": "Verificar",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kimbo",
+    "modelo_raw": "Kimbo",
+    "cor": "Prata",
+    "cliente": "Rogério Dias",
+    "cel_4dig": "8212",
+    "cidade": "Hortolândia",
+    "motivo": "motor",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kay",
+    "modelo_raw": "Ekay",
+    "cor": "Preta",
+    "cliente": "Simone Sanches",
+    "cel_4dig": "5299",
+    "cidade": null,
+    "motivo": "Bateria e motor",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kay",
+    "modelo_raw": "Ekay",
+    "cor": "Preta",
+    "cliente": "Letícia Cristina",
+    "cel_4dig": "6431",
+    "cidade": "Limeira-sp",
+    "motivo": "motor e bateria",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Gataka",
+    "modelo_raw": "Gataka",
+    "cor": "Grafite",
+    "cliente": "Rubia Marquez",
+    "cel_4dig": "2955",
+    "cidade": "Bragança",
+    "motivo": "tampa da bateria, barulho no freio e na suspensão e acelerador travando",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Juna Smart",
+    "modelo_raw": "Juna Smart",
+    "cor": "Cinza",
+    "cliente": "Luciele",
+    "cel_4dig": "7755",
+    "cidade": "Hortolândia",
+    "motivo": "Motor e buzina",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kay",
+    "modelo_raw": "Ekay",
+    "cor": "Preta",
+    "cliente": "Luís Antônio",
+    "cel_4dig": "5769",
+    "cidade": "Estiva Gerbi",
+    "motivo": "punho não acelera",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Hyphen Preta (caiu Na",
+    "modelo_raw": "Hyphen Preta (caiu Na",
+    "cor": "Piscina)",
+    "cliente": "Ademir",
+    "cel_4dig": "8776",
+    "cidade": null,
+    "motivo": "passado orçamento, esperando resposta do cliente",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Vega",
+    "modelo_raw": "Vega",
+    "cor": "Cinza",
+    "cliente": "Alex olivo",
+    "cel_4dig": "3027",
+    "cidade": "Campinas",
+    "motivo": "pedal direito, escudo frontal, pára-lama dianteiro, manete direito, encosto do banco, retrovisor direito e fazer revisão completa",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kimbo",
+    "modelo_raw": "Kimbo",
+    "cor": "Preta",
+    "cliente": "Katia Aparecida",
+    "cel_4dig": "7070",
+    "cidade": "Pouso Alegre",
+    "motivo": "verificar o painel",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kay",
+    "modelo_raw": "Ekay",
+    "cor": "Preta",
+    "cliente": "José osmar Ferreira",
+    "cel_4dig": "0893",
+    "cidade": null,
+    "motivo": "motor e bateria",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Jaya",
+    "modelo_raw": "Jaya",
+    "cor": "Cinza",
+    "cliente": "Natália do rego",
+    "cel_4dig": "1991",
+    "cidade": "Valinhos",
+    "motivo": "motor e freio",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kay",
+    "modelo_raw": "Ekay",
+    "cor": "Prata",
+    "cliente": "Pablo Henrique",
+    "cel_4dig": "5691",
+    "cidade": "limeira",
+    "motivo": "bateria e motor",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kay",
+    "modelo_raw": "Ekay",
+    "cor": "Azul",
+    "cliente": "Zilda Soares",
+    "cel_4dig": "5294",
+    "cidade": "Valinhos",
+    "motivo": "bateria e motor",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kay",
+    "modelo_raw": "Ekay",
+    "cor": "Preta",
+    "cliente": null,
+    "cel_4dig": null,
+    "cidade": null,
+    "motivo": "verificar com o jao",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kay",
+    "modelo_raw": "Ekay",
+    "cor": "Preta",
+    "cliente": "Daniela souza",
+    "cel_4dig": "1837",
+    "cidade": "Jaguariúna",
+    "motivo": "bateria e motor",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kay",
+    "modelo_raw": "Ekay",
+    "cor": "Cinza",
+    "cliente": "Alexandra de souza",
+    "cel_4dig": "7881",
+    "cidade": "Holambra",
+    "motivo": "motor",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kay",
+    "modelo_raw": "Ekay",
+    "cor": "Prata",
+    "cliente": "Kelly Cristina",
+    "cel_4dig": "5105",
+    "cidade": "Hortolândia",
+    "motivo": "motor",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kay",
+    "modelo_raw": "Ekay",
+    "cor": "Preta",
+    "cliente": "Selma Aparecida",
+    "cel_4dig": "1144",
+    "cidade": "Jaguariúna",
+    "motivo": "motor e luz de freio queimado",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Zilla",
+    "modelo_raw": "Zilla",
+    "cor": "Branca",
+    "cliente": "Bruno alvez",
+    "cel_4dig": "8238",
+    "cidade": "Hortolândia",
+    "motivo": "acelerador travando e suspensão com barulho",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Luna",
+    "modelo_raw": "Luna Cross",
+    "cor": "Vermelha",
+    "cliente": "Carolina Fernandez",
+    "cel_4dig": "4574",
+    "cidade": "Hortolândia",
+    "motivo": "bateria e revisão .. Devolver",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kay",
+    "modelo_raw": "Ekay",
+    "cor": "Preta",
+    "cliente": "cauan Rodrigues",
+    "cel_4dig": "2830",
+    "cidade": "Hortolândia",
+    "motivo": "motor e pezinho lateral",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kay",
+    "modelo_raw": "Ekay",
+    "cor": "Preta",
+    "cliente": "suelen maritan",
+    "cel_4dig": "0657",
+    "cidade": "Sumaré",
+    "motivo": "sem força na subida, fazer revisão completa",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kay",
+    "modelo_raw": "Ekay",
+    "cor": "Preta",
+    "cliente": "Adilson clovis",
+    "cel_4dig": "0139",
+    "cidade": "São Carlos",
+    "motivo": "barulho roda traseira e bateria trocar motor",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kimbo",
+    "modelo_raw": "Kimbo",
+    "cor": "Cinza",
+    "cliente": "Cleide Nascimento",
+    "cel_4dig": "1829",
+    "cidade": "Hortolândia",
+    "motivo": "motor, fazer revisão completa",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kay",
+    "modelo_raw": "Ekay",
+    "cor": "Cinza",
+    "cliente": "Damares santos",
+    "cel_4dig": "6630",
+    "cidade": "Limeira",
+    "motivo": "Diminuindo carga, não faz autonomia, ver barulhos na frente, provavelmente cabos soltos",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Juna Smart",
+    "modelo_raw": "Juna Smart",
+    "cor": "Prata",
+    "cliente": "Marcela Torres",
+    "cel_4dig": null,
+    "cidade": null,
+    "motivo": "Bateria",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kay",
+    "modelo_raw": "Ekay",
+    "cor": "Cinza",
+    "cliente": "Marcos Antônio",
+    "cel_4dig": "1690",
+    "cidade": "Itapira",
+    "motivo": "bateria",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kay",
+    "modelo_raw": "Ekay",
+    "cor": "Preta",
+    "cliente": "Antônio Edson",
+    "cel_4dig": "0103",
+    "cidade": "Sumaré",
+    "motivo": "motor e bateria",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Gataka",
+    "modelo_raw": "Gataka",
+    "cor": "Vermelha",
+    "cliente": "Reginalda souza",
+    "cel_4dig": "6635",
+    "cidade": "cosmópolis",
+    "motivo": "Painel piscando",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kay",
+    "modelo_raw": "Ekay",
+    "cor": "Cinza",
+    "cliente": "Elizete de Freitas",
+    "cel_4dig": "4069",
+    "cidade": null,
+    "motivo": "carregador ou conector",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Pancho",
+    "modelo_raw": "Pancho",
+    "cor": "Prateado",
+    "cliente": "Mari Estela",
+    "cel_4dig": "1468",
+    "cidade": null,
+    "motivo": "orçamento do escudo frontal, painel, pára-lama dianteiro l, caixa de direção e trava do banco",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kay",
+    "modelo_raw": "Ekay",
+    "cor": "Preta",
+    "cliente": "Bianca Ferreira",
+    "cel_4dig": "6030",
+    "cidade": "Santa Bárbara",
+    "motivo": "motor e bateria",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kay",
+    "modelo_raw": "Ekay",
+    "cor": "Cinza",
+    "cliente": "Telma do santos",
+    "cel_4dig": "3917",
+    "cidade": "limeira",
+    "motivo": "bateria e pezinho lateral",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kay",
+    "modelo_raw": "Ekay",
+    "cor": "Preta",
+    "cliente": "Vera Lúcia",
+    "cel_4dig": "4981",
+    "cidade": null,
+    "motivo": "bateria e motor",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kay",
+    "modelo_raw": "Ekay",
+    "cor": "Cinza",
+    "cliente": "Mateus Teixeira",
+    "cel_4dig": "0905",
+    "cidade": "Jundiai",
+    "motivo": "motor e bateria",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kay",
+    "modelo_raw": "Ekay",
+    "cor": "Preta",
+    "cliente": "Júlia Ferrari",
+    "cel_4dig": "5723",
+    "cidade": "Mogi Guaçu",
+    "motivo": "motor e bateria",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Gataka",
+    "modelo_raw": "Gataka",
+    "cor": "Branca",
+    "cliente": "Édson Leite",
+    "cel_4dig": null,
+    "cidade": null,
+    "motivo": "Bateira, suspensão e garfo dianteiro",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kay",
+    "modelo_raw": "Ekay",
+    "cor": "Prata",
+    "cliente": "Danubia Helena",
+    "cel_4dig": "3812",
+    "cidade": "Serra negra",
+    "motivo": "Bateria e motor",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kay",
+    "modelo_raw": "Ekay",
+    "cor": "Preta",
+    "cliente": "Rosemari aparecida",
+    "cel_4dig": "4588",
+    "cidade": "limeira",
+    "motivo": "bateria e motor",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kay",
+    "modelo_raw": "Ekay",
+    "cor": "Cinza",
+    "cliente": "Juliana Sales",
+    "cel_4dig": "3407",
+    "cidade": "Campinas",
+    "motivo": "motor e bateria",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Luna",
+    "modelo_raw": "Luma",
+    "cor": "Grafite",
+    "cliente": "Isabella Rodrigues",
+    "cel_4dig": "4704",
+    "cidade": "aguai-Sp",
+    "motivo": "catraca do motor danificado e fazendo barulho, e barulho no freio dianteiro, avaliar cesta torta",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kay",
+    "modelo_raw": "Ekay",
+    "cor": "Preta",
+    "cliente": "João Vitor",
+    "cel_4dig": "7700",
+    "cidade": "Hortolândia",
+    "motivo": "bateria e motor",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kay",
+    "modelo_raw": "Ekay",
+    "cor": "Prata",
+    "cliente": "Cícero Carlos",
+    "cel_4dig": "9884",
+    "cidade": "Mogi Guaçu",
+    "motivo": "motor e bateria",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kimbo",
+    "modelo_raw": "Kimbo",
+    "cor": "Cinza",
+    "cliente": "Claudemir santos",
+    "cel_4dig": "8914",
+    "cidade": "Jaguariúna",
+    "motivo": "motor e bateria",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kay",
+    "modelo_raw": "Ekay",
+    "cor": "Preta",
+    "cliente": "José alviro",
+    "cel_4dig": "8482",
+    "cidade": "Monte mor",
+    "motivo": "Motor e bateria, farol com mal contato",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Pancho",
+    "modelo_raw": "Pancho",
+    "cor": "Preto",
+    "cliente": "Débora da silva",
+    "cel_4dig": "5994",
+    "cidade": "Cosmópolis",
+    "motivo": "não funciona nfc e trocar painel",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Pancho",
+    "modelo_raw": "Pancho",
+    "cor": "Cinza",
+    "cliente": "Catarina tavarengo",
+    "cel_4dig": "9931",
+    "cidade": "Valinhos",
+    "motivo": "Motor e bateria e módulo",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Juna Smart",
+    "modelo_raw": "Juna Smart",
+    "cor": "Preta",
+    "cliente": "Vívian Barbosa",
+    "cel_4dig": "2305",
+    "cidade": "Mogi Guaçu",
+    "motivo": "módulo e motor. | Obs: queimou escudo completo dianteiro, painel, carenagens direita e esquerda",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Zilla",
+    "modelo_raw": "Zila",
+    "cor": "Fendy",
+    "cliente": "Maurício Augusto",
+    "cel_4dig": "6984",
+    "cidade": "Indaiatuba",
+    "motivo": "bateria, olho gato lado esquerdo, chicote completo",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Jaya",
+    "modelo_raw": "Jaya",
+    "cor": "Preta",
+    "cliente": "Cláudio silva  Hortolândia",
+    "cel_4dig": null,
+    "cidade": null,
+    "motivo": "frente completa, banco, pneu e roda dianteira, garfo completo, pezinho lateral esquerdo e direito",
+    "fonte": "assistencia"
+  },
+  {
+    "modelo": "Kay",
+    "modelo_raw": "Ekay",
+    "cor": "Preta",
+    "cliente": null,
+    "cel_4dig": null,
+    "cidade": null,
+    "motivo": null,
+    "fonte": "assistencia"
+  }
+]
