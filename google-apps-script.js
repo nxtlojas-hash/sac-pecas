@@ -594,7 +594,7 @@ function gravarNaPlanilha(dados) {
   if (sheet.getLastRow() === 0) {
     sheet.appendRow([
       'DATA', 'PEDIDO', 'PROTOCOLO SAC', 'ATENDENTE', 'Origem',
-      'NOME DO CLIENTE', 'STATUS', 'NF', 'SOLICITACAO', 'URGENCIA',
+      'NOME DO CLIENTE', 'STATUS', 'DATA ENVIO RODONAVES', 'NF', 'SOLICITACAO', 'URGENCIA',
       'ENVIO', 'TELEFONE', 'ENDERECO', 'BAIRRO', 'CIDADE/ESTADO', 'CEP',
       'PEDIDO DE PECAS', 'TIPO DE PECA', 'MODELO', 'COR',
       'QTD', 'TOTAL PECA (R$)', 'PAGAMENTO', 'PREV. EMBARQUE',
@@ -602,11 +602,14 @@ function gravarNaPlanilha(dados) {
       '', '', 'PESO / VOLUME', 'OBS',
       'BLING STATUS', 'BLING PEDIDO ID', 'FECHAMENTO'
     ]);
-    var headerRange = sheet.getRange(1, 1, 1, 33);
+    var headerRange = sheet.getRange(1, 1, 1, 34);
     headerRange.setFontWeight('bold');
     headerRange.setBackground('#1a1a2e');
     headerRange.setFontColor('#c6ff00');
   }
+
+  // Garante a coluna H (DATA ENVIO RODONAVES) antes de gravar a linha
+  garantirColunaRodonaves_(sheet);
 
   // Montar descricao das pecas
   var pecas = dados.pecas || [];
@@ -658,42 +661,114 @@ function gravarNaPlanilha(dados) {
     dados.origemSac || '',                                          // E - Origem
     dados.nomeCliente || '',                                        // F - NOME DO CLIENTE
     '',                                                             // G - STATUS (manual)
-    '',                                                             // H - NF (manual)
-    dados.tipoAtendimento || '',                                    // I - SOLICITACAO
-    urgLabels[dados.urgencia] || dados.urgencia || '',               // J - URGENCIA
-    transpLabels[dados.transportadora] || dados.transportadora || '',// K - ENVIO
-    dados.telefoneCliente || '',                                    // L - TELEFONE
-    (dados.enderecoCliente || '') + (dados.numeroCliente ? ', ' + dados.numeroCliente : ''), // M - ENDERECO
-    dados.bairroCliente || '',                                      // N - BAIRRO
-    cidadeEstado,                                                   // O - CIDADE/ESTADO
-    dados.cepCliente || '',                                         // P - CEP
-    pecasDesc,                                                      // Q - PEDIDO DE PECAS
-    categorias.join(', '),                                          // R - TIPO DE PECA
-    modelos.join(', '),                                             // S - MODELO
-    cores.join(', '),                                               // T - COR
-    qtdTotal,                                                       // U - QTD
-    dados.totalPecas || 0,                                          // V - TOTAL PECA (R$)
-    formaPag,                                                       // W - PAGAMENTO
-    dados.prevEmbarque || '',                                       // X - PREV. EMBARQUE
-    dados.valorFrete || 0,                                          // Y - FRETE (R$)
-    dados.totalGeral || 0,                                          // Z - TOTAL GERAL (R$)
-    '',                                                             // AA - (vazio)
+    '',                                                             // H - DATA ENVIO RODONAVES (manual)
+    '',                                                             // I - NF (manual)
+    dados.tipoAtendimento || '',                                    // J - SOLICITACAO
+    urgLabels[dados.urgencia] || dados.urgencia || '',               // K - URGENCIA
+    transpLabels[dados.transportadora] || dados.transportadora || '',// L - ENVIO
+    dados.telefoneCliente || '',                                    // M - TELEFONE
+    (dados.enderecoCliente || '') + (dados.numeroCliente ? ', ' + dados.numeroCliente : ''), // N - ENDERECO
+    dados.bairroCliente || '',                                      // O - BAIRRO
+    cidadeEstado,                                                   // P - CIDADE/ESTADO
+    dados.cepCliente || '',                                         // Q - CEP
+    pecasDesc,                                                      // R - PEDIDO DE PECAS
+    categorias.join(', '),                                          // S - TIPO DE PECA
+    modelos.join(', '),                                             // T - MODELO
+    cores.join(', '),                                               // U - COR
+    qtdTotal,                                                       // V - QTD
+    dados.totalPecas || 0,                                          // W - TOTAL PECA (R$)
+    formaPag,                                                       // X - PAGAMENTO
+    dados.prevEmbarque || '',                                       // Y - PREV. EMBARQUE
+    dados.valorFrete || 0,                                          // Z - FRETE (R$)
+    dados.totalGeral || 0,                                          // AA - TOTAL GERAL (R$)
     '',                                                             // AB - (vazio)
-    dados.pesoVolume || '',                                         // AC - PESO / VOLUME
-    dados.observacoes || '',                                        // AD - OBS
-    '',                                                             // AE - BLING STATUS
-    '',                                                             // AF - BLING PEDIDO ID
-    ''                                                              // AG - FECHAMENTO (manual)
+    '',                                                             // AC - (vazio)
+    dados.pesoVolume || '',                                         // AD - PESO / VOLUME
+    dados.observacoes || '',                                        // AE - OBS
+    '',                                                             // AF - BLING STATUS
+    '',                                                             // AG - BLING PEDIDO ID
+    ''                                                              // AH - FECHAMENTO (manual)
   ]);
 
   var lastRow = sheet.getLastRow();
 
-  // Formatar colunas de valor como moeda (V=22, Y=25, Z=26)
-  sheet.getRange(lastRow, 22).setNumberFormat('R$ #.##0,00');
-  sheet.getRange(lastRow, 25).setNumberFormat('R$ #.##0,00');
+  // Formatar colunas de valor como moeda (W=23, Z=26, AA=27)
+  sheet.getRange(lastRow, 23).setNumberFormat('R$ #.##0,00');
   sheet.getRange(lastRow, 26).setNumberFormat('R$ #.##0,00');
+  sheet.getRange(lastRow, 27).setNumberFormat('R$ #.##0,00');
 
   return lastRow;
+}
+
+// Migracao: insere a coluna "DATA ENVIO RODONAVES" entre STATUS (G) e NF (H).
+// Idempotente: roda no maximo uma vez (flag em DocumentProperties) e so insere
+// se H1 for exatamente 'NF' (layout vigente antes da migracao).
+var FLAG_COL_RODONAVES = 'COL_RODONAVES_V1';
+
+function garantirColunaRodonaves_(sheet) {
+  var props = PropertiesService.getDocumentProperties();
+  if (props.getProperty(FLAG_COL_RODONAVES) === 'ok') return;
+
+  // Lock: impede insercao dupla se duas submissoes chegarem juntas na 1a execucao
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    if (props.getProperty(FLAG_COL_RODONAVES) === 'ok') return;
+
+    if (sheet.getLastRow() === 0) {
+      // Planilha nova: o cabecalho criado em gravarNaPlanilha ja inclui a coluna
+      props.setProperty(FLAG_COL_RODONAVES, 'ok');
+      return;
+    }
+
+    var h8 = String(sheet.getRange(1, 8).getValue()).trim().toUpperCase();
+
+    if (h8.indexOf('RODONAVES') !== -1) {
+      // Coluna ja existe (inserida manualmente ou em execucao anterior)
+      props.setProperty(FLAG_COL_RODONAVES, 'ok');
+      return;
+    }
+
+    if (h8 !== 'NF') {
+      // Layout inesperado: falhar alto em vez de gravar linha desalinhada
+      throw new Error('Migracao coluna Rodonaves: cabecalho H1 inesperado ("' + h8 + '"). Ajuste a aba PEDIDOS ou rode migrarColunaRodonaves() manualmente.');
+    }
+
+    sheet.insertColumnBefore(8);
+    sheet.getRange(1, 8).setValue('DATA ENVIO RODONAVES');
+    SpreadsheetApp.flush();
+
+    // Formatacao e cosmetica: nao pode derrubar a migracao se falhar
+    try {
+      var header = sheet.getRange(1, 8);
+      header.setFontWeight('bold');
+      header.setBackground('#1a1a2e');
+      header.setFontColor('#c6ff00');
+      if (sheet.getMaxRows() > 1) {
+        var corpo = sheet.getRange(2, 8, sheet.getMaxRows() - 1, 1);
+        corpo.clearDataValidations();
+        corpo.setNumberFormat('dd/mm/yyyy');
+      }
+    } catch (eFmt) {
+      Logger.log('Formatacao da coluna Rodonaves falhou (nao critico): ' + eFmt);
+    }
+
+    props.setProperty(FLAG_COL_RODONAVES, 'ok');
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// Execucao manual (editor do Apps Script): insere a coluna imediatamente,
+// sem esperar o primeiro registro do formulario.
+function migrarColunaRodonaves() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('PEDIDOS')
+           || ss.getSheetByName('Pedido de Pecas')
+           || ss.getSheetByName('Pecas')
+           || ss.getSheets()[0];
+  garantirColunaRodonaves_(sheet);
+  Logger.log('Coluna H (DATA ENVIO RODONAVES) garantida na aba "' + sheet.getName() + '".');
 }
 
 function atualizarBlingStatus(row, status, pedidoId) {
@@ -702,8 +777,8 @@ function atualizarBlingStatus(row, status, pedidoId) {
            || ss.getSheetByName('Pedido de Pecas')
            || ss.getSheetByName('Pecas')
            || ss.getSheets()[0];
-  sheet.getRange(row, 31).setValue(status);
-  sheet.getRange(row, 32).setValue(pedidoId || '');
+  sheet.getRange(row, 32).setValue(status);
+  sheet.getRange(row, 33).setValue(pedidoId || '');
 }
 
 // ========================================
