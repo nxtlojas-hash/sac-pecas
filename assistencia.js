@@ -719,6 +719,12 @@
       }
     }
 
+    // Moto vinculada no wizard: chassi + data de compra direto na OS
+    if (preFill.moto) {
+      setIfOS('osNumeroChassi', preFill.moto.chassi);
+      setIfOS('osDataCompra', preFill.moto.dataCompra);
+    }
+
     // Banner do vinculo
     var existente = document.getElementById('bannerAtVinculadoOS');
     if (existente) existente.remove();

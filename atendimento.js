@@ -14,6 +14,7 @@
   var passo = 1;                  // 1..5
   var dados = {};                 // estado consolidado do wizard
   var clienteEncontrado = null;   // cliente identificado no passo 1 (ou null se novo)
+  var motoSelecionada = null;     // moto da aba Motos Cliente vinculada no passo 1 (ou null)
   var submetendo = false;
 
   var MOTIVOS_POR_CATEGORIA = {
@@ -28,6 +29,7 @@
     passo = 1;
     dados = { acoes: [] };
     clienteEncontrado = null;
+    motoSelecionada = null;
 
     // Se veio da aba Clientes com preFill, ja popula passo 1
     if (window.__preFillAtendimento) {
@@ -137,6 +139,11 @@
             '<select id="p1Modelo"><option value="">Selecione...</option></select>' +
           '</div>' +
         '</div>' +
+      '</div>' +
+
+      '<div class="secao-form" id="p1MotosSecao" style="display:none;">' +
+        '<div class="secao-form-titulo">Motos do cliente</div>' +
+        '<div id="p1Motos"></div>' +
       '</div>';
   }
 
@@ -150,6 +157,7 @@
       setVal('p1Cpf', c.cpfCnpj);
       setVal('p1Nf', c.notaFiscal);
       popularModelosP1(c.modelo);
+      buscarMotosP1(c.telefone, c.cpfCnpj);
     } else {
       popularModelosP1('');
     }
@@ -228,6 +236,7 @@
             setVal('p1Cpf', c.cpfs[0] || '');
             setVal('p1Nf', c.nfs[0] || '');
             clienteEncontrado = c;
+            buscarMotosP1(c.telefones[0] || '', c.cpfs[0] || '');
             mostrarFeedback('Cliente selecionado: ' + c.nome, 'sucesso');
           });
         });
@@ -236,6 +245,88 @@
       .catch(function(err) {
         mostrarFeedback('Erro de rede: ' + err.message, 'erro');
       });
+  }
+
+  // --- Motos do cliente (aba Motos Cliente + garantia) ---
+  function buscarMotosP1(telefone, cpf) {
+    var secao = document.getElementById('p1MotosSecao');
+    var div = document.getElementById('p1Motos');
+    if (!secao || !div) return;
+    var tel = String(telefone || '').replace(/\D/g, '');
+    var doc = String(cpf || '').replace(/\D/g, '');
+    if (!tel && !doc) { secao.style.display = 'none'; div.innerHTML = ''; return; }
+    var params = [];
+    if (tel) params.push('telefone=' + encodeURIComponent(tel));
+    if (doc) params.push('cpf=' + encodeURIComponent(doc));
+    fetch(resolverUrl() + '?action=motos_cliente&' + params.join('&'))
+      .then(function(r) { return r.json(); })
+      .then(function(resp) {
+        if (!resp || !resp.sucesso || !resp.motos || resp.motos.length === 0) {
+          secao.style.display = 'none';
+          div.innerHTML = '';
+          motoSelecionada = null;
+          return;
+        }
+        renderMotosP1(resp.motos);
+      })
+      .catch(function() { /* motos sao um extra — falha nao bloqueia o wizard */ });
+  }
+
+  function renderMotosP1(motos) {
+    var secao = document.getElementById('p1MotosSecao');
+    var div = document.getElementById('p1Motos');
+    if (!secao || !div) return;
+    secao.style.display = '';
+    div.innerHTML = motos.map(function(m, idx) {
+      var sel = motoSelecionada && motoSelecionada.chassi === m.chassi && motoSelecionada.idVenda === m.idVenda;
+      var garCor = m.garantiaVigente ? '#22c55e' : '#ef4444';
+      var garTxt = m.garantiaAte
+        ? 'Garantia at&eacute; ' + formatarDataBrAt(m.garantiaAte) + (m.garantiaVigente ? ' (vigente)' : ' (vencida)')
+        : 'Garantia n&atilde;o calculada';
+      return '<div class="p1-moto-card" data-idx="' + idx + '" style="margin:0.5rem 0;background:#1c1c1c;padding:0.75rem;border-radius:6px;cursor:pointer;border:1px solid ' + (sel ? '#c6ff00' : '#2a2a2a') + ';transition:all 0.15s;">' +
+        '<div style="font-weight:700;color:#fff;">&#127949;&#65039; ' + escapeHtmlAt(m.modelo) + (m.cor ? ' &bull; ' + escapeHtmlAt(m.cor) : '') + '</div>' +
+        '<div style="font-size:0.8rem;color:#9a9a9a;margin-top:0.25rem;">' +
+          (m.chassi ? 'Chassi: ' + escapeHtmlAt(m.chassi) + ' &bull; ' : '') +
+          (m.dataCompra ? 'Comprada em ' + formatarDataBrAt(m.dataCompra) : '') +
+          (m.loja ? ' &bull; ' + escapeHtmlAt(m.loja) : '') +
+        '</div>' +
+        '<div style="font-size:0.8rem;font-weight:600;color:' + garCor + ';margin-top:0.25rem;">' + garTxt + '</div>' +
+        (sel ? '<div style="font-size:0.75rem;color:#c6ff00;margin-top:0.25rem;">&#10003; Vinculada ao atendimento (clique pra desvincular)</div>' : '') +
+      '</div>';
+    }).join('');
+
+    div.querySelectorAll('.p1-moto-card').forEach(function(card) {
+      card.addEventListener('click', function() {
+        var m = motos[parseInt(card.dataset.idx)];
+        if (motoSelecionada && motoSelecionada.chassi === m.chassi && motoSelecionada.idVenda === m.idVenda) {
+          motoSelecionada = null;
+        } else {
+          motoSelecionada = m;
+          if (m.modelo) {
+            var sel = document.getElementById('p1Modelo');
+            if (sel) {
+              var achou = false;
+              for (var i = 0; i < sel.options.length; i++) {
+                if (sel.options[i].value === m.modelo) { sel.selectedIndex = i; achou = true; break; }
+              }
+              if (!achou) {
+                var opt = document.createElement('option');
+                opt.value = m.modelo;
+                opt.textContent = m.modelo;
+                opt.selected = true;
+                sel.appendChild(opt);
+              }
+            }
+          }
+        }
+        renderMotosP1(motos);
+      });
+    });
+  }
+
+  function formatarDataBrAt(iso) {
+    var p = String(iso || '').split('-');
+    return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : (iso || '');
   }
 
   function validarPasso1() {
@@ -260,6 +351,7 @@
       notaFiscal: document.getElementById('p1Nf').value.trim(),
       modelo: document.getElementById('p1Modelo').value
     };
+    dados.moto = motoSelecionada;
   }
 
   // ============================================================
@@ -484,6 +576,7 @@
           (c.cpfCnpj ? '<div><strong style="color:var(--cor-primaria);">CPF:</strong> ' + escapeHtmlAt(c.cpfCnpj) + '</div>' : '') +
           (c.notaFiscal ? '<div><strong style="color:var(--cor-primaria);">NF:</strong> ' + escapeHtmlAt(c.notaFiscal) + '</div>' : '') +
           (c.modelo ? '<div><strong style="color:var(--cor-primaria);">Modelo:</strong> ' + escapeHtmlAt(c.modelo) + '</div>' : '') +
+          (dados.moto ? '<div><strong style="color:var(--cor-primaria);">Moto vinculada:</strong> ' + escapeHtmlAt(dados.moto.modelo) + (dados.moto.chassi ? ' &bull; chassi ' + escapeHtmlAt(dados.moto.chassi) : '') + (dados.moto.garantiaAte ? ' &bull; <span style="color:' + (dados.moto.garantiaVigente ? '#22c55e' : '#ef4444') + ';">garantia at&eacute; ' + formatarDataBrAt(dados.moto.garantiaAte) + (dados.moto.garantiaVigente ? ' (vigente)' : ' (vencida)') + '</span>' : '') + '</div>' : '') +
           '<div style="margin-top:0.5rem;"><strong style="color:var(--cor-primaria);">Categoria:</strong> ' + escapeHtmlAt(m.categoria) + ' &bull; ' + escapeHtmlAt(m.motivo) + '</div>' +
           '<div><strong style="color:var(--cor-primaria);">Origem:</strong> ' + escapeHtmlAt(m.origem) + '</div>' +
           '<div><strong style="color:var(--cor-primaria);">Vendedor:</strong> ' + escapeHtmlAt(m.vendedor) + '</div>' +
@@ -574,8 +667,8 @@
       telefone: dados.cliente.telefone,
       cpfCnpj: dados.cliente.cpfCnpj,
       notaFiscal: dados.cliente.notaFiscal,
-      modeloEquipamento: dados.cliente.modelo,
-      descricao: dados.motivo.descricao,
+      modeloEquipamento: dados.cliente.modelo || (dados.moto ? dados.moto.modelo : ''),
+      descricao: dados.motivo.descricao + (dados.moto ? '\n[Moto vinculada: ' + dados.moto.modelo + ' - chassi ' + (dados.moto.chassi || 's/chassi') + ' - garantia ate ' + (dados.moto.garantiaAte || '?') + (dados.moto.garantiaVigente ? ' (vigente)' : ' (vencida)') + ']' : ''),
       vendedor: dados.motivo.vendedor,
       status: dados.status || 'Aberto',
       acoes: JSON.stringify(dados.acoes)
@@ -655,6 +748,7 @@
           modelo: c.modelo
         },
         atendimentoId: idAtendimento,
+        moto: dados.moto || null,
         modo: modo || null
       };
       navigateTo(viewAlvo);

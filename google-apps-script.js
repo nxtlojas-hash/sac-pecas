@@ -856,6 +856,13 @@ function doGet(e) {
           nome: e.parameter.nome
         }));
 
+      // --- Motos do cliente + garantia (wizard SAC) ---
+      case 'motos_cliente':
+        return jsonResponse(motosCliente({
+          cpf: e.parameter.cpf,
+          telefone: e.parameter.telefone
+        }));
+
       // --- Assistencias Tecnicas (cadastro) ---
       case 'listar_assistencias':
         return jsonResponse(listarAssistenciasCadastro());
@@ -3199,4 +3206,70 @@ function registrarVendaMoto(dados) {
   });
   logIntegracao_('registrar_venda_moto', 'ok', (dados.id || '?') + ' — ' + registradas + ' moto(s)');
   return { ok: true, registradas: registradas };
+}
+
+// ========================================
+// MOTOS DO CLIENTE (wizard SAC)
+// GET ?action=motos_cliente&telefone=...&cpf=... — sem token: leitura
+// interna do front, mesmo nivel de exposicao das actions internas.
+// Retorna motos da aba 'Motos Cliente' com garantiaAte = Data Compra +
+// meses do modelo na 'Config Garantia' (padrao 12 quando nao mapeado).
+// ========================================
+
+function motosCliente(query) {
+  var cpf = String((query && query.cpf) || '').replace(/\D/g, '');
+  var tel = String((query && query.telefone) || '').replace(/\D/g, '');
+  if (!cpf && !tel) return { sucesso: false, erro: 'informe telefone ou cpf' };
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var aba = ss.getSheetByName('Motos Cliente');
+  if (!aba || aba.getLastRow() < 2) return { sucesso: true, motos: [] };
+
+  var garantiaPorModelo = {};
+  var abaGar = ss.getSheetByName('Config Garantia');
+  if (abaGar && abaGar.getLastRow() > 1) {
+    abaGar.getRange(2, 1, abaGar.getLastRow() - 1, 2).getValues().forEach(function(r) {
+      if (r[0]) garantiaPorModelo[String(r[0]).trim().toUpperCase()] = Number(r[1]) || 12;
+    });
+  }
+
+  var tz = Session.getScriptTimeZone();
+  var hoje = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  var dados = aba.getDataRange().getValues();
+  var motos = [];
+  // Header: Chassi, Modelo, Cor, Motor, Data Compra, Loja, Vendedor, ID Venda, Cliente, Telefone, CPF
+  for (var i = 1; i < dados.length; i++) {
+    var r = dados[i];
+    var rTel = String(r[9] || '').replace(/\D/g, '');
+    var rCpf = String(r[10] || '').replace(/\D/g, '');
+    // Telefone casa por sufixo de 8 digitos (tolera 55/DDD/9o digito)
+    var casaCpf = cpf && rCpf && rCpf === cpf;
+    var casaTel = tel && rTel && rTel.slice(-8) === tel.slice(-8);
+    if (!casaCpf && !casaTel) continue;
+
+    var meses = garantiaPorModelo[String(r[1] || '').trim().toUpperCase()] || 12;
+    var dc = r[4];
+    var dataCompra = '';
+    var garantiaAte = '';
+    var d = (dc instanceof Date) ? new Date(dc.getTime()) : (dc ? new Date(String(dc)) : null);
+    if (d && !isNaN(d.getTime())) {
+      dataCompra = Utilities.formatDate(d, tz, 'yyyy-MM-dd');
+      d.setMonth(d.getMonth() + meses);
+      garantiaAte = Utilities.formatDate(d, tz, 'yyyy-MM-dd');
+    }
+    motos.push({
+      chassi: String(r[0] || ''),
+      modelo: String(r[1] || ''),
+      cor: String(r[2] || ''),
+      motor: String(r[3] || ''),
+      dataCompra: dataCompra,
+      loja: String(r[5] || ''),
+      vendedor: String(r[6] || ''),
+      idVenda: String(r[7] || ''),
+      garantiaMeses: meses,
+      garantiaAte: garantiaAte,
+      garantiaVigente: !!garantiaAte && garantiaAte >= hoje
+    });
+  }
+  return { sucesso: true, motos: motos };
 }
