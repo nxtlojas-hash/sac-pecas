@@ -1022,6 +1022,16 @@ function doPost(e) {
           return jsonResponse({ ok: false, erro: errVM.message });
         }
 
+      // --- Integracao Respond.io -> SAC (plano 6 Task 5): mensagem WhatsApp cria/alimenta atendimento ---
+      case 'respond_mensagem':
+        if (!validarToken_(e)) { logIntegracao_('respond_mensagem', 'negado', ''); return jsonResponse({ ok: false, erro: 'nao autorizado' }); }
+        try {
+          return jsonResponse(respondMensagem(body));
+        } catch (errRM) {
+          logIntegracao_('respond_mensagem', 'erro', errRM.message);
+          return jsonResponse({ ok: false, erro: errRM.message });
+        }
+
       default:
         return jsonResponse({ sucesso: false, erro: 'Acao POST desconhecida: ' + action });
     }
@@ -3301,4 +3311,110 @@ function motosCliente(query) {
     });
   }
   return { sucesso: true, motos: motos };
+}
+
+// ========================================
+// RESPOND.IO -> SAC (respond_mensagem)  [plano 6 Task 5]
+// Webhook message.received do Respond.io cria/alimenta um atendimento.
+// Payload real (docs/respond-io/webhooks.md): telefone em contact.phone,
+// texto ANINHADO em message.message.text, nome em contact.firstName/lastName,
+// canal em channel.source. Aceita tambem campos planos (telefone/texto/nome)
+// para teste via curl.
+// Protocolo = id do atendimento (PV-AAAA-NNNN): mesma numeracao do wizard,
+// pra cair na mesma lista/badge e no consolidado do cliente (nao ha contador
+// paralelo). Idempotencia leve: mensagens do mesmo telefone com atendimento
+// aberto sao anexadas ao mesmo protocolo.
+// ========================================
+
+function respondMensagem(dados) {
+  dados = dados || {};
+  var contact = dados.contact || {};
+  var msgWrap = dados.message || {};
+  var msgInner = msgWrap.message || {};
+  var canal = (dados.channel && (dados.channel.source || dados.channel.name)) || dados.canal || 'whatsapp';
+
+  var tel = normalizarTelefone_(contact.phone || dados.telefone || '');
+  var texto = msgInner.text || dados.texto || '';
+  var nome = [contact.firstName, contact.lastName].filter(Boolean).join(' ').trim() || dados.nome || '';
+
+  if (!tel) { logIntegracao_('respond_mensagem', 'erro', 'sem telefone'); return { ok: false, erro: 'sem telefone' }; }
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  var protocolo, novo = false;
+  try {
+    var aberto = buscarAtendimentoAbertoPorTelefone_(tel);
+    if (aberto) {
+      protocolo = aberto.id;
+    } else {
+      protocolo = criarAtendimentoViaWhatsApp_(tel, nome, texto, canal);
+      novo = true;
+    }
+  } finally {
+    lock.releaseLock();
+  }
+
+  obterOuCriarAba_('Mensagens', ['Timestamp', 'Protocolo', 'Telefone', 'Cliente', 'Direcao', 'Texto', 'Canal'])
+    .appendRow([new Date(), protocolo, tel, nome, 'recebida', String(texto).slice(0, 1000), canal]);
+
+  logIntegracao_('respond_mensagem', 'ok', 'protocolo ' + protocolo + (novo ? ' (novo)' : ''));
+  return { ok: true, protocolo: protocolo, novo: novo };
+}
+
+// Atendimento aberto (status != Resolvido/Fechado) mais recente deste telefone.
+// Casa por sufixo de 8 digitos (tolera 55/DDD/9o digito). Le a aba Atendimentos
+// existente (col A=id, G=telefone, M=status; ver registrarAtendimento).
+function buscarAtendimentoAbertoPorTelefone_(tel) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_ATENDIMENTOS);
+  if (!sheet || sheet.getLastRow() < 2) return null;
+  var alvo = String(tel || '').replace(/\D/g, '').slice(-8);
+  if (!alvo) return null;
+  var dados = sheet.getRange(2, 1, sheet.getLastRow() - 1, 13).getValues();
+  var fechados = { 'Resolvido': 1, 'Fechado': 1 };
+  for (var i = dados.length - 1; i >= 0; i--) {
+    var r = dados[i];
+    var rtel = String(r[6] || '').replace(/\D/g, '').slice(-8);
+    var status = String(r[12] || '').trim();
+    if (rtel && rtel === alvo && !fechados[status]) {
+      return { id: r[0], nome: r[5], status: status };
+    }
+  }
+  return null;
+}
+
+// Cria atendimento novo na aba Atendimentos com id PV-AAAA-NNNN (mesma
+// numeracao/estrutura de registrarAtendimento). Origem = canal, status Aberto.
+function criarAtendimentoViaWhatsApp_(tel, nome, texto, canal) {
+  var id = gerarProximoIdAtendimento();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_ATENDIMENTOS);
+  if (!sheet) throw new Error('Aba Atendimentos nao encontrada');
+
+  if (!nome) {
+    try {
+      var cons = buscarClienteConsolidado({ telefone: tel });
+      if (cons && cons.clientes && cons.clientes.length) nome = cons.clientes[0].nome || '';
+    } catch (e) { /* nome e opcional */ }
+  }
+
+  sheet.appendRow([
+    id,                                  // A: id / protocolo
+    new Date(),                          // B: dataAbertura
+    'Pos-venda',                         // C: categoria
+    'Mensagem WhatsApp',                 // D: motivo
+    canal || 'whatsapp',                 // E: origem
+    nome || '',                          // F: nomeCliente
+    tel,                                 // G: telefone
+    '',                                  // H: cpfCnpj
+    '',                                  // I: notaFiscal
+    '',                                  // J: modeloEquipamento
+    'Atendimento aberto via WhatsApp (Respond.io).' + (texto ? '\nPrimeira mensagem: ' + String(texto).slice(0, 300) : ''), // K
+    '',                                  // L: vendedor
+    'Aberto',                            // M: status
+    '',                                  // N: dataFechamento
+    '',                                  // O: motivoFechamento
+    false                                // P: npsEnviado
+  ]);
+  return id;
 }
