@@ -863,6 +863,10 @@ function doGet(e) {
           telefone: e.parameter.telefone
         }));
 
+      // --- Acompanhamento publico da OS (QR / link do cliente) ---
+      case 'status_publico':
+        return jsonResponse(statusPublicoOS(e.parameter.os));
+
       // --- Assistencias Tecnicas (cadastro) ---
       case 'listar_assistencias':
         return jsonResponse(listarAssistenciasCadastro());
@@ -3311,6 +3315,62 @@ function motosCliente(query) {
     });
   }
   return { sucesso: true, motos: motos };
+}
+
+// ========================================
+// ACOMPANHAMENTO PUBLICO DA OS (plano 6 Task 7)
+// GET ?action=status_publico&os=OS-2026-0001 — SEM token, publico.
+// Retorna so o necessario pra timeline do cliente; OS inexistente ->
+// {ok:false} generico (nao vaza existencia de dados). O operador avanca
+// o status editando a coluna Status da aba AssistenciasTecnicas.
+// ========================================
+
+var ETAPAS_OS = ['Aberta', 'Em análise', 'Aguardando aprovação', 'Em conserto', 'Pronto p/ retirar'];
+
+function etapaDoStatus_(status) {
+  var s = String(status || '').toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+  if (/(pronto|retirar|conclu|finaliz|entregue|resolvid|fechad)/.test(s)) return 4;
+  if (/(conserto|reparo|manuten)/.test(s)) return 3;
+  if (/(aprova|orcament|orçament)/.test(s)) return 2;
+  if (/(analise|laudo|avalia)/.test(s)) return 1;
+  return 0; // aberta / em andamento / desconhecido
+}
+
+function statusPublicoOS(os) {
+  var alvo = String(os || '').trim().toUpperCase();
+  if (!alvo) return { ok: false };
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var aba = ss.getSheetByName(ABA_ASSISTENCIAS);
+  if (!aba || aba.getLastRow() < 2) return { ok: false };
+
+  var alvoNum = alvo.replace(/\D/g, '');
+  var dados = aba.getDataRange().getValues();
+  // Colunas (ver registrarOS): 0 Data, 1 NumeroOS, 11 Modelo, 16 Assistencia,
+  // 19 ProblemaRelatado, 21 Status.
+  for (var i = 1; i < dados.length; i++) {
+    var r = dados[i];
+    var num = String(r[1] || '').trim().toUpperCase();
+    var casa = num === alvo || (alvoNum && num.replace(/\D/g, '') === alvoNum);
+    if (!casa) continue;
+
+    var statusRaw = String(r[21] || 'Aberta');
+    var tz = Session.getScriptTimeZone();
+    var dt = r[0] instanceof Date ? Utilities.formatDate(r[0], tz, 'dd/MM/yyyy') : '';
+    return {
+      ok: true,
+      os: num,
+      status: statusRaw,
+      etapaAtual: etapaDoStatus_(statusRaw),
+      etapas: ETAPAS_OS,
+      modelo: String(r[11] || ''),
+      problemaResumo: String(r[19] || '').slice(0, 100),
+      assistencia: String(r[16] || ''),
+      atualizadoEm: dt
+    };
+  }
+  return { ok: false };
 }
 
 // ========================================

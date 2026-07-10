@@ -651,6 +651,8 @@
       '<div class="sig-block"><div class="sig-line">Assinatura Cliente</div></div>' +
     '</div>' +
 
+    blocoQrOS(dados.numeroOS) +
+
     '<div class="doc-footer">NXT Mobilidade Elétrica &bull; OS ' + escapeHtml(dados.numeroOS) + ' &bull; Gerado em ' + dataAberturaStr + '</div>' +
 
     '</body></html>';
@@ -659,6 +661,22 @@
     win.document.close();
     win.focus();
     setTimeout(function() { try { win.print(); } catch(e){} }, 500);
+  }
+
+  // Bloco de QR + link de acompanhamento publico da OS (plano 6 Task 7).
+  // O QR e gerado na janela pai (qrcode.min.js) e embutido como data URL.
+  function blocoQrOS(numeroOS) {
+    var link = 'https://nxtlojas-hash.github.io/sac-pecas/?view=acompanhar&os=' + encodeURIComponent(numeroOS);
+    var qr = (typeof gerarQrDataUrl === 'function') ? gerarQrDataUrl(link, 130) : '';
+    if (!qr) return '';
+    return '<div style="display:flex;align-items:center;gap:12px;border:1px solid #ddd;border-radius:6px;padding:8px 12px;margin:8px 0;background:#fafafa;page-break-inside:avoid;">' +
+        '<img src="' + qr + '" alt="QR de acompanhamento" style="width:88px;height:88px;flex:0 0 88px;">' +
+        '<div style="font-size:10px;color:#333;line-height:1.5;">' +
+          '<strong style="color:#111;font-size:11px;">Acompanhe sua OS pelo celular</strong><br>' +
+          'Aponte a c&acirc;mera para o QR Code ou acesse:<br>' +
+          '<span style="color:#0066cc;word-break:break-all;">' + escapeHtml(link) + '</span>' +
+        '</div>' +
+      '</div>';
   }
 
   // --- Formatadores ---
@@ -967,6 +985,8 @@
         '<strong>4.</strong> Em caso de d&uacute;vidas, fale com a NXT pelo SAC.' +
       '</div>' +
     '</div>' +
+
+    blocoQrOS(dados.numeroOS) +
 
     '<div class="doc-footer">NXT Mobilidade El&eacute;trica &bull; OS ' + escapeHtml(dados.numeroOS) + ' &bull; Gerado em ' + dataAberturaStr + '</div>' +
 

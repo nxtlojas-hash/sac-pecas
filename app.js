@@ -471,7 +471,99 @@ function updateSelectionBadge() {
 }
 
 // --- Init ---
+// ============================================================
+// Acompanhamento publico da OS (plano 6 Task 7)
+// URL: ?view=acompanhar&os=OS-2026-0001 — pagina limpa, sem nav.
+// ============================================================
+
+// Gera um QR como data URL usando qrcode.min.js (global). Usado tambem
+// pelo documento da OS (assistencia.js) para imprimir o QR no papel.
+function gerarQrDataUrl(texto, tam) {
+  if (typeof QRCode === 'undefined' || !texto) return '';
+  var div = document.createElement('div');
+  div.style.display = 'none';
+  document.body.appendChild(div);
+  try {
+    new QRCode(div, { text: texto, width: tam || 120, height: tam || 120, correctLevel: QRCode.CorrectLevel.M });
+    var canvas = div.querySelector('canvas');
+    if (canvas) return canvas.toDataURL('image/png');
+    var img = div.querySelector('img');
+    return img ? img.src : '';
+  } catch (e) {
+    return '';
+  } finally {
+    document.body.removeChild(div);
+  }
+}
+
+function renderAcompanhar(os) {
+  var COR = '#c6ff00';
+  document.title = 'Acompanhe sua OS' + (os ? ' ' + os : '') + ' — NXT';
+  document.body.innerHTML =
+    '<div style="max-width:520px;margin:0 auto;padding:2rem 1.25rem;font-family:Arial,Helvetica,sans-serif;color:#e8e8f0;">' +
+      '<div style="text-align:center;margin-bottom:1.5rem;">' +
+        '<img src="logo-nxt.png" alt="NXT" style="height:44px;width:auto;">' +
+        '<div style="color:' + COR + ';font-weight:700;letter-spacing:1px;font-size:0.8rem;margin-top:0.4rem;">ACOMPANHAMENTO DE ORDEM DE SERVIÇO</div>' +
+      '</div>' +
+      '<div id="acomp-body" style="background:#161616;border:1px solid #2a2a2a;border-radius:10px;padding:1.5rem;">' +
+        '<p style="color:#9a9a9a;text-align:center;">Carregando…</p>' +
+      '</div>' +
+      '<p style="text-align:center;color:#6a6a6a;font-size:0.75rem;margin-top:1.25rem;">NXT Mobilidade Elétrica</p>' +
+    '</div>';
+  document.body.style.background = '#0d0d0d';
+
+  var body = document.getElementById('acomp-body');
+  if (!os) { body.innerHTML = '<p style="color:#ef4444;text-align:center;">Informe o número da OS.</p>'; return; }
+
+  fetch(GOOGLE_SCRIPT_URL + '?action=status_publico&os=' + encodeURIComponent(os))
+    .then(function(r) { return r.json(); })
+    .then(function(resp) {
+      if (!resp || !resp.ok) {
+        body.innerHTML = '<p style="color:#ef4444;text-align:center;">OS não encontrada. Confira o número com a loja.</p>';
+        return;
+      }
+      var etapas = resp.etapas || [];
+      var atual = resp.etapaAtual || 0;
+      var timeline = etapas.map(function(nome, i) {
+        var feito = i < atual, aqui = i === atual;
+        var cor = feito ? '#22c55e' : (aqui ? COR : '#3a3a3a');
+        var bolinha = feito ? '&#10003;' : (aqui ? '&#9679;' : (i + 1));
+        var linha = i < etapas.length - 1
+          ? '<div style="width:2px;height:22px;background:' + (feito ? '#22c55e' : '#3a3a3a') + ';margin:2px 0 2px 13px;"></div>' : '';
+        return '<div style="display:flex;align-items:center;gap:0.75rem;">' +
+            '<div style="flex:0 0 28px;height:28px;border-radius:50%;background:' + cor + ';color:#0d0d0d;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:0.85rem;">' + bolinha + '</div>' +
+            '<div style="color:' + (aqui ? '#fff' : (feito ? '#cfcfcf' : '#7a7a7a')) + ';font-weight:' + (aqui ? '700' : '400') + ';">' + escapeHtmlApp(nome) + '</div>' +
+          '</div>' + linha;
+      }).join('');
+
+      body.innerHTML =
+        '<div style="text-align:center;margin-bottom:1.25rem;">' +
+          '<div style="font-size:1.6rem;font-weight:900;color:' + COR + ';letter-spacing:1px;">' + escapeHtmlApp(resp.os) + '</div>' +
+          (resp.modelo ? '<div style="color:#9a9a9a;font-size:0.9rem;margin-top:0.2rem;">' + escapeHtmlApp(resp.modelo) + '</div>' : '') +
+        '</div>' +
+        '<div style="margin:0 auto;max-width:300px;">' + timeline + '</div>' +
+        '<div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid #2a2a2a;font-size:0.85rem;color:#9a9a9a;">' +
+          (resp.assistencia ? '<div><strong style="color:#cfcfcf;">Assistência:</strong> ' + escapeHtmlApp(resp.assistencia) + '</div>' : '') +
+          (resp.problemaResumo ? '<div style="margin-top:0.3rem;"><strong style="color:#cfcfcf;">Problema:</strong> ' + escapeHtmlApp(resp.problemaResumo) + '</div>' : '') +
+          (resp.atualizadoEm ? '<div style="margin-top:0.3rem;color:#6a6a6a;font-size:0.78rem;">Aberta em ' + escapeHtmlApp(resp.atualizadoEm) + '</div>' : '') +
+        '</div>';
+    })
+    .catch(function() {
+      body.innerHTML = '<p style="color:#ef4444;text-align:center;">Não foi possível carregar agora. Tente de novo em instantes.</p>';
+    });
+}
+
+function escapeHtmlApp(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 document.addEventListener('DOMContentLoaded', function() {
+  var params = new URLSearchParams(location.search);
+  if (params.get('view') === 'acompanhar') {
+    renderAcompanhar((params.get('os') || '').trim());
+    return; // pagina publica: nao inicializa o app interno
+  }
   renderHome();
   updateSelectionBadge();
   if (typeof initFormulario === 'function') initFormulario();
