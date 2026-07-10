@@ -875,6 +875,13 @@ function doGet(e) {
           comentario: e.parameter.comentario
         }));
 
+      // --- Painel interno (Task 9): pendencias/SLA e resumo de NPS ---
+      case 'resumo_pendencias':
+        return jsonResponse(resumoPendencias());
+
+      case 'resumo_nps':
+        return jsonResponse(resumoNps());
+
       // --- Assistencias Tecnicas (cadastro) ---
       case 'listar_assistencias':
         return jsonResponse(listarAssistenciasCadastro());
@@ -3426,6 +3433,67 @@ function registrarNps(params) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// ========================================
+// PAINEL INTERNO (plano 6 Task 9)
+// ========================================
+
+// Pendencias abertas (status != Resolvido/Fechado) + SLA. Alimenta o badge
+// do nav e o bloco "Em aberto" da home. SLA_DIAS vem da aba Config (padrao 3).
+function resumoPendencias() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_ATENDIMENTOS);
+  var slaDias = parseInt(obterConfig('SLA_DIAS', '3'), 10) || 3;
+  if (!sheet || sheet.getLastRow() < 2) return { ok: true, abertos: 0, vencidos: 0, slaDias: slaDias, maisAntigos: [] };
+
+  var tz = Session.getScriptTimeZone();
+  var agora = new Date();
+  var dados = sheet.getRange(2, 1, sheet.getLastRow() - 1, 13).getValues(); // A..M
+  var fechados = { 'Resolvido': 1, 'Fechado': 1 };
+  var abertos = [];
+  for (var i = 0; i < dados.length; i++) {
+    var r = dados[i];
+    var status = String(r[12] || '').trim();
+    if (fechados[status]) continue;
+    var dtAb = r[1] instanceof Date ? r[1] : new Date(r[1]);
+    var dias = !isNaN(dtAb.getTime()) ? Math.floor((agora - dtAb) / 86400000) : 0;
+    abertos.push({
+      id: r[0],
+      nomeCliente: String(r[5] || ''),
+      status: status,
+      dataAbertura: !isNaN(dtAb.getTime()) ? Utilities.formatDate(dtAb, tz, 'dd/MM/yyyy') : '',
+      diasAberto: dias,
+      vencido: dias > slaDias
+    });
+  }
+  abertos.sort(function(a, b) { return b.diasAberto - a.diasAberto; }); // mais antigos primeiro
+  var vencidos = abertos.filter(function(a) { return a.vencido; }).length;
+  return { ok: true, abertos: abertos.length, vencidos: vencidos, slaDias: slaDias, maisAntigos: abertos.slice(0, 5) };
+}
+
+// Resumo de NPS da aba NPS (media, score NPS, distribuicao). Para o dashboard.
+function resumoNps() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('NPS');
+  if (!sheet || sheet.getLastRow() < 2) {
+    return { ok: true, total: 0, media: 0, nps: 0, promotores: 0, neutros: 0, detratores: 0 };
+  }
+  var notas = sheet.getRange(2, 3, sheet.getLastRow() - 1, 1).getValues(); // col C = Nota
+  var soma = 0, prom = 0, neu = 0, det = 0, n = 0;
+  for (var i = 0; i < notas.length; i++) {
+    var nota = parseInt(notas[i][0], 10);
+    if (isNaN(nota)) continue;
+    n++; soma += nota;
+    if (nota >= 9) prom++; else if (nota >= 7) neu++; else det++;
+  }
+  return {
+    ok: true,
+    total: n,
+    media: n ? Math.round(soma / n * 10) / 10 : 0,
+    nps: n ? Math.round((prom - det) / n * 100) : 0,
+    promotores: prom, neutros: neu, detratores: det
+  };
 }
 
 // ========================================

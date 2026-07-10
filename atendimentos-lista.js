@@ -19,6 +19,13 @@
     if (!container) return;
     container.innerHTML = buildHTML();
     setupListeners();
+    // Link direto da home (bloco "Em aberto"): busca ja filtrada por protocolo
+    if (window.__buscaAtendimento) {
+      var campo = document.getElementById('alBusca');
+      if (campo) campo.value = window.__buscaAtendimento;
+      filtrosAtivos.busca = window.__buscaAtendimento;
+      window.__buscaAtendimento = null;
+    }
     carregarAtendimentos();
     console.log('Atendimentos Lista inicializado');
   };

@@ -71,6 +71,8 @@ function navigateTo(view, params) {
     if (typeof window.initClientes === 'function') window.initClientes();
   } else if (view === 'atendimentos') {
     if (typeof window.initAtendimentosLista === 'function') window.initAtendimentosLista();
+  } else if (view === 'dashboard') {
+    if (typeof initDashboard === 'function') initDashboard();
   } else if (view === 'formulario') {
     if (window.__preFillForm) {
       var preFillVenda = window.__preFillForm;
@@ -127,6 +129,7 @@ function renderHome() {
   ];
 
   homeWrap.innerHTML =
+    '<section class="home-section" id="home-em-aberto" style="display:none;"></section>' +
     '<section class="home-section home-instrucoes">' +
       '<h2 class="home-section-titulo">Como usar</h2>' +
       '<div class="home-passos">' +
@@ -191,6 +194,165 @@ function renderHome() {
   // Remove a se&ccedil;&atilde;o antiga de bot&otilde;es se ainda existir
   var btnSectionAntigo = document.getElementById('home-tabela-section');
   if (btnSectionAntigo) btnSectionAntigo.remove();
+
+  carregarEmAberto();
+}
+
+// Bloco "Em aberto" na home (Task 9): 5 atendimentos mais antigos + destaque SLA.
+function carregarEmAberto() {
+  var sec = document.getElementById('home-em-aberto');
+  if (!sec || typeof GOOGLE_SCRIPT_URL === 'undefined') return;
+  fetch(GOOGLE_SCRIPT_URL + '?action=resumo_pendencias')
+    .then(function(r) { return r.json(); })
+    .then(function(resp) {
+      if (!resp || !resp.ok || !resp.abertos) { sec.style.display = 'none'; return; }
+      var itens = (resp.maisAntigos || []).map(function(a) {
+        var cor = a.vencido ? '#ef4444' : (a.diasAberto >= resp.slaDias ? '#f59e0b' : '#9a9a9a');
+        var selo = a.diasAberto === 0 ? 'hoje' : (a.diasAberto + 'd');
+        return '<button class="em-aberto-item" data-id="' + escapeHtmlApp(a.id) + '" style="display:flex;justify-content:space-between;align-items:center;gap:0.75rem;width:100%;text-align:left;background:#161616;border:1px solid #2a2a2a;border-left:3px solid ' + cor + ';border-radius:6px;padding:0.6rem 0.85rem;margin:0.35rem 0;cursor:pointer;color:#e8e8f0;">' +
+            '<span><strong style="color:var(--cor-primaria);">' + escapeHtmlApp(a.id) + '</strong> &bull; ' + escapeHtmlApp(a.nomeCliente || '—') + ' <span style="color:#7a7a7a;">(' + escapeHtmlApp(a.status) + ')</span></span>' +
+            '<span style="color:' + cor + ';font-weight:700;font-size:0.85rem;white-space:nowrap;">' + selo + (a.vencido ? ' &#9888;' : '') + '</span>' +
+          '</button>';
+      }).join('');
+      sec.innerHTML =
+        '<h2 class="home-section-titulo">Em aberto ' +
+          '<span style="font-size:0.8rem;color:#9a9a9a;font-weight:400;">' + resp.abertos + ' no total' +
+          (resp.vencidos ? ' &bull; <span style="color:#ef4444;font-weight:700;">' + resp.vencidos + ' fora do SLA (' + resp.slaDias + 'd)</span>' : '') +
+          '</span></h2>' +
+        itens +
+        '<div style="text-align:center;margin-top:0.5rem;"><a href="#" id="em-aberto-vertodos" style="color:var(--cor-primaria);text-decoration:none;font-weight:600;font-size:0.88rem;">Ver todos os atendimentos &rarr;</a></div>';
+      sec.style.display = '';
+      sec.querySelectorAll('.em-aberto-item').forEach(function(b) {
+        b.addEventListener('click', function() { abrirAtendimentoPorId(b.dataset.id); });
+      });
+      var verTodos = document.getElementById('em-aberto-vertodos');
+      if (verTodos) verTodos.addEventListener('click', function(e) { e.preventDefault(); navigateTo('atendimentos'); });
+    })
+    .catch(function() { sec.style.display = 'none'; });
+}
+
+// Abre a lista de atendimentos ja filtrada por um protocolo (link direto da home).
+function abrirAtendimentoPorId(id) {
+  window.__buscaAtendimento = id;
+  navigateTo('atendimentos');
+}
+
+// Badge de pendencias no nav (Task 9).
+function atualizarBadgeAtendimentos() {
+  var badge = document.getElementById('badge-atendimentos');
+  if (!badge || typeof GOOGLE_SCRIPT_URL === 'undefined') return;
+  fetch(GOOGLE_SCRIPT_URL + '?action=resumo_pendencias')
+    .then(function(r) { return r.json(); })
+    .then(function(resp) {
+      if (resp && resp.ok && resp.abertos > 0) {
+        badge.textContent = resp.abertos;
+        badge.style.display = 'inline-flex';
+        badge.style.background = resp.vencidos ? '#ef4444' : '';
+      } else {
+        badge.style.display = 'none';
+      }
+    })
+    .catch(function() { /* silencioso */ });
+}
+
+// ============================================================
+// Dashboard interno (Task 9)
+// ============================================================
+window.initDashboard = function() {
+  var cont = document.getElementById('dashboard-container');
+  if (!cont) return;
+  cont.innerHTML = '<h2 style="color:var(--cor-primaria);margin-bottom:1rem;">&#128202; Dashboard</h2>' +
+    '<p style="color:#9a9a9a;text-align:center;padding:2rem;">Carregando dados…</p>';
+
+  Promise.all([
+    fetch(GOOGLE_SCRIPT_URL + '?action=listar_atendimentos&limite=100000').then(function(r) { return r.json(); }),
+    fetch(GOOGLE_SCRIPT_URL + '?action=resumo_nps').then(function(r) { return r.json(); })
+  ]).then(function(res) {
+    var ats = (res[0] && res[0].atendimentos) || [];
+    var nps = res[1] || {};
+    cont.innerHTML = '<h2 style="color:var(--cor-primaria);margin-bottom:1rem;">&#128202; Dashboard</h2>' + montarDashboard(ats, nps);
+  }).catch(function() {
+    cont.innerHTML = '<h2 style="color:var(--cor-primaria);margin-bottom:1rem;">&#128202; Dashboard</h2>' +
+      '<p style="color:#ef4444;text-align:center;padding:2rem;">Não foi possível carregar os dados agora.</p>';
+  });
+};
+
+function montarDashboard(ats, nps) {
+  var FIN = { 'Resolvido': 1, 'Fechado': 1 };
+  var total = ats.length, abertos = 0, fechados = 0, somaDias = 0, nFech = 0;
+  var porMes = {}, porMotivo = {}, porVend = {};
+
+  ats.forEach(function(a) {
+    var fin = FIN[String(a.status || '').trim()];
+    if (fin) fechados++; else abertos++;
+
+    var dAb = a.dataAbertura ? new Date(a.dataAbertura) : null;
+    if (dAb && !isNaN(dAb.getTime())) {
+      var mes = dAb.getFullYear() + '-' + ('0' + (dAb.getMonth() + 1)).slice(-2);
+      porMes[mes] = (porMes[mes] || 0) + 1;
+    }
+    if (fin && dAb && a.dataFechamento) {
+      var dF = new Date(a.dataFechamento);
+      if (!isNaN(dF.getTime()) && !isNaN(dAb.getTime()) && dF >= dAb) { somaDias += (dF - dAb) / 86400000; nFech++; }
+    }
+    var mot = String(a.motivo || '—').trim() || '—';
+    porMotivo[mot] = (porMotivo[mot] || 0) + 1;
+    var vend = String(a.vendedor || '—').trim() || '—';
+    porVend[vend] = (porVend[vend] || 0) + 1;
+  });
+
+  var tempoMedio = nFech ? (Math.round(somaDias / nFech * 10) / 10) : null;
+
+  function kpi(rotulo, valor, cor) {
+    return '<div style="flex:1 1 120px;background:#161616;border:1px solid #2a2a2a;border-radius:8px;padding:0.9rem;text-align:center;">' +
+      '<div style="font-size:1.8rem;font-weight:900;color:' + (cor || '#fff') + ';">' + valor + '</div>' +
+      '<div style="font-size:0.75rem;color:#9a9a9a;text-transform:uppercase;letter-spacing:0.5px;margin-top:0.2rem;">' + rotulo + '</div>' +
+    '</div>';
+  }
+
+  function tabelaBarras(titulo, obj, opts) {
+    opts = opts || {};
+    var pares = Object.keys(obj).map(function(k) { return [k, obj[k]]; });
+    pares.sort(function(a, b) { return opts.chave ? (a[0] < b[0] ? -1 : 1) : (b[1] - a[1]); });
+    if (opts.top) pares = pares.slice(0, opts.top);
+    var max = pares.reduce(function(m, p) { return Math.max(m, p[1]); }, 0) || 1;
+    var linhas = pares.map(function(p) {
+      var pct = Math.round(p[1] / max * 100);
+      var cor = opts.cor || 'var(--cor-primaria)';
+      return '<div style="margin:0.35rem 0;">' +
+          '<div style="display:flex;justify-content:space-between;font-size:0.85rem;color:#e8e8f0;margin-bottom:2px;">' +
+            '<span>' + escapeHtmlApp(p[0]) + '</span><strong>' + p[1] + '</strong>' +
+          '</div>' +
+          '<div style="height:8px;background:#0d0d0d;border-radius:4px;overflow:hidden;"><div style="height:100%;width:' + pct + '%;background:' + cor + ';"></div></div>' +
+        '</div>';
+    }).join('') || '<p style="color:#7a7a7a;font-size:0.85rem;">Sem dados.</p>';
+    return '<div style="flex:1 1 320px;background:#161616;border:1px solid #2a2a2a;border-radius:8px;padding:1rem;">' +
+        '<h3 style="color:#cfcfcf;font-size:0.95rem;margin-bottom:0.6rem;">' + titulo + '</h3>' + linhas +
+      '</div>';
+  }
+
+  var npsCor = nps.nps >= 50 ? '#22c55e' : (nps.nps >= 0 ? '#f59e0b' : '#ef4444');
+
+  return '' +
+    '<div style="display:flex;flex-wrap:wrap;gap:0.6rem;margin-bottom:1rem;">' +
+      kpi('Total', total, '#fff') +
+      kpi('Em aberto', abertos, '#f59e0b') +
+      kpi('Fechados', fechados, '#22c55e') +
+      kpi('Tempo médio', tempoMedio === null ? '—' : (tempoMedio + 'd'), '#fff') +
+      kpi('NPS', nps.total ? nps.nps : '—', npsCor) +
+      kpi('Nota média', nps.total ? nps.media : '—', npsCor) +
+    '</div>' +
+    (nps.total ? '<div style="background:#161616;border:1px solid #2a2a2a;border-radius:8px;padding:1rem;margin-bottom:1rem;font-size:0.9rem;color:#e8e8f0;">' +
+      '<strong style="color:#cfcfcf;">NPS (' + nps.total + ' respostas):</strong> ' +
+      '<span style="color:#22c55e;">' + nps.promotores + ' promotores</span> &bull; ' +
+      '<span style="color:#f59e0b;">' + nps.neutros + ' neutros</span> &bull; ' +
+      '<span style="color:#ef4444;">' + nps.detratores + ' detratores</span>' +
+    '</div>' : '') +
+    '<div style="display:flex;flex-wrap:wrap;gap:0.6rem;">' +
+      tabelaBarras('Atendimentos por mês', porMes, { chave: true, cor: '#3b82f6' }) +
+      tabelaBarras('Top motivos', porMotivo, { top: 8 }) +
+      tabelaBarras('Por responsável', porVend, { top: 8, cor: '#a855f7' }) +
+    '</div>';
 }
 
 // --- NPS: envia pesquisa por WhatsApp + marca npsEnviado no backend ---
@@ -657,6 +819,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   renderHome();
   updateSelectionBadge();
+  atualizarBadgeAtendimentos();
   if (typeof initFormulario === 'function') initFormulario();
   if (typeof initOrcamentos === 'function') initOrcamentos();
   if (typeof loadPartsFromSheets === 'function') loadPartsFromSheets();
