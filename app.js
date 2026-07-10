@@ -201,10 +201,12 @@ window.enviarNPSWhatsApp = function(atendimentoId, telefone, nomeCliente) {
     return;
   }
   var primeiroNome = String(nomeCliente || 'Cliente').split(' ')[0];
+  var linkNps = 'https://nxtlojas-hash.github.io/sac-pecas/?view=nps&id=' + encodeURIComponent(atendimentoId);
   var msg = 'Ola ' + primeiroNome + '! Aqui da NXT SAC.\n\n' +
     'Seu atendimento ' + atendimentoId + ' foi concluído. Sua opinião é muito importante!\n\n' +
     '⭐ *De 0 a 10, o quanto você recomendaria nosso atendimento para um amigo?*\n\n' +
-    'Pode responder apenas com a nota e, se quiser, deixar um comentário. Obrigado! 🙏';
+    'Avalie em 1 clique: ' + linkNps + '\n\n' +
+    'Se preferir, pode responder por aqui mesmo com a nota e um comentário. Obrigado! 🙏';
 
   window.open('https://wa.me/55' + tel + '?text=' + encodeURIComponent(msg), '_blank');
 
@@ -558,11 +560,100 @@ function escapeHtmlApp(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+// ============================================================
+// NPS publico (plano 6 Task 8) — ?view=nps&id=PV-2026-0001
+// ============================================================
+function renderNps(id) {
+  var COR = '#c6ff00';
+  var notaSel = null;
+  document.title = 'Avalie seu atendimento — NXT';
+  document.body.style.background = '#0d0d0d';
+
+  function wrap(inner) {
+    document.body.innerHTML =
+      '<div style="max-width:520px;margin:0 auto;padding:2rem 1.25rem;font-family:Arial,Helvetica,sans-serif;color:#e8e8f0;">' +
+        '<div style="text-align:center;margin-bottom:1.5rem;">' +
+          '<img src="logo-nxt.png" alt="NXT" style="height:44px;width:auto;">' +
+          '<div style="color:' + COR + ';font-weight:700;letter-spacing:1px;font-size:0.8rem;margin-top:0.4rem;">PESQUISA DE SATISFAÇÃO</div>' +
+        '</div>' +
+        '<div id="nps-body" style="background:#161616;border:1px solid #2a2a2a;border-radius:10px;padding:1.5rem;">' + inner + '</div>' +
+        '<p style="text-align:center;color:#6a6a6a;font-size:0.75rem;margin-top:1.25rem;">NXT Mobilidade Elétrica</p>' +
+      '</div>';
+  }
+
+  function agradecer(nota) {
+    wrap(
+      '<div style="text-align:center;padding:1rem 0;">' +
+        '<div style="font-size:3rem;">&#128153;</div>' +
+        '<h2 style="color:' + COR + ';margin:0.75rem 0;">Obrigado pela sua avaliação!</h2>' +
+        '<p style="color:#9a9a9a;">Sua nota <strong style="color:#fff;">' + nota + '</strong> foi registrada. Sua opinião ajuda a NXT a melhorar.</p>' +
+      '</div>');
+  }
+
+  if (!id) { wrap('<p style="color:#ef4444;text-align:center;">Link inválido (sem protocolo).</p>'); return; }
+
+  wrap(
+    '<p style="text-align:center;color:#e8e8f0;font-size:0.95rem;margin-bottom:1rem;">De <strong>0</strong> a <strong>10</strong>, o quanto você recomendaria o atendimento da NXT para um amigo?</p>' +
+    '<div id="nps-notas" style="display:flex;flex-wrap:wrap;gap:0.4rem;justify-content:center;margin-bottom:1rem;"></div>' +
+    '<textarea id="nps-coment" rows="3" placeholder="Quer deixar um comentário? (opcional)" style="width:100%;box-sizing:border-box;background:#0d0d0d;border:1px solid #2a2a2a;border-radius:6px;color:#e8e8f0;padding:0.6rem;font-family:inherit;font-size:0.9rem;resize:vertical;"></textarea>' +
+    '<button id="nps-enviar" style="width:100%;margin-top:1rem;padding:0.75rem;background:' + COR + ';color:#0d0d0d;border:none;border-radius:6px;font-weight:700;font-size:1rem;cursor:pointer;opacity:0.5;" disabled>Enviar avaliação</button>' +
+    '<div id="nps-feedback" style="margin-top:0.75rem;text-align:center;font-size:0.85rem;"></div>');
+
+  var cont = document.getElementById('nps-notas');
+  for (var n = 0; n <= 10; n++) {
+    (function(valor) {
+      var b = document.createElement('button');
+      var cor = valor <= 6 ? '#ef4444' : (valor <= 8 ? '#f59e0b' : '#22c55e');
+      b.textContent = valor;
+      b.style.cssText = 'flex:0 0 40px;height:40px;border-radius:8px;border:2px solid ' + cor + ';background:transparent;color:' + cor + ';font-weight:700;font-size:0.95rem;cursor:pointer;transition:all 0.12s;';
+      b.addEventListener('click', function() {
+        notaSel = valor;
+        Array.prototype.forEach.call(cont.children, function(el) {
+          el.style.background = 'transparent';
+          el.style.color = el.style.borderColor;
+        });
+        b.style.background = cor;
+        b.style.color = '#0d0d0d';
+        var env = document.getElementById('nps-enviar');
+        env.disabled = false;
+        env.style.opacity = '1';
+      });
+      cont.appendChild(b);
+    })(n);
+  }
+
+  document.getElementById('nps-enviar').addEventListener('click', function() {
+    if (notaSel === null) return;
+    var btn = this;
+    btn.disabled = true; btn.style.opacity = '0.5'; btn.textContent = 'Enviando…';
+    var coment = (document.getElementById('nps-coment').value || '').slice(0, 500);
+    var url = GOOGLE_SCRIPT_URL + '?action=registrar_nps&id=' + encodeURIComponent(id) +
+      '&nota=' + notaSel + '&comentario=' + encodeURIComponent(coment);
+    fetch(url).then(function(r) { return r.json(); }).then(function(resp) {
+      if (resp && resp.ok) { agradecer(notaSel); return; }
+      var fb = document.getElementById('nps-feedback');
+      if (resp && resp.erro === 'ja respondido') {
+        wrap('<p style="text-align:center;color:#9a9a9a;">Este atendimento já foi avaliado. Obrigado! &#128153;</p>');
+      } else {
+        fb.innerHTML = '<span style="color:#ef4444;">Não foi possível registrar (' + escapeHtmlApp(resp && resp.erro || 'erro') + '). Tente de novo.</span>';
+        btn.disabled = false; btn.style.opacity = '1'; btn.textContent = 'Enviar avaliação';
+      }
+    }).catch(function() {
+      document.getElementById('nps-feedback').innerHTML = '<span style="color:#ef4444;">Falha de conexão. Tente novamente.</span>';
+      btn.disabled = false; btn.style.opacity = '1'; btn.textContent = 'Enviar avaliação';
+    });
+  });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   var params = new URLSearchParams(location.search);
   if (params.get('view') === 'acompanhar') {
     renderAcompanhar((params.get('os') || '').trim());
     return; // pagina publica: nao inicializa o app interno
+  }
+  if (params.get('view') === 'nps') {
+    renderNps((params.get('id') || '').trim());
+    return; // pagina publica
   }
   renderHome();
   updateSelectionBadge();

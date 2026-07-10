@@ -867,6 +867,14 @@ function doGet(e) {
       case 'status_publico':
         return jsonResponse(statusPublicoOS(e.parameter.os));
 
+      // --- NPS publico (link enviado por WhatsApp ao fechar atendimento) ---
+      case 'registrar_nps':
+        return jsonResponse(registrarNps({
+          id: e.parameter.id,
+          nota: e.parameter.nota,
+          comentario: e.parameter.comentario
+        }));
+
       // --- Assistencias Tecnicas (cadastro) ---
       case 'listar_assistencias':
         return jsonResponse(listarAssistenciasCadastro());
@@ -3371,6 +3379,53 @@ function statusPublicoOS(os) {
     };
   }
   return { ok: false };
+}
+
+// ========================================
+// NPS PUBLICO (plano 6 Task 8)
+// GET ?action=registrar_nps&id=PV-2026-0001&nota=9&comentario=...
+// id deve ser um atendimento existente e ainda sem nota. Grava na aba NPS.
+// Segunda tentativa do mesmo id -> {ok:false, erro:'ja respondido'}.
+// ========================================
+
+function registrarNps(params) {
+  var id = String((params && params.id) || '').trim();
+  var nota = parseInt(params && params.nota, 10);
+  var comentario = String((params && params.comentario) || '').slice(0, 500);
+  if (!id) return { ok: false, erro: 'id obrigatorio' };
+  if (isNaN(nota) || nota < 0 || nota > 10) return { ok: false, erro: 'nota invalida' };
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // atendimento existe?
+    var shAt = ss.getSheetByName(SHEET_ATENDIMENTOS);
+    var existe = false;
+    if (shAt && shAt.getLastRow() > 1) {
+      var ids = shAt.getRange(2, 1, shAt.getLastRow() - 1, 1).getValues();
+      for (var i = 0; i < ids.length; i++) {
+        if (String(ids[i][0]).trim() === id) { existe = true; break; }
+      }
+    }
+    if (!existe) return { ok: false, erro: 'atendimento nao encontrado' };
+
+    // ja respondido?
+    var shNps = obterOuCriarAba_('NPS', ['Timestamp', 'Protocolo', 'Nota', 'Comentario', 'Categoria']);
+    if (shNps.getLastRow() > 1) {
+      var resp = shNps.getRange(2, 2, shNps.getLastRow() - 1, 1).getValues();
+      for (var j = 0; j < resp.length; j++) {
+        if (String(resp[j][0]).trim() === id) return { ok: false, erro: 'ja respondido' };
+      }
+    }
+
+    var categoria = nota >= 9 ? 'Promotor' : (nota >= 7 ? 'Neutro' : 'Detrator');
+    shNps.appendRow([new Date(), id, nota, comentario, categoria]);
+    return { ok: true, nota: nota, categoria: categoria };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // ========================================
