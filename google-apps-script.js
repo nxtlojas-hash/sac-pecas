@@ -3497,6 +3497,97 @@ function resumoNps() {
 }
 
 // ========================================
+// PULL RESPOND.IO -> SAC (agendado, gratis; substitui a ponte Make)
+// Roda por gatilho de tempo (setupPullRespond). Le RESPOND_API_TOKEN do
+// Config (aba Config, chave RESPOND_API_TOKEN). Lista contatos (mais
+// recentes primeiro), processa os NOVOS desde RESPOND_ULTIMO_ID e cria o
+// atendimento (idempotente por telefone via respondMensagem). Captura
+// clientes NOVOS; nao loga follow-up de contato ja conhecido.
+// ========================================
+
+var RESPOND_API_BASE = 'https://api.respond.io/v2';
+
+function respondApi_(metodo, path, body) {
+  var token = obterConfig('RESPOND_API_TOKEN', '');
+  if (!token) throw new Error('RESPOND_API_TOKEN ausente no Config');
+  var opt = {
+    method: metodo,
+    headers: { 'Authorization': 'Bearer ' + token },
+    contentType: 'application/json',
+    muteHttpExceptions: true
+  };
+  if (body) opt.payload = JSON.stringify(body);
+  var resp = UrlFetchApp.fetch(RESPOND_API_BASE + path, opt);
+  var code = resp.getResponseCode();
+  if (code < 200 || code >= 300) throw new Error('Respond API ' + code + ': ' + resp.getContentText().slice(0, 200));
+  return JSON.parse(resp.getContentText());
+}
+
+function setConfig_(chave, valor) {
+  var sheet = obterOuCriarAba_('Config', ['Chave', 'Valor']);
+  var dados = sheet.getDataRange().getValues();
+  for (var i = 1; i < dados.length; i++) {
+    if (String(dados[i][0]).trim() === chave) { sheet.getRange(i + 1, 2).setValue(String(valor)); return; }
+  }
+  sheet.appendRow([chave, String(valor)]);
+}
+
+function puxarRespondNovos() {
+  var token = obterConfig('RESPOND_API_TOKEN', '');
+  if (!token) { logIntegracao_('pull_respond', 'ignorado', 'sem RESPOND_API_TOKEN'); return { ok: false, erro: 'sem token' }; }
+
+  var ultimoId = parseInt(obterConfig('RESPOND_ULTIMO_ID', '0'), 10) || 0;
+  var primeira = ultimoId === 0;
+  var novos = [], cursor = null, maiorId = ultimoId, pag = 0;
+
+  while (pag < 8) {
+    pag++;
+    var qs = '/contact/list?limit=99' + (cursor ? '&cursorId=' + cursor : '');
+    var r = respondApi_('post', qs, {});
+    var items = (r && r.items) || [];
+    if (!items.length) break;
+    var parar = false;
+    for (var i = 0; i < items.length; i++) {
+      var c = items[i];
+      var id = Number(c.id);
+      if (id > maiorId) maiorId = id;
+      if (ultimoId && id <= ultimoId) { parar = true; break; }
+      if (c.status === 'open' && c.phone) novos.push(c);
+    }
+    if (parar || primeira) break; // primeira exec: so a 1a pagina (cobre o gap recente)
+    cursor = items[items.length - 1].id;
+  }
+
+  // processa do mais antigo pro mais novo; teto por execucao (o resto vem no proximo run)
+  novos.sort(function(a, b) { return a.id - b.id; });
+  var LIMITE = 80;
+  var processar = novos.slice(0, LIMITE);
+  var criados = 0, anexados = 0, falhas = 0;
+  processar.forEach(function(c) {
+    try {
+      var nome = [c.firstName, c.lastName].filter(Boolean).join(' ').trim();
+      var res = respondMensagem({ telefone: c.phone, nome: nome, texto: '', canal: 'whatsapp' });
+      if (res && res.ok) { res.novo ? criados++ : anexados++; } else { falhas++; }
+    } catch (ec) { falhas++; }
+  });
+
+  // avanca o cursor: se coube tudo, ate o maior visto; senao, ate o ultimo processado
+  var novoUltimo = (processar.length && processar.length < novos.length) ? processar[processar.length - 1].id : maiorId;
+  setConfig_('RESPOND_ULTIMO_ID', novoUltimo);
+  logIntegracao_('pull_respond', 'ok', 'novos=' + novos.length + ' criados=' + criados + ' anexados=' + anexados + ' falhas=' + falhas + (primeira ? ' (1a exec)' : ''));
+  return { ok: true, novos: novos.length, criados: criados, anexados: anexados, falhas: falhas, ultimoId: novoUltimo };
+}
+
+// Rodar UMA VEZ no editor: cria o gatilho de tempo (a cada 1h). Idempotente.
+function setupPullRespond() {
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'puxarRespondNovos') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('puxarRespondNovos').timeBased().everyHours(1).create();
+  Logger.log('Gatilho puxarRespondNovos criado (a cada 1h).');
+}
+
+// ========================================
 // RESPOND.IO -> SAC (respond_mensagem)  [plano 6 Task 5]
 // Webhook message.received do Respond.io cria/alimenta um atendimento.
 // Payload real (docs/respond-io/webhooks.md): telefone em contact.phone,
