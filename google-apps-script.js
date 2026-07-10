@@ -3543,7 +3543,8 @@ function puxarRespondNovos() {
   while (pag < 8) {
     pag++;
     var qs = '/contact/list?limit=99' + (cursor ? '&cursorId=' + cursor : '');
-    var r = respondApi_('post', qs, {});
+    // a API exige "filter" no body ({$and:[]} = sem filtro); body {} da 400
+    var r = respondApi_('post', qs, { search: '', timezone: 'America/Sao_Paulo', filter: { $and: [] } });
     var items = (r && r.items) || [];
     if (!items.length) break;
     var parar = false;
