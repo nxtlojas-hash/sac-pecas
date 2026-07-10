@@ -948,7 +948,9 @@ function doPost(e) {
     return jsonResponse({ sucesso: false, erro: 'JSON invalido' });
   }
 
-  var action = body.action || '';
+  // Integracoes externas (Make/Respond.io) mandam o payload puro no body
+  // e a action na URL (?action=...&token=...) — fallback para e.parameter.
+  var action = body.action || (e && e.parameter && e.parameter.action) || '';
 
   try {
     switch (action) {
@@ -1002,6 +1004,16 @@ function doPost(e) {
 
       case 'registrar_inventario_lote':
         return jsonResponse(registrarInventarioLote(body));
+
+      // --- Integracao venda de MOTO -> SAC (plano 6; NAO confundir com registrar_venda de pecas) ---
+      case 'registrar_venda_moto':
+        if (!validarToken_(e)) { logIntegracao_('registrar_venda_moto', 'negado', ''); return jsonResponse({ ok: false, erro: 'nao autorizado' }); }
+        try {
+          return jsonResponse(registrarVendaMoto(body));
+        } catch (errVM) {
+          logIntegracao_('registrar_venda_moto', 'erro', errVM.message);
+          return jsonResponse({ ok: false, erro: errVM.message });
+        }
 
       default:
         return jsonResponse({ sucesso: false, erro: 'Acao POST desconhecida: ' + action });
@@ -3053,6 +3065,25 @@ function buscarClienteConsolidado(query) {
     });
   });
 
+  // Motos do cliente (integracao venda -> SAC, plano 6): a compra alimenta a timeline
+  var shMC = ss.getSheetByName('Motos Cliente');
+  if (shMC && shMC.getLastRow() > 1) {
+    var dadosMC = shMC.getRange(2, 1, shMC.getLastRow() - 1, 11).getValues();
+    dadosMC.forEach(function(r) {
+      var cpfMC = String(r[10] || '').replace(/\D/g, '');
+      var telMC = String(r[9] || '').replace(/\D/g, '');
+      var nomeMC = r[8] || '';
+      if (!pertence(cpfMC, telMC, nomeMC)) return;
+      add(cpfMC, telMC, nomeMC, '', {
+        tipo: 'compra_moto',
+        id: r[7],
+        data: r[4],
+        resumo: 'Compra de moto: ' + (r[1] || '') + ' ' + (r[2] || '') + (r[0] ? ' — chassi ' + r[0] : ''),
+        status: ''
+      });
+    });
+  }
+
   // Converter mapa em array, ordenar eventos por data desc
   var clientes = [];
   Object.keys(agregado).forEach(function(k) {
@@ -3063,4 +3094,109 @@ function buscarClienteConsolidado(query) {
   });
 
   return { sucesso: true, clientes: clientes };
+}
+
+// ========================================
+// INTEGRACOES POS-VENDA (plano 6): FUNDACAO
+// Config na aba 'Config' (Chave|Valor), token de integracao, log e helpers.
+// Actions de INTEGRACAO respondem {ok:...} (contrato Make/Respond.io);
+// as actions internas antigas seguem com {sucesso:...}.
+// ========================================
+
+function obterOuCriarAba_(nome, cabecalhos) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(nome);
+  if (!sheet) {
+    sheet = ss.insertSheet(nome);
+    if (cabecalhos && cabecalhos.length) sheet.appendRow(cabecalhos);
+  }
+  return sheet;
+}
+
+function obterConfig(chave, padrao) {
+  var sheet = obterOuCriarAba_('Config', ['Chave', 'Valor']);
+  var dados = sheet.getDataRange().getValues();
+  for (var i = 1; i < dados.length; i++) {
+    if (String(dados[i][0]).trim() === chave) return dados[i][1];
+  }
+  return padrao === undefined ? '' : padrao;
+}
+
+function validarToken_(e) {
+  var token = obterConfig('TOKEN_INTEGRACAO', '');
+  return token !== '' && !!(e && e.parameter && e.parameter.token === String(token));
+}
+
+function logIntegracao_(action, resultado, detalhe) {
+  try {
+    var sheet = obterOuCriarAba_('Log Integracoes', ['Timestamp', 'Action', 'Resultado', 'Detalhe']);
+    sheet.appendRow([new Date(), action, resultado, String(detalhe || '').slice(0, 500)]);
+  } catch (err) { /* log nunca derruba a action */ }
+}
+
+function normalizarTelefone_(s) {
+  var d = String(s || '').replace(/\D/g, '');
+  if (d.indexOf('55') === 0 && d.length > 11) d = d.slice(2);
+  return d.slice(-11);
+}
+
+// Rodar UMA VEZ no editor Apps Script depois de colar esta versao:
+// cria Config (com token forte se faltar), Log Integracoes, Motos Cliente e
+// Config Garantia semeada com os modelos atuais (12 meses — Claudia ajusta).
+// O token aparece no Logger e na aba Config (anotar no cofre).
+function setupIntegracoes() {
+  var cfg = obterOuCriarAba_('Config', ['Chave', 'Valor']);
+  if (!obterConfig('TOKEN_INTEGRACAO', '')) {
+    cfg.appendRow(['TOKEN_INTEGRACAO',
+      Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '')]);
+  }
+  obterOuCriarAba_('Log Integracoes', ['Timestamp', 'Action', 'Resultado', 'Detalhe']);
+  obterOuCriarAba_('Motos Cliente',
+    ['Chassi', 'Modelo', 'Cor', 'Motor', 'Data Compra', 'Loja', 'Vendedor', 'ID Venda', 'Cliente', 'Telefone', 'CPF']);
+  var gar = obterOuCriarAba_('Config Garantia', ['Modelo', 'Meses']);
+  if (gar.getLastRow() < 2) {
+    ['Juna', 'Kay', 'Pancho', 'Kimbo', 'Luna', 'Jaya', 'Jay', 'Hyphen', 'Gataka',
+     'Vega', 'V0', 'Smart-Juna', 'Shaka', 'Zilla', 'Akasha'].forEach(function (m) {
+      gar.appendRow([m, 12]);
+    });
+  }
+  Logger.log('TOKEN_INTEGRACAO: ' + obterConfig('TOKEN_INTEGRACAO'));
+}
+
+// ========================================
+// VENDA -> SAC (registrar_venda_moto)
+// Payload = venda sanitizada do formulario/dash:
+// {id, loja, vendedor, dataVenda, cliente:{nome,cpf,telefone,email}, produtos:[{modelo,cor,chassi,motor,preco}]}
+// Idempotente: chave = chassi (ou idVenda|modelo|cor quando sem chassi).
+// O cliente fica nas colunas da propria linha (nao ha estrutura separada de
+// clientes no SAC — buscar_cliente_consolidado le esta aba como 5a fonte).
+// ========================================
+
+function registrarVendaMoto(dados) {
+  var cli = (dados && dados.cliente) || {};
+  var tel = normalizarTelefone_(cli.telefone);
+  var aba = obterOuCriarAba_('Motos Cliente',
+    ['Chassi', 'Modelo', 'Cor', 'Motor', 'Data Compra', 'Loja', 'Vendedor', 'ID Venda', 'Cliente', 'Telefone', 'CPF']);
+  var existentes = aba.getDataRange().getValues();
+
+  function chaveDe_(chassi, idVenda, modelo, cor) {
+    return (chassi && String(chassi).trim())
+      ? String(chassi).trim().toUpperCase()
+      : (idVenda + '|' + modelo + '|' + cor);
+  }
+
+  var registradas = 0;
+  (dados.produtos || []).forEach(function (p) {
+    var chave = chaveDe_(p.chassi, dados.id, p.modelo, p.cor);
+    var duplicada = existentes.some(function (l) {
+      return chaveDe_(l[0], l[7], l[1], l[2]) === chave;
+    });
+    if (duplicada) return;
+    aba.appendRow([p.chassi || '', p.modelo || '', p.cor || '', p.motor || '',
+                   dados.dataVenda || '', dados.loja || '', dados.vendedor || '',
+                   dados.id || '', cli.nome || '', tel, cli.cpf || '']);
+    registradas++;
+  });
+  logIntegracao_('registrar_venda_moto', 'ok', (dados.id || '?') + ' — ' + registradas + ' moto(s)');
+  return { ok: true, registradas: registradas };
 }
