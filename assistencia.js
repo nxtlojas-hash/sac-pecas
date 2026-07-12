@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.24 - Formulário Assistência Técnica + Modal Pós-OS ===== */
+/* ===== NXT SAC V2.25 - Formulário Assistência Técnica + Modal Pós-OS ===== */
 
 (function(){
   // Reaproveita a URL definida em formulario.js (mesmo endpoint do backend)
@@ -43,6 +43,13 @@
     'Regis / Elos Bike - Caxias do Sul RS',
     'Sami Amin - Florianópolis'
   ];
+
+  // Assistencia propria (galpao NXT Sumare). Endereco confirmado pela gestao em 12/07/2026;
+  // numero/CEP pendentes — atualizar aqui quando confirmados (unico ponto a mexer).
+  var GALPAO_SUMARE = {
+    nome: 'Assistência NXT Sumaré',
+    endereco: 'Rua Quaresmeira da Serra, Sumaré/SP'
+  };
 
   var submetendo = false;
   // Cache local dos dados das assistências: { "nome": { endereco, telefone } }
@@ -161,18 +168,32 @@
         '<div class="secao-form">' +
           '<div class="secao-form-titulo">Assistência Técnica</div>' +
           '<div class="form-row">' +
-            '<div class="form-group" style="flex:1 1 100%;"><label for="osAssistenciaSelect">Assistência *</label>' +
-              '<select id="osAssistenciaSelect" required>' + assistOptions + '</select></div>' +
+            '<div class="form-group" style="flex:1 1 100%;">' +
+              '<label>Tipo de assistência *</label>' +
+              '<div class="checkbox-group">' +
+                '<label><input type="radio" name="osTipoAssistencia" value="Sumare"> 🏭 Assistência Sumaré</label>' +
+                '<label><input type="radio" name="osTipoAssistencia" value="Terceirizada"> 🤝 Assistência terceirizada</label>' +
+              '</div></div>' +
           '</div>' +
-          '<div class="form-row" id="osAssistOutroRow" style="display:none;">' +
-            '<div class="form-group" style="flex:1 1 100%;"><label for="osAssistenciaOutroNome">Nome da assistência *</label>' +
-              '<input type="text" id="osAssistenciaOutroNome" placeholder="Informe o nome"></div>' +
+          '<div id="osSumareCard" style="display:none;background:#c6ff0011;border:1px solid #c6ff0055;border-radius:6px;padding:0.9rem 1rem;margin-bottom:0.75rem;">' +
+            '<div style="font-weight:700;color:var(--cor-primaria);">' + escapeHtml(GALPAO_SUMARE.nome) + '</div>' +
+            '<div style="color:#9a9a9a;font-size:0.9rem;margin-top:2px;">' + escapeHtml(GALPAO_SUMARE.endereco) + '</div>' +
           '</div>' +
-          '<div class="form-row">' +
-            '<div class="form-group" style="flex:2 1 320px;"><label for="osAssistenciaEndereco">Endereço da assistência</label>' +
-              '<input type="text" id="osAssistenciaEndereco" placeholder="Rua, número, bairro, cidade/UF"></div>' +
-            '<div class="form-group"><label for="osAssistenciaTelefone">Telefone da assistência</label>' +
-              '<input type="text" id="osAssistenciaTelefone" placeholder="(00) 00000-0000" maxlength="15"></div>' +
+          '<div id="osTerceirizadaCampos" style="display:none;">' +
+            '<div class="form-row">' +
+              '<div class="form-group" style="flex:1 1 100%;"><label for="osAssistenciaSelect">Assistência *</label>' +
+                '<select id="osAssistenciaSelect">' + assistOptions + '</select></div>' +
+            '</div>' +
+            '<div class="form-row" id="osAssistOutroRow" style="display:none;">' +
+              '<div class="form-group" style="flex:1 1 100%;"><label for="osAssistenciaOutroNome">Nome da assistência *</label>' +
+                '<input type="text" id="osAssistenciaOutroNome" placeholder="Informe o nome"></div>' +
+            '</div>' +
+            '<div class="form-row">' +
+              '<div class="form-group" style="flex:2 1 320px;"><label for="osAssistenciaEndereco">Endereço da assistência</label>' +
+                '<input type="text" id="osAssistenciaEndereco" placeholder="Rua, número, bairro, cidade/UF"></div>' +
+              '<div class="form-group"><label for="osAssistenciaTelefone">Telefone da assistência</label>' +
+                '<input type="text" id="osAssistenciaTelefone" placeholder="(00) 00000-0000" maxlength="15"></div>' +
+            '</div>' +
           '</div>' +
         '</div>' +
 
@@ -233,6 +254,22 @@
         if (cep.length === 8) buscarCEPAssistencia(cep);
       });
     }
+
+    // Tipo de assistencia — alterna cartao Sumare vs campos de terceirizada
+    document.querySelectorAll('input[name="osTipoAssistencia"]').forEach(function(radio) {
+      radio.addEventListener('change', function() {
+        var sumare = this.value === 'Sumare';
+        document.getElementById('osSumareCard').style.display = sumare ? '' : 'none';
+        document.getElementById('osTerceirizadaCampos').style.display = sumare ? 'none' : '';
+        if (sumare) {
+          document.getElementById('osAssistenciaSelect').value = '';
+          document.getElementById('osAssistOutroRow').style.display = 'none';
+          document.getElementById('osAssistenciaOutroNome').value = '';
+          document.getElementById('osAssistenciaEndereco').value = '';
+          document.getElementById('osAssistenciaTelefone').value = '';
+        }
+      });
+    });
 
     // Assistência — toggle campo "Outro" + autopreencher endereço/telefone do cadastro
     var assistSelect = document.getElementById('osAssistenciaSelect');
@@ -346,12 +383,22 @@
   function submeterOS() {
     if (submetendo) return;
 
-    var assistSelVal = document.getElementById('osAssistenciaSelect').value;
-    var assistNome;
-    if (assistSelVal === '__outro__') {
-      assistNome = (document.getElementById('osAssistenciaOutroNome').value || '').trim();
+    var tipoAssistencia = (document.querySelector('input[name="osTipoAssistencia"]:checked') || {}).value || '';
+
+    var assistNome, assistEndereco, assistTelefone;
+    if (tipoAssistencia === 'Sumare') {
+      assistNome = GALPAO_SUMARE.nome;
+      assistEndereco = GALPAO_SUMARE.endereco;
+      assistTelefone = '';
     } else {
-      assistNome = assistSelVal;
+      var assistSelVal = document.getElementById('osAssistenciaSelect').value;
+      if (assistSelVal === '__outro__') {
+        assistNome = (document.getElementById('osAssistenciaOutroNome').value || '').trim();
+      } else {
+        assistNome = assistSelVal;
+      }
+      assistEndereco = (document.getElementById('osAssistenciaEndereco').value || '').trim();
+      assistTelefone = (document.getElementById('osAssistenciaTelefone').value || '').replace(/\D/g, '');
     }
 
     var dados = {
@@ -369,9 +416,10 @@
       dataCompra: document.getElementById('osDataCompra').value,
       notaFiscalCompra: (document.getElementById('osNotaFiscal').value || '').trim(),
       tipo: (document.querySelector('input[name="osTipo"]:checked') || {}).value || '',
+      tipoAssistencia: tipoAssistencia,
       assistencia: assistNome,
-      assistenciaEndereco: (document.getElementById('osAssistenciaEndereco').value || '').trim(),
-      assistenciaTelefone: (document.getElementById('osAssistenciaTelefone').value || '').replace(/\D/g, ''),
+      assistenciaEndereco: assistEndereco,
+      assistenciaTelefone: assistTelefone,
       problemaRelatado: (document.getElementById('osProblema').value || '').trim(),
       observacoes: (document.getElementById('osObservacoes').value || '').trim()
     };
@@ -383,6 +431,7 @@
     if (!dados.modelo) return mostrarFeedbackOS('Selecione o equipamento (modelo)', 'erro');
     if (!dados.notaFiscalCompra) return mostrarFeedbackOS('Informe a NF de compra', 'erro');
     if (!dados.tipo) return mostrarFeedbackOS('Selecione o tipo (Garantia/Venda)', 'erro');
+    if (!tipoAssistencia) return mostrarFeedbackOS('Selecione o tipo de assistência (Sumaré ou terceirizada)', 'erro');
     if (!dados.assistencia) return mostrarFeedbackOS('Informe a assistência técnica', 'erro');
     if (!dados.problemaRelatado) return mostrarFeedbackOS('Informe o problema relatado', 'erro');
 
@@ -411,7 +460,7 @@
         if (resp && resp.sucesso) {
           mostrarFeedbackOS('OS ' + resp.numeroOS + ' aberta com sucesso!', 'sucesso');
           // Atualiza cache local do cadastro — se usuário digitou dados novos, já refletem imediatamente
-          if (dados.assistencia && (dados.assistenciaEndereco || dados.assistenciaTelefone)) {
+          if (dados.tipoAssistencia !== 'Sumare' && dados.assistencia && (dados.assistenciaEndereco || dados.assistenciaTelefone)) {
             cadastroAssistencias[dados.assistencia] = {
               endereco: dados.assistenciaEndereco || (cadastroAssistencias[dados.assistencia] || {}).endereco || '',
               telefone: dados.assistenciaTelefone || (cadastroAssistencias[dados.assistencia] || {}).telefone || ''
