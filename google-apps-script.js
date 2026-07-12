@@ -1013,6 +1013,9 @@ function doPost(e) {
       case 'salvar_assistencia':
         return jsonResponse(upsertAssistenciaCadastro(body.nome, body.endereco, body.telefone));
 
+      case 'setup_roteamento_os_v1':
+        return jsonResponse(setupRoteamentoOsV1(body));
+
       // --- Atendimentos (NXT SAC Fase 1) ---
       case 'registrar_atendimento':
         return jsonResponse(registrarAtendimento(body));
@@ -2007,6 +2010,144 @@ function espelharOS_(dados, numeroOS, tipoAssistencia, linhaMaster, dataAbertura
     aba.appendRow(linha);
   } else {
     garantirAbaEspelhoParceiras_().appendRow(linhaMaster);
+  }
+}
+
+// Chave de dedupe pelo numero da OS: pega o ultimo grupo de digitos e tira zeros
+// a esquerda. "OS-2026-0045" -> "45"; "45" (digitado a mao na aba Sumare) -> "45".
+function chaveNumeroOS_(v) {
+  var m = String(v || '').match(/(\d+)\s*$/);
+  return m ? String(parseInt(m[1], 10)) : '';
+}
+
+function chaveDedupe_(numero, cliente) {
+  return chaveNumeroOS_(numero) + '|' + normalizarNomeAba_(cliente);
+}
+
+// Aba Sumare: dedupe SO pelo numero (as linhas manuais da Jacque sao as mesmas OSs,
+// com nome as vezes digitado diferente do master).
+function chavesSumare_(aba) {
+  var chaves = {};
+  var lastRow = aba.getLastRow();
+  if (lastRow < 2) return chaves;
+  var cols = mapearColunasPorCabecalho_(aba);
+  if (!('numero os' in cols)) return chaves;
+  var dados = aba.getRange(2, 1, lastRow - 1, aba.getLastColumn()).getValues();
+  for (var i = 0; i < dados.length; i++) {
+    var chave = chaveNumeroOS_(dados[i][cols['numero os']]);
+    if (chave) chaves[chave] = true;
+  }
+  return chaves;
+}
+
+// Aba parceiras (antigo master renomeado, SEM cabecalho): dedupe por numero+cliente,
+// porque a serie antiga tambem tem OS-2026-0001..0093 (de outros clientes) e nao pode
+// bloquear o backfill das novas. Colunas fixas: B = numero OS, C = cliente.
+function chavesParceiras_(aba) {
+  var chaves = {};
+  var lastRow = aba.getLastRow();
+  if (lastRow < 1) return chaves;
+  var dados = aba.getRange(1, 1, lastRow, 3).getValues();
+  for (var i = 0; i < dados.length; i++) {
+    if (!dados[i][1]) continue;
+    chaves[chaveDedupe_(dados[i][1], dados[i][2])] = true;
+  }
+  return chaves;
+}
+
+// Funde entradas do cadastro com nome igual apos normalizacao (ex.: "Marcus" vs
+// "MARCUS Assistencia - Sumare"). Mantem a linha com ATUALIZADO_EM mais recente.
+function fundirCadastroDuplicado_() {
+  var aba = garantirAbaCadastroAssistencias();
+  var lastRow = aba.getLastRow();
+  if (lastRow < 3) return 0;
+  var dados = aba.getRange(2, 1, lastRow - 1, 4).getValues();
+  var vistos = {};
+  var apagar = [];
+  for (var i = 0; i < dados.length; i++) {
+    var chave = normalizarNomeAba_(dados[i][0]);
+    if (!chave) continue;
+    if (chave in vistos) {
+      var jaIdx = vistos[chave];
+      var dNova = dados[i][3] instanceof Date ? dados[i][3].getTime() : 0;
+      var dVelha = dados[jaIdx][3] instanceof Date ? dados[jaIdx][3].getTime() : 0;
+      if (dNova > dVelha) { apagar.push(jaIdx + 2); vistos[chave] = i; }
+      else apagar.push(i + 2);
+    } else {
+      vistos[chave] = i;
+    }
+  }
+  apagar.sort(function(a, b) { return b - a; });
+  for (var j = 0; j < apagar.length; j++) aba.deleteRow(apagar[j]);
+  return apagar.length;
+}
+
+// One-time (idempotente): piso da numeracao + backfill das OSs orfas de 06-10/07
+// + fusao de duplicatas do cadastro. POST {action:'setup_roteamento_os_v1', confirmar:'SIM'}.
+function setupRoteamentoOsV1(body) {
+  if (!body || body.confirmar !== 'SIM') {
+    return { sucesso: false, erro: 'mande {"confirmar":"SIM"} para executar' };
+  }
+  var props = PropertiesService.getDocumentProperties();
+  var ja = props.getProperty('SETUP_ROTEAMENTO_OS_V1');
+  if (ja) return { sucesso: false, erro: 'setup ja executado em ' + ja };
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    // 1. Piso da numeracao 2026 (serie antiga foi ate OS-2026-0717)
+    PropertiesService.getScriptProperties().setProperty('OS_SEQ_FLOOR_2026', '717');
+
+    // 2. Backfill do master para as abas espelho
+    var aba = garantirAbaAssistencias();
+    var colTipo = garantirColTipoAssistencia_(aba);
+    var dados = aba.getDataRange().getValues();
+    var chavesSum = chavesSumare_(garantirAbaEspelhoSumare_());
+    var chavesPar = chavesParceiras_(garantirAbaEspelhoParceiras_());
+
+    var criadasSum = 0, criadasPar = 0, tipadas = 0;
+    for (var i = 1; i < dados.length; i++) {
+      var r = dados[i];
+      var numeroOS = String(r[1] || '').trim();
+      if (numeroOS.indexOf('OS-') !== 0) continue;
+
+      var ehSumare = normalizarNomeAba_(r[16]).indexOf('sumar') !== -1;
+      var tipo = ehSumare ? 'Sumare' : 'Terceirizada';
+      if (!String(r[colTipo - 1] || '').trim()) {
+        aba.getRange(i + 1, colTipo).setValue(tipo);
+        tipadas++;
+      }
+
+      var d = {
+        nomeCliente: r[2], telefoneCliente: r[4], tipo: r[15], modelo: r[11],
+        numeroChassi: r[12], problemaRelatado: r[19]
+      };
+      if (ehSumare) {
+        var chaveS = chaveNumeroOS_(numeroOS);
+        if (chavesSum[chaveS]) continue;
+        espelharOS_(d, numeroOS, 'Sumare', r, r[0] instanceof Date ? r[0] : new Date());
+        chavesSum[chaveS] = true;
+        criadasSum++;
+      } else {
+        var chaveP = chaveDedupe_(numeroOS, r[2]);
+        if (chavesPar[chaveP]) continue;
+        espelharOS_(d, numeroOS, 'Terceirizada', r, null);
+        chavesPar[chaveP] = true;
+        criadasPar++;
+      }
+    }
+
+    // 3. Cadastro: funde duplicatas (Marcus/MARCUS Assistencia - Sumare etc.)
+    var fundidos = fundirCadastroDuplicado_();
+
+    props.setProperty('SETUP_ROTEAMENTO_OS_V1', new Date().toISOString());
+    return {
+      sucesso: true, piso: 717,
+      espelhadasSumare: criadasSum, espelhadasParceiras: criadasPar,
+      tipadas: tipadas, cadastroFundidos: fundidos
+    };
+  } finally {
+    lock.releaseLock();
   }
 }
 
