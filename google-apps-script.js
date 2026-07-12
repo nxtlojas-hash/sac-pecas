@@ -47,6 +47,11 @@ var ABA_ESTOQUE = 'Estoque';
 var ABA_ASSISTENCIAS = 'AssistenciasTecnicas';
 var ABA_CADASTRO_ASSISTENCIAS = 'AssistenciasCadastro';
 
+// Abas espelho do roteamento de OS (spec 2026-07-12). Nomes reais na planilha
+// tem espacos extras — localizar SEMPRE via encontrarAbaNormalizada_.
+var ABA_ESPELHO_SUMARE = 'ASSISTÊNCIA SUMARÉ';
+var ABA_ESPELHO_PARCEIRAS = 'Assistencias parceiras';
+
 // ========================================
 // MAPEAMENTO FISCAL (Tabela Claudia Pecas)
 // ========================================
@@ -1874,30 +1879,135 @@ function baixaEstoque(body) {
 // ASSISTÊNCIA TÉCNICA - OS
 // ========================================
 
+var CABECALHO_OS_ = [
+  'DATA ABERTURA', 'NUMERO OS', 'NOME CLIENTE', 'CPF CLIENTE', 'TELEFONE CLIENTE',
+  'CEP CLIENTE', 'ENDERECO CLIENTE', 'NUMERO CLIENTE', 'BAIRRO CLIENTE',
+  'CIDADE', 'UF CLIENTE',
+  'MODELO', 'NUMERO CHASSI', 'DATA COMPRA', 'NOTA FISCAL COMPRA',
+  'TIPO', 'ASSISTENCIA', 'ENDERECO ASSISTENCIA', 'TELEFONE ASSISTENCIA',
+  'PROBLEMA RELATADO', 'OBSERVACOES',
+  'STATUS', 'NF ASSISTENCIA RECEBIDA', 'PAGAMENTO FEITO'
+];
+
 function garantirAbaAssistencias() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var aba = ss.getSheetByName(ABA_ASSISTENCIAS);
-  var cabecalho = [
-    'DATA ABERTURA', 'NUMERO OS', 'NOME CLIENTE', 'CPF CLIENTE', 'TELEFONE CLIENTE',
-    'CEP CLIENTE', 'ENDERECO CLIENTE', 'NUMERO CLIENTE', 'BAIRRO CLIENTE',
-    'CIDADE', 'UF CLIENTE',
-    'MODELO', 'NUMERO CHASSI', 'DATA COMPRA', 'NOTA FISCAL COMPRA',
-    'TIPO', 'ASSISTENCIA', 'ENDERECO ASSISTENCIA', 'TELEFONE ASSISTENCIA',
-    'PROBLEMA RELATADO', 'OBSERVACOES',
-    'STATUS', 'NF ASSISTENCIA RECEBIDA', 'PAGAMENTO FEITO'
-  ];
   if (!aba) {
     aba = ss.insertSheet(ABA_ASSISTENCIAS);
-    aba.getRange(1, 1, 1, cabecalho.length).setValues([cabecalho]).setFontWeight('bold');
+    aba.getRange(1, 1, 1, CABECALHO_OS_.length).setValues([CABECALHO_OS_]).setFontWeight('bold');
     aba.setFrozenRows(1);
   } else {
     // Migração: se a aba existe mas tem menos colunas que o cabeçalho novo, reescreve o cabeçalho
     var colsAtuais = aba.getLastColumn();
-    if (colsAtuais < cabecalho.length) {
-      aba.getRange(1, 1, 1, cabecalho.length).setValues([cabecalho]).setFontWeight('bold');
+    if (colsAtuais < CABECALHO_OS_.length) {
+      aba.getRange(1, 1, 1, CABECALHO_OS_.length).setValues([CABECALHO_OS_]).setFontWeight('bold');
     }
   }
   return aba;
+}
+
+// ========================================
+// ROTEAMENTO DE OS: SUMARE vs TERCEIRIZADA (spec 2026-07-12)
+// ========================================
+
+function normalizarNomeAba_(s) {
+  return String(s || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function encontrarAbaNormalizada_(nomeAlvo) {
+  var alvo = normalizarNomeAba_(nomeAlvo);
+  var sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
+  for (var i = 0; i < sheets.length; i++) {
+    if (normalizarNomeAba_(sheets[i].getName()) === alvo) return sheets[i];
+  }
+  return null;
+}
+
+// Mapa {cabecalho normalizado -> indice 0-based}. Primeira ocorrencia vence
+// (a aba Sumare tem duas colunas "DATA"; a primeira e a data de abertura).
+function mapearColunasPorCabecalho_(aba) {
+  var map = {};
+  if (aba.getLastColumn() === 0) return map;
+  var headers = aba.getRange(1, 1, 1, aba.getLastColumn()).getValues()[0];
+  for (var i = 0; i < headers.length; i++) {
+    var chave = normalizarNomeAba_(headers[i]);
+    if (chave && !(chave in map)) map[chave] = i;
+  }
+  return map;
+}
+
+// Coluna TIPO ASSISTENCIA no master — criada no fim do cabecalho vivo se nao existir
+// (depois de atendimentoId), para nao deslocar os indices fixos de statusPublicoOS.
+function garantirColTipoAssistencia_(aba) {
+  var headers = aba.getRange(1, 1, 1, aba.getLastColumn()).getValues()[0];
+  for (var i = 0; i < headers.length; i++) {
+    if (normalizarNomeAba_(headers[i]) === 'tipo assistencia') return i + 1;
+  }
+  var col = aba.getLastColumn() + 1;
+  aba.getRange(1, col).setValue('TIPO ASSISTENCIA').setFontWeight('bold');
+  return col;
+}
+
+var CABECALHO_ESPELHO_SUMARE_ = [
+  'DATA', 'CLIENTE', 'TELEFONE', 'NUMERO OS', 'TIPO DE SOLICITAÇÃO',
+  'MODELO', 'CHASSI', 'QUAL PROBLEMA', 'ENTROU CONTATO', 'DATA RETORNO',
+  'O QUE PRECISA', 'PEDIDO', 'STATUS', 'NF', 'NUMERO NFE', 'REENVIO PEÇA'
+];
+
+function garantirAbaEspelhoSumare_() {
+  var aba = encontrarAbaNormalizada_(ABA_ESPELHO_SUMARE);
+  if (!aba) {
+    aba = SpreadsheetApp.getActiveSpreadsheet().insertSheet(ABA_ESPELHO_SUMARE);
+    aba.getRange(1, 1, 1, CABECALHO_ESPELHO_SUMARE_.length)
+       .setValues([CABECALHO_ESPELHO_SUMARE_]).setFontWeight('bold');
+    aba.setFrozenRows(1);
+    return aba;
+  }
+  // Aba manual da Jacque ja existe: garante a coluna CHASSI logo apos MODELO
+  var cols = mapearColunasPorCabecalho_(aba);
+  if (!('chassi' in cols)) {
+    var posModelo = ('modelo' in cols) ? cols['modelo'] + 1 : aba.getLastColumn();
+    aba.insertColumnAfter(posModelo);
+    aba.getRange(1, posModelo + 1).setValue('CHASSI').setFontWeight('bold');
+  }
+  return aba;
+}
+
+function garantirAbaEspelhoParceiras_() {
+  var aba = encontrarAbaNormalizada_(ABA_ESPELHO_PARCEIRAS);
+  if (!aba) {
+    aba = SpreadsheetApp.getActiveSpreadsheet().insertSheet(ABA_ESPELHO_PARCEIRAS);
+    aba.getRange(1, 1, 1, CABECALHO_OS_.length).setValues([CABECALHO_OS_]).setFontWeight('bold');
+    aba.setFrozenRows(1);
+  }
+  return aba;
+}
+
+// Espelha a OS na aba do tipo. Sumare: mapeia pelo cabecalho da aba da Jacque
+// (so as colunas automaticas; o resto ela preenche). Terceirizada: linha completa
+// no layout do master (a aba parceiras E o antigo master renomeado, sem cabecalho).
+function espelharOS_(dados, numeroOS, tipoAssistencia, linhaMaster, dataAbertura) {
+  if (tipoAssistencia === 'Sumare') {
+    var aba = garantirAbaEspelhoSumare_();
+    var cols = mapearColunasPorCabecalho_(aba);
+    var linha = [];
+    for (var i = 0; i < aba.getLastColumn(); i++) linha.push('');
+    var dt = (dataAbertura instanceof Date) ? dataAbertura : new Date();
+    var set = function(chave, valor) { if (chave in cols) linha[cols[chave]] = valor; };
+    set('data', Utilities.formatDate(dt, Session.getScriptTimeZone(), 'dd/MM/yyyy'));
+    set('cliente', dados.nomeCliente || '');
+    set('telefone', dados.telefoneCliente || '');
+    set('numero os', numeroOS);
+    set('tipo de solicitacao', dados.tipo || '');
+    set('modelo', dados.modelo || '');
+    set('chassi', dados.numeroChassi || '');
+    set('qual problema', dados.problemaRelatado || '');
+    aba.appendRow(linha);
+  } else {
+    garantirAbaEspelhoParceiras_().appendRow(linhaMaster);
+  }
 }
 
 function obterProximoNumeroOS() {
