@@ -2101,8 +2101,24 @@ function registrarOS(dados) {
       } catch (eAt) { /* nao bloqueia o fluxo */ }
     }
 
-    // Upsert automático no cadastro de assistências quando há dados preenchidos
-    if (dados.assistencia && (dados.assistenciaEndereco || dados.assistenciaTelefone)) {
+    // Roteamento Sumare vs terceirizada (spec 2026-07-12). Form antigo em cache
+    // manda sem tipoAssistencia -> marca "(sem tipo)" e espelha como terceirizada.
+    var tipoAssistencia = (dados.tipoAssistencia === 'Sumare') ? 'Sumare'
+      : (dados.tipoAssistencia === 'Terceirizada') ? 'Terceirizada'
+      : '(sem tipo)';
+
+    try {
+      var colTipo = garantirColTipoAssistencia_(aba);
+      aba.getRange(aba.getLastRow(), colTipo).setValue(tipoAssistencia);
+    } catch (eTipo) { /* nao bloqueia a OS */ }
+
+    try {
+      espelharOS_(dados, numeroOS, tipoAssistencia === 'Sumare' ? 'Sumare' : 'Terceirizada', linha, new Date());
+    } catch (eEsp) { /* nao bloqueia a OS */ }
+
+    // Upsert automático no cadastro de assistências quando há dados preenchidos.
+    // OS Sumare NAO faz upsert — o galpao nao e uma parceira do cadastro.
+    if (tipoAssistencia !== 'Sumare' && dados.assistencia && (dados.assistenciaEndereco || dados.assistenciaTelefone)) {
       try {
         upsertAssistenciaCadastro(dados.assistencia, dados.assistenciaEndereco, dados.assistenciaTelefone);
       } catch (upErr) {
