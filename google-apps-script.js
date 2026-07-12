@@ -1911,13 +1911,22 @@ function obterProximoNumeroOS() {
   }
 }
 
+// Piso de numeracao por ano — protege contra reset se a aba for limpa/renomeada.
+// Incidente 06/07/2026: aba renomeada -> script recriou vazia -> numeracao voltou pro 0001
+// e duplicou OS-2026-0001..0093 com a serie antiga. Piso e setado pelo setup_roteamento_os_v1.
+function getOsSeqFloor_(ano) {
+  var v = PropertiesService.getScriptProperties().getProperty('OS_SEQ_FLOOR_' + ano);
+  var n = v ? parseInt(v, 10) : 0;
+  return isNaN(n) ? 0 : n;
+}
+
 // Helper interno — lógica de numeração sem lock aninhado
 function obterProximoNumeroOSSemLock_(aba) {
   var ultimaLinha = aba.getLastRow();
   var anoAtual = new Date().getFullYear();
   var prefixo = 'OS-' + anoAtual + '-';
 
-  var maiorSeq = 0;
+  var maiorSeq = getOsSeqFloor_(anoAtual);
   if (ultimaLinha > 1) {
     var numeros = aba.getRange(2, 2, ultimaLinha - 1, 1).getValues();
     for (var i = 0; i < numeros.length; i++) {
