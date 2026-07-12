@@ -2055,8 +2055,11 @@ function chavesParceiras_(aba) {
   return chaves;
 }
 
-// Funde entradas do cadastro com nome igual apos normalizacao (ex.: "Marcus" vs
-// "MARCUS Assistencia - Sumare"). Mantem a linha com ATUALIZADO_EM mais recente.
+// Funde entradas do cadastro cujo NOME COMPLETO e igual apos normalizacao
+// (caso real da planilha: "Marcus Assistencia - Sumare" vs "MARCUS Assistencia - Sumare",
+// mesmo nome com caixa diferente — verificado no cadastro vivo em 12/07/2026).
+// Nao funde variantes com sufixo diferente (ex.: "Marcus" vs "Marcus Assistencia").
+// Mantem a linha com ATUALIZADO_EM mais recente.
 function fundirCadastroDuplicado_() {
   var aba = garantirAbaCadastroAssistencias();
   var lastRow = aba.getLastRow();
