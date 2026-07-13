@@ -640,9 +640,10 @@
           '<tr>' +
             '<td style="width:70%;"><span class="lbl">Endereço</span><span class="val">' + assistEnd + '</span></td>' +
           '</tr>' +
+          (dados.tipoAssistencia === 'Sumare' ? '' :
           '<tr>' +
             '<td><span class="lbl">Telefone</span><span class="val">' + assistTel + '</span></td>' +
-          '</tr>' +
+          '</tr>') +
         '</table>' +
       '</div>' +
     '</div>' +
@@ -1021,7 +1022,8 @@
       '<div class="assist-box">' +
         '<div class="nome">' + escapeHtml(dados.assistencia || '-') + '</div>' +
         '<div class="linha"><strong>Endere&ccedil;o:</strong> ' + assistEnd + '</div>' +
-        '<div class="linha"><strong>Telefone:</strong> ' + assistTel + '</div>' +
+        (dados.tipoAssistencia === 'Sumare' ? '' :
+        '<div class="linha"><strong>Telefone:</strong> ' + assistTel + '</div>') +
       '</div>' +
     '</div>' +
 
@@ -1077,7 +1079,8 @@
       '*ASSISTÊNCIA RESPONSÁVEL*\n' +
       (dados.assistencia || '-') + '\n' +
       '📍 ' + assistEnd + '\n' +
-      '📞 ' + assistTel + '\n\n' +
+      (dados.tipoAssistencia === 'Sumare' ? '' : '📞 ' + assistTel + '\n') +
+      '\n' +
       '⚠️ *Próximos passos:*\n' +
       '1. Leve o equipamento até a assistência ou aguarde contato dela.\n' +
       '2. Apresente o número da OS (' + (dados.numeroOS || '') + ').\n' +
