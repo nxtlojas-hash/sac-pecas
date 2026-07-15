@@ -233,32 +233,47 @@ function getBlingAccessToken() {
     return tokens.accessToken;
   }
 
-  // Renovar access_token usando refresh_token
-  var credentials = Utilities.base64Encode(clientId + ':' + clientSecret);
+  // Renovar sob lock: o Bling troca o refresh_token a cada renovacao e revoga a
+  // cadeia inteira se o token antigo for reusado — duas execucoes renovando ao
+  // mesmo tempo (ou uma rotacao salva pela metade) matam a integracao
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    // Reler depois do lock: outra execucao pode ter acabado de renovar
+    tokens = getBlingTokens();
+    if (tokens.accessToken && tokens.expiry && Date.now() < tokens.expiry - 300000) {
+      return tokens.accessToken;
+    }
 
-  var response = UrlFetchApp.fetch(BLING_API_BASE + '/oauth/token', {
-    method: 'post',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Authorization': 'Basic ' + credentials
-    },
-    payload: {
-      'grant_type': 'refresh_token',
-      'refresh_token': tokens.refreshToken
-    },
-    muteHttpExceptions: true
-  });
+    // Renovar access_token usando refresh_token
+    var credentials = Utilities.base64Encode(clientId + ':' + clientSecret);
 
-  var data = JSON.parse(response.getContentText());
+    var response = UrlFetchApp.fetch(BLING_API_BASE + '/oauth/token', {
+      method: 'post',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': 'Basic ' + credentials
+      },
+      payload: {
+        'grant_type': 'refresh_token',
+        'refresh_token': tokens.refreshToken
+      },
+      muteHttpExceptions: true
+    });
 
-  if (response.getResponseCode() !== 200) {
-    throw new Error('Erro ao renovar token Bling: ' + JSON.stringify(data));
+    var data = JSON.parse(response.getContentText());
+
+    if (response.getResponseCode() !== 200) {
+      throw new Error('Erro ao renovar token Bling: ' + JSON.stringify(data));
+    }
+
+    // Salvar novos tokens
+    saveBlingTokens(data.access_token, data.refresh_token, data.expires_in);
+
+    return data.access_token;
+  } finally {
+    lock.releaseLock();
   }
-
-  // Salvar novos tokens
-  saveBlingTokens(data.access_token, data.refresh_token, data.expires_in);
-
-  return data.access_token;
 }
 
 // Fazer requisicao a API do Bling
@@ -1016,6 +1031,9 @@ function doPost(e) {
       case 'setup_roteamento_os_v1':
         return jsonResponse(setupRoteamentoOsV1(body));
 
+      case 'reprocessar_bling_v1':
+        return jsonResponse(reprocessarBlingV1(body));
+
       // --- Atendimentos (NXT SAC Fase 1) ---
       case 'registrar_atendimento':
         return jsonResponse(registrarAtendimento(body));
@@ -1554,6 +1572,121 @@ function registrarVenda(dados) {
 
   resultado.sucesso = resultado.planilha || resultado.bling;
   return resultado;
+}
+
+// Reutilizavel (idempotente): reenvia ao Bling os pedidos da aba PEDIDOS marcados
+// com erro de renovacao de token (o refresh token morreu 12-13/07/2026 e os pedidos
+// so gravaram na planilha). Reconstroi os dados a partir da aba Registros — unica
+// fonte com CPF e pecas em JSON. POST {action:'reprocessar_bling_v1', confirmar:'SIM'}.
+// Se estourar o tempo, rode de novo: linhas que viraram OK nao sao reprocessadas.
+function reprocessarBlingV1(body) {
+  if (!body || body.confirmar !== 'SIM') {
+    return { sucesso: false, erro: 'mande {"confirmar":"SIM"} para executar' };
+  }
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('PEDIDOS');
+    var reg = ss.getSheetByName(ABA_REGISTROS);
+    if (!sheet || !reg) {
+      return { sucesso: false, erro: 'aba PEDIDOS ou Registros nao encontrada' };
+    }
+
+    var valores = sheet.getDataRange().getValues();
+    var regValores = reg.getDataRange().getValues();
+
+    // Indexar Registros por id (col A)
+    var regPorId = {};
+    for (var r = 1; r < regValores.length; r++) {
+      regPorId[String(regValores[r][0]).trim()] = regValores[r];
+    }
+
+    var resultado = { processados: 0, ok: 0, falhas: [] };
+    var inicio = Date.now();
+
+    for (var i = 1; i < valores.length; i++) {
+      var status = String(valores[i][31] || '');
+      if (status.indexOf('ERRO: Erro ao renovar token') !== 0) continue;
+
+      // Web app tem limite de 6 min; para com folga e continua na proxima chamada
+      if (Date.now() - inicio > 270000) {
+        resultado.falhas.push('tempo esgotado — rode de novo para continuar');
+        break;
+      }
+
+      var id = String(valores[i][1] || '').trim();
+      resultado.processados++;
+
+      var linhaReg = regPorId[id];
+      if (!linhaReg) {
+        resultado.falhas.push(id + ': sem linha na aba Registros');
+        continue;
+      }
+
+      var pecas;
+      try {
+        pecas = JSON.parse(linhaReg[19] || '[]');
+      } catch (e) {
+        resultado.falhas.push(id + ': pecas ilegiveis no Registros');
+        continue;
+      }
+
+      var dados = {
+        id: id,
+        tipoAtendimento: linhaReg[2],
+        origemSac: linhaReg[3],
+        protocoloSac: linhaReg[4],
+        dataVenda: dataParaISO_(linhaReg[5]),
+        vendedor: linhaReg[6],
+        prevEmbarque: linhaReg[7],
+        nomeCliente: linhaReg[8],
+        tipoCliente: linhaReg[9],
+        cpfCnpjCliente: String(linhaReg[10] || ''),
+        ieCliente: linhaReg[11],
+        telefoneCliente: String(linhaReg[12] || ''),
+        enderecoCliente: linhaReg[13],
+        numeroCliente: linhaReg[14],
+        bairroCliente: linhaReg[15],
+        cidadeCliente: linhaReg[16],
+        ufCliente: linhaReg[17],
+        cepCliente: String(linhaReg[18] || ''),
+        pecas: pecas,
+        formaPagamento: linhaReg[20],
+        parcelas: linhaReg[21],
+        urgencia: linhaReg[22],
+        transportadora: linhaReg[23],
+        valorFrete: linhaReg[24],
+        pesoVolume: linhaReg[25],
+        observacoes: linhaReg[26],
+        totalPecas: linhaReg[27],
+        totalGeral: linhaReg[28]
+      };
+
+      try {
+        var pedidoId = enviarPedidoBling(dados);
+        atualizarBlingStatus(i + 1, 'OK', pedidoId);
+        resultado.ok++;
+      } catch (errB) {
+        atualizarBlingStatus(i + 1, 'ERRO: ' + errB.message, '');
+        resultado.falhas.push(id + ': ' + errB.message);
+      }
+    }
+
+    resultado.sucesso = true;
+    return resultado;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// getValues devolve Date quando a celula virou data; o Bling espera 'yyyy-MM-dd'
+function dataParaISO_(v) {
+  if (v instanceof Date) {
+    return Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+  return String(v || '');
 }
 
 // ========================================
