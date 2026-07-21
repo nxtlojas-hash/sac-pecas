@@ -1158,11 +1158,21 @@ function getOrcamentosSheet() {
   var sheet = ss.getSheetByName(ABA_ORCAMENTOS);
   if (!sheet) {
     sheet = ss.insertSheet(ABA_ORCAMENTOS);
+    ensureOrcTextFormat_(sheet);
     sheet.appendRow(ORC_HEADERS);
     sheet.getRange(1, 1, 1, ORC_HEADERS.length).setFontWeight('bold');
     sheet.setFrozenRows(1);
   }
   return sheet;
+}
+
+// Formata as colunas como TEXTO PURO para datas (e telefone/doc) nao virarem
+// objeto Date/numero na gravacao — a planilha antiga guardava "2026-07-21" como
+// texto e o frontend depende disso (formatarDataOrc, filtro de data, auto-expira).
+function ensureOrcTextFormat_(sheet) {
+  try {
+    sheet.getRange(1, 1, sheet.getMaxRows(), ORC_HEADERS.length).setNumberFormat('@');
+  } catch (e) { /* nao bloqueia o fluxo */ }
 }
 
 // EXECUTAR UMA VEZ no editor: cria a planilha "SAC Orcamentos" (sob a conta do script),
@@ -1175,7 +1185,8 @@ function setupOrcamentosSpreadsheet() {
     var ssExist = null;
     try { ssExist = SpreadsheetApp.openById(existing); } catch (e) { ssExist = null; }
     if (ssExist) {
-      getOrcamentosSheet(); // garante aba + cabecalho
+      var shExist = getOrcamentosSheet(); // garante aba + cabecalho
+      ensureOrcTextFormat_(shExist);      // corrige formato (datas como texto puro)
       var jaMsg = 'JA EXISTIA | nome=' + ssExist.getName() + ' | id=' + existing + ' | url=' + ssExist.getUrl();
       Logger.log(jaMsg);
       return jaMsg;
@@ -1187,6 +1198,7 @@ function setupOrcamentosSpreadsheet() {
 
   var sheet = ss.getSheets()[0];
   sheet.setName(ABA_ORCAMENTOS);
+  ensureOrcTextFormat_(sheet);
   sheet.appendRow(ORC_HEADERS);
   sheet.getRange(1, 1, 1, ORC_HEADERS.length).setFontWeight('bold');
   sheet.setFrozenRows(1);
