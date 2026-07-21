@@ -41,6 +41,18 @@
 var BLING_API_BASE = 'https://api.bling.com.br/Api/v3';
 var PASTA_PDF_ORCAMENTOS = '1rTamTXwXDFWIi_0YLgFD1MdzMigcPlNr';
 var ABA_ORCAMENTOS = 'Orcamentos';
+
+// Planilha SEPARADA "SAC Orcamentos" (decisao 21/07/2026): os NOVOS orcamentos gravam
+// nela; os antigos ficam na planilha ativa "Pedido de pecas" como historico (tela limpa).
+// Runtime le a ScriptProperty 'ORCAMENTOS_SHEET_ID' primeiro; a constante abaixo e o
+// fallback versionado — preenchida depois de rodar setupOrcamentosSpreadsheet() no editor.
+var ORCAMENTOS_SHEET_ID = '';
+var ORC_HEADERS = [
+  'Numero', 'Data', 'DataValidade', 'Status', 'DataAprovacao',
+  'ClienteNome', 'ClienteTelefone', 'ClienteDocumento', 'ClienteEmail',
+  'Vendedor', 'Pecas', 'PesoTotal', 'Total', 'Observacoes', 'PdfUrl', 'atendimentoId'
+];
+
 var ABA_REGISTROS = 'Registros';
 var ABA_PECAS = 'Pecas';
 var ABA_ESTOQUE = 'Estoque';
@@ -1122,6 +1134,82 @@ function getSheet(abaName) {
   return sheet;
 }
 
+// ========================================
+// PLANILHA SEPARADA DE ORCAMENTOS (SAC Orcamentos)
+// ========================================
+
+// ID efetivo da planilha de orcamentos: ScriptProperty tem prioridade sobre a constante.
+function getOrcamentosSpreadsheetId_() {
+  var pid = '';
+  try {
+    pid = PropertiesService.getScriptProperties().getProperty('ORCAMENTOS_SHEET_ID') || '';
+  } catch (e) { pid = ''; }
+  return pid || ORCAMENTOS_SHEET_ID || '';
+}
+
+// Retorna a aba "Orcamentos" da planilha SEPARADA, criando-a com cabecalho se faltar.
+// Substitui getSheet(ABA_ORCAMENTOS) em todo o fluxo de orcamentos.
+function getOrcamentosSheet() {
+  var id = getOrcamentosSpreadsheetId_();
+  if (!id) {
+    throw new Error('ORCAMENTOS_SHEET_ID nao configurado. Rode setupOrcamentosSpreadsheet() no editor uma vez.');
+  }
+  var ss = SpreadsheetApp.openById(id);
+  var sheet = ss.getSheetByName(ABA_ORCAMENTOS);
+  if (!sheet) {
+    sheet = ss.insertSheet(ABA_ORCAMENTOS);
+    sheet.appendRow(ORC_HEADERS);
+    sheet.getRange(1, 1, 1, ORC_HEADERS.length).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+// EXECUTAR UMA VEZ no editor: cria a planilha "SAC Orcamentos" (sob a conta do script),
+// move para a pasta SAC/Orcamentos (mesma dos PDFs) e grava o ID na ScriptProperty.
+// Idempotente: se ja existir um ID valido, apenas garante a aba/cabecalho.
+function setupOrcamentosSpreadsheet() {
+  var props = PropertiesService.getScriptProperties();
+  var existing = getOrcamentosSpreadsheetId_();
+  if (existing) {
+    var ssExist = null;
+    try { ssExist = SpreadsheetApp.openById(existing); } catch (e) { ssExist = null; }
+    if (ssExist) {
+      getOrcamentosSheet(); // garante aba + cabecalho
+      var jaMsg = 'JA EXISTIA | nome=' + ssExist.getName() + ' | id=' + existing + ' | url=' + ssExist.getUrl();
+      Logger.log(jaMsg);
+      return jaMsg;
+    }
+  }
+
+  var ss = SpreadsheetApp.create('SAC Orcamentos');
+  var id = ss.getId();
+
+  var sheet = ss.getSheets()[0];
+  sheet.setName(ABA_ORCAMENTOS);
+  sheet.appendRow(ORC_HEADERS);
+  sheet.getRange(1, 1, 1, ORC_HEADERS.length).setFontWeight('bold');
+  sheet.setFrozenRows(1);
+
+  // Move o arquivo para a pasta SAC/Orcamentos (mesma dos PDFs)
+  var pastaInfo = 'raiz do Drive';
+  try {
+    var file = DriveApp.getFileById(id);
+    var folder = DriveApp.getFolderById(PASTA_PDF_ORCAMENTOS);
+    folder.addFile(file);
+    DriveApp.getRootFolder().removeFile(file);
+    pastaInfo = folder.getName();
+  } catch (eMove) {
+    pastaInfo = 'raiz do Drive (falha ao mover: ' + eMove.message + ')';
+  }
+
+  props.setProperty('ORCAMENTOS_SHEET_ID', id);
+
+  var out = 'CRIADA | nome=SAC Orcamentos | id=' + id + ' | pasta=' + pastaInfo + ' | url=' + ss.getUrl();
+  Logger.log(out);
+  return out;
+}
+
 function formatDate(date) {
   return Utilities.formatDate(date, Session.getScriptTimeZone(), 'yyyy-MM-dd');
 }
@@ -1146,7 +1234,7 @@ function formatValorGAS(valor) {
 // ========================================
 
 function salvarOrcamento(dados) {
-  var sheet = getSheet(ABA_ORCAMENTOS);
+  var sheet = getOrcamentosSheet();
 
   var pecasJson = '';
   try {
@@ -1212,7 +1300,7 @@ function salvarOrcamento(dados) {
 }
 
 function listarOrcamentos(busca, status, data) {
-  var sheet = getSheet(ABA_ORCAMENTOS);
+  var sheet = getOrcamentosSheet();
   var dataRange = sheet.getDataRange();
   var values = dataRange.getValues();
 
@@ -1268,7 +1356,7 @@ function listarOrcamentos(busca, status, data) {
 function buscarOrcamento(numero) {
   if (!numero) return { sucesso: false, erro: 'Numero nao informado' };
 
-  var sheet = getSheet(ABA_ORCAMENTOS);
+  var sheet = getOrcamentosSheet();
   var dataRange = sheet.getDataRange();
   var values = dataRange.getValues();
 
@@ -1312,7 +1400,7 @@ function atualizarStatusOrcamento(numero, novoStatus) {
   if (!numero) return { sucesso: false, erro: 'Numero nao informado' };
   if (!novoStatus) return { sucesso: false, erro: 'Status nao informado' };
 
-  var sheet = getSheet(ABA_ORCAMENTOS);
+  var sheet = getOrcamentosSheet();
   var dataRange = sheet.getDataRange();
   var values = dataRange.getValues();
 
@@ -1466,7 +1554,7 @@ function gerarPdfOrcamento(numero) {
 }
 
 function savePdfUrlToSheet(numero, pdfUrl) {
-  var sheet = getSheet(ABA_ORCAMENTOS);
+  var sheet = getOrcamentosSheet();
   var dataRange = sheet.getDataRange();
   var values = dataRange.getValues();
 
@@ -3238,7 +3326,8 @@ function vincularDocAtendimento(payload) {
   if (!nomeAba) return { sucesso: false, erro: 'tipoDoc invalido' };
 
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(nomeAba);
+  // Orcamentos vivem na planilha SEPARADA; o resto continua na planilha ativa.
+  var sheet = (nomeAba === ABA_ORCAMENTOS) ? getOrcamentosSheet() : ss.getSheetByName(nomeAba);
   if (!sheet) return { sucesso: false, erro: 'Aba "' + nomeAba + '" nao existe' };
 
   var colAt = getColAtendimentoId(sheet);
