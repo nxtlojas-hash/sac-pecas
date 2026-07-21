@@ -1245,6 +1245,17 @@ function formatValorGAS(valor) {
 // ORCAMENTOS (QUOTES)
 // ========================================
 
+// Normaliza data para 'yyyy-MM-dd' na LEITURA. O Sheets converte "2026-07-21"
+// em objeto Date na gravacao (appendRow = USER_ENTERED) mesmo com coluna texto;
+// getValues devolve Date -> aqui reformatamos para o ISO que o frontend espera.
+function fmtDataOrc_(v) {
+  if (v == null || v === '') return '';
+  if (Object.prototype.toString.call(v) === '[object Date]') {
+    return Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+  return String(v);
+}
+
 function salvarOrcamento(dados) {
   var sheet = getOrcamentosSheet();
 
@@ -1327,8 +1338,8 @@ function listarOrcamentos(busca, status, data) {
     var row = values[i];
     var orc = {
       numero: String(row[0] || ''),
-      data: String(row[1] || ''),
-      dataValidade: String(row[2] || ''),
+      data: fmtDataOrc_(row[1]),
+      dataValidade: fmtDataOrc_(row[2]),
       status: String(row[3] || 'pendente'),
       cliente: String(row[5] || ''),
       telefone: String(row[6] || ''),
@@ -1386,10 +1397,10 @@ function buscarOrcamento(numero) {
         sucesso: true,
         orcamento: {
           numero: String(row[0]),
-          data: String(row[1] || ''),
-          dataValidade: String(row[2] || ''),
+          data: fmtDataOrc_(row[1]),
+          dataValidade: fmtDataOrc_(row[2]),
           status: String(row[3] || 'pendente'),
-          dataAprovacao: String(row[4] || ''),
+          dataAprovacao: fmtDataOrc_(row[4]),
           clienteNome: String(row[5] || ''),
           clienteTelefone: String(row[6] || ''),
           clienteDocumento: String(row[7] || ''),
