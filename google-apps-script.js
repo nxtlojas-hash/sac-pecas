@@ -46,7 +46,7 @@ var ABA_ORCAMENTOS = 'Orcamentos';
 // nela; os antigos ficam na planilha ativa "Pedido de pecas" como historico (tela limpa).
 // Runtime le a ScriptProperty 'ORCAMENTOS_SHEET_ID' primeiro; a constante abaixo e o
 // fallback versionado — preenchida depois de rodar setupOrcamentosSpreadsheet() no editor.
-var ORCAMENTOS_SHEET_ID = '';
+var ORCAMENTOS_SHEET_ID = '1HoYsY9rQKZnJv91z_gJ-5_phKSo8L0Xci7MraByObZw';
 var ORC_HEADERS = [
   'Numero', 'Data', 'DataValidade', 'Status', 'DataAprovacao',
   'ClienteNome', 'ClienteTelefone', 'ClienteDocumento', 'ClienteEmail',
