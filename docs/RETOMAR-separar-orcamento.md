@@ -1,5 +1,12 @@
 # RETOMAR — SAC: planilha separada de orçamentos
 
+> ## ✅ CONCLUÍDO (22/07/2026) — não re-fazer
+> Separação feita (v41, outra sessão) + fix do 360°-cliente (`buscarClienteConsolidado`
+> lendo as 2 planilhas) publicado na **v42** pela conta dona nxt.lojas. Detalhes e a
+> **lição da conta no deploy** estão no `PAINEL-NXT.md` (Histórico 22/07) e na memória
+> `project_sac_pecas.md`. Este doc fica como registro histórico do raciocínio.
+
+
 > Handoff de 21/07/2026. Este arquivo é lido do disco (UTF-8) — não é colado,
 > então nunca embaralha. A sessão nova lê isto + `C:\dev\NXT\PAINEL-NXT.md`.
 
