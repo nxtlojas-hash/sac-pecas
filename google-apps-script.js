@@ -3570,31 +3570,36 @@ function buscarClienteConsolidado(query) {
     });
   }
 
-  // ORCAMENTOS
-  var shO = ss.getSheetByName('Orcamentos');
-  if (shO && shO.getLastRow() > 1) {
+  // ORCAMENTOS — layout POSICIONAL canonico (ver salvarOrcamento/ORC_HEADERS):
+  //   0=Numero 1=Data 3=Status 5=ClienteNome 6=ClienteTelefone 7=ClienteDocumento 15=atendimentoId
+  // Le a planilha ANTIGA (legado, aba na "Pedido de pecas") E a NOVA ("SAC Orcamentos"),
+  // dedup por numero. Antes lia por nome de cabecalho errado ('documento'/'cliente') e
+  // nao casava nada — nenhum orcamento aparecia aqui, nem antes da separacao.
+  var orcVistos = {};
+  function coletarOrcamentos_(shO) {
+    if (!shO || shO.getLastRow() < 2) return;
     var ultO = shO.getLastColumn();
-    var headersO = shO.getRange(1, 1, 1, ultO).getValues()[0];
-    var iCpfO = headersO.indexOf('documento'); if (iCpfO < 0) iCpfO = headersO.indexOf('cpf');
-    var iTelO = headersO.indexOf('telefone');
-    var iNomeO = headersO.indexOf('cliente'); if (iNomeO < 0) iNomeO = headersO.indexOf('nome');
-    var iDataO = headersO.indexOf('data'); if (iDataO < 0) iDataO = 1;
-    var iAtO = headersO.indexOf('atendimentoId');
     var dadosO = shO.getRange(2, 1, shO.getLastRow() - 1, ultO).getValues();
     dadosO.forEach(function(r) {
-      var cpf = iCpfO >= 0 ? String(r[iCpfO] || '').replace(/\D/g, '') : '';
-      var tel = iTelO >= 0 ? String(r[iTelO] || '').replace(/\D/g, '') : '';
-      var nome = iNomeO >= 0 ? r[iNomeO] : '';
+      var numero = String(r[0] || '');
+      if (!numero || orcVistos[numero]) return;
+      var cpf = String(r[7] || '').replace(/\D/g, '');   // ClienteDocumento
+      var tel = String(r[6] || '').replace(/\D/g, '');   // ClienteTelefone
+      var nome = r[5] || '';                              // ClienteNome
       if (!pertence(cpf, tel, nome)) return;
+      orcVistos[numero] = true;
       add(cpf, tel, nome, '', {
         tipo: 'orcamento',
-        id: r[0],
-        data: r[iDataO],
+        id: numero,
+        data: r[1],                                       // Data
         resumo: 'Orcamento',
-        atendimentoId: iAtO >= 0 ? r[iAtO] : ''
+        status: String(r[3] || ''),
+        atendimentoId: ultO >= 16 ? r[15] : ''            // atendimentoId
       });
     });
   }
+  try { coletarOrcamentos_(ss.getSheetByName(ABA_ORCAMENTOS)); } catch (eOrcLeg) {}
+  try { coletarOrcamentos_(getOrcamentosSheet()); } catch (eOrcNovo) {}
 
   // OSes / Assistencias
   [ABA_ASSISTENCIAS].forEach(function(nomeAba) {
