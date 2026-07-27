@@ -639,62 +639,84 @@ Not-tested: duas pessoas mudando a mesma OS ao mesmo tempo (o lock cobre, nao fo
 **Regra de precedência (defina e respeite):** o último a mover ganha, e a aba `HistoricoOS` guarda quem foi. A assistência **não pode** voltar status (só avançar) nem fechar a OS — "Pronto p/ retirar" é o teto dela. Isso evita a briga que a decisão "os dois" naturalmente cria, sem precisar de hierarquia de usuário.
 
 **Files:**
+- Modify: `lib/status-os.js` (ganha `podeAssistenciaMover`, ao lado de `montarOpcoesStatus`)
+- Modify: `tests/status-os.test.js` (ganha os 4 testes da regra de avanço)
 - Modify: `google-apps-script.js` (token por OS + action pública `os_assistencia`)
 - Modify: `assistencia.js` (o PDF/WhatsApp da assistência passa a levar o link)
+- Modify: `app.js` (rota `?view=osassist`, ao lado da `?view=acompanhar` já existente)
 
 **Interfaces:**
-- Consumes: `atualizarStatusOS` (Task 2), `ETAPAS_OS`.
-- Produces: `tokenOS_(numeroOS) → string` (HMAC curto, determinístico) · action `os_assistencia` (GET, sem login).
+- Consumes: `atualizarStatusOS` (Task 2), `ETAPAS_OS`, `montarOpcoesStatus` (Task 2, mesmo arquivo).
+- Produces: `podeAssistenciaMover(de, para, etapas) → boolean` (pura, em `lib/status-os.js`) · `tokenOS_(numeroOS) → string` (HMAC curto, determinístico) · action `os_assistencia` (GET, sem login).
 
 - [ ] **Step 1: Teste da função pura de precedência**
 
-Acrescentar em `tests/os-numero.test.js`:
+⚠️ **Mudou depois da Task 2:** esta função é lógica de **status**, não de numeração — vai em
+`lib/status-os.js` (criado na Task 2, onde já mora `montarOpcoesStatus`), e o teste vai em
+`tests/status-os.test.js`. E ela recebe `etapas` como **parâmetro**, seguindo o que a Task 2
+estabeleceu: nada de uma segunda cópia hardcoded do enum no cliente.
+
+Acrescentar em `tests/status-os.test.js`:
 
 ```javascript
-const { podeAssistenciaMover } = require('../lib/os-numero.js');
+const { podeAssistenciaMover } = require('../lib/status-os.js');
+
+const ETAPAS = ['Aberta', 'Em análise', 'Aguardando aprovação', 'Em conserto', 'Pronto p/ retirar'];
 
 test('assistencia avanca dentro do permitido', () => {
-  assert.strictEqual(podeAssistenciaMover('Aberta', 'Em análise'), true);
-  assert.strictEqual(podeAssistenciaMover('Em análise', 'Pronto p/ retirar'), true);
+  assert.strictEqual(podeAssistenciaMover('Aberta', 'Em análise', ETAPAS), true);
+  assert.strictEqual(podeAssistenciaMover('Em análise', 'Pronto p/ retirar', ETAPAS), true);
 });
 
 test('assistencia NAO volta status', () => {
-  assert.strictEqual(podeAssistenciaMover('Em conserto', 'Aberta'), false);
+  assert.strictEqual(podeAssistenciaMover('Em conserto', 'Aberta', ETAPAS), false);
 });
 
 test('assistencia NAO mexe no que ja esta pronto', () => {
-  assert.strictEqual(podeAssistenciaMover('Pronto p/ retirar', 'Em conserto'), false);
+  assert.strictEqual(podeAssistenciaMover('Pronto p/ retirar', 'Em conserto', ETAPAS), false);
+});
+
+// O caso real: toda OS nasce com 'Em andamento', que NAO esta no enum. A assistencia
+// nao pode ficar travada por causa disso — status fora do padrao trata como 'Aberta'.
+test('status legado fora do enum nao trava a assistencia', () => {
+  assert.strictEqual(podeAssistenciaMover('Em andamento', 'Em análise', ETAPAS), true);
 });
 ```
 
 - [ ] **Step 2: Rodar e ver falhar**
 
-Run: `node --test tests/os-numero.test.js`
+Run: `node --test tests/status-os.test.js`
 Expected: FAIL — `podeAssistenciaMover is not a function`
 
 - [ ] **Step 3: Implementar**
 
-Em `lib/os-numero.js`:
+Em `lib/status-os.js` (junto de `montarOpcoesStatus`, **não** em `os-numero.js`):
 
 ```javascript
-var ETAPAS_OS_LIB = ['Aberta', 'Em análise', 'Aguardando aprovação', 'Em conserto', 'Pronto p/ retirar'];
-
 // A assistencia so AVANCA, e para no 'Pronto p/ retirar'. Quem fecha e o SAC.
-function podeAssistenciaMover(de, para) {
-  var i = ETAPAS_OS_LIB.indexOf(String(de || 'Aberta'));
-  var j = ETAPAS_OS_LIB.indexOf(String(para || ''));
-  if (i === -1 || j === -1) return false;
-  if (i >= ETAPAS_OS_LIB.length - 1) return false;
+// 'etapas' vem de fora (mesma convencao de montarOpcoesStatus) para nao existir
+// uma segunda copia do enum divergindo de ETAPAS_OS no servidor.
+// Status fora do enum (o caso real: toda OS nasce 'Em andamento') e tratado como
+// o inicio da fila — senao a assistencia ficaria travada em 100% das OS de hoje.
+function podeAssistenciaMover(de, para, etapas) {
+  etapas = etapas || [];
+  var i = etapas.indexOf(String(de == null ? '' : de).trim());
+  if (i === -1) i = 0;
+  var j = etapas.indexOf(String(para == null ? '' : para).trim());
+  if (j === -1) return false;
+  if (i >= etapas.length - 1) return false;
   return j > i;
 }
 
-if (typeof module !== 'undefined') module.exports = { pareceNumeroOS, podeAssistenciaMover };
+if (typeof module !== 'undefined') module.exports = { montarOpcoesStatus, podeAssistenciaMover };
 ```
+
+⚠️ Ao colar no Apps Script, passe o `ETAPAS_OS` do servidor como terceiro argumento.
 
 - [ ] **Step 4: Rodar e ver passar**
 
-Run: `node --test tests/os-numero.test.js`
-Expected: PASS (7 testes)
+Run: `node --test tests/status-os.test.js`
+Expected: PASS (8 testes — os 4 de `montarOpcoesStatus` da Task 2 + os 4 novos)
 
 - [ ] **Step 5: Token e página da assistência**
 
@@ -727,7 +749,7 @@ function osAssistencia(os, token, novo) {
   if (!alvo) return { ok: false };
 
   if (novo) {
-    if (!podeAssistenciaMover(alvo.status, novo)) {
+    if (!podeAssistenciaMover(alvo.status, novo, ETAPAS_OS)) {
       return { ok: false, erro: 'Movimento nao permitido', status: alvo.status, etapas: ETAPAS_OS };
     }
     var r = atualizarStatusOS(numero, novo, 'assistencia', alvo.assistencia);
@@ -762,7 +784,7 @@ Abrir uma OS de teste pelo formulário, pegar o `linkAssistencia` do retorno, ab
 - [ ] **Step 8: Commit**
 
 ```bash
-git add lib/os-numero.js tests/os-numero.test.js google-apps-script.js assistencia.js app.js
+git add lib/status-os.js tests/status-os.test.js google-apps-script.js assistencia.js app.js
 git commit -m "feat(os): link para a assistencia avancar o status da OS
 
 Decisao dela (27/07): status movido pelos dois — SAC pela tela, assistencia por link.
