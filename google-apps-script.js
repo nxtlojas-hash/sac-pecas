@@ -929,6 +929,10 @@ function doGet(e) {
           telefone: e.parameter.telefone
         }));
 
+      // --- Busca de OS por numero, nas 3 fontes (Task 1 reorg 2026-07-27) ---
+      case 'buscar_os':
+        return jsonResponse(buscarOS(e.parameter.numero || e.parameter.os || ''));
+
       // --- Acompanhamento publico da OS (QR / link do cliente) ---
       case 'status_publico':
         return jsonResponse(statusPublicoOS(e.parameter.os));
@@ -3952,6 +3956,123 @@ function statusPublicoOS(os) {
     };
   }
   return { ok: false };
+}
+
+// ========================================
+// BUSCA DE OS POR NUMERO (Task 1 reorg 2026-07-27)
+// A busca de atendimentos nunca incluia o numero da OS, e a serie antiga
+// (0001-0717) ficou orfa na aba 'Assistencias parceiras' apos o incidente de
+// renomeacao de 06/07 — nenhuma busca a lia. Esta funcao procura nas 3 fontes:
+// master atual, serie antiga (sem cabecalho) e aba manual da Sumare.
+// ========================================
+
+// Decide se um texto de busca e um numero de OS. Aceita "OS-2026-0426",
+// "os 2026 0426" e o numero solto ("426") — que e como a equipe digita.
+// Rejeita protocolo de atendimento (PV-), CPF e telefone (digitos demais).
+function pareceNumeroOS(texto) {
+  var s = String(texto || '').trim();
+  if (!s) return false;
+  if (/^pv/i.test(s)) return false;
+  if (/^os/i.test(s)) return true;
+  var soDigitos = s.replace(/\D/g, '');
+  if (soDigitos !== s.replace(/[\s.\-\/]/g, '')) return false; // tem letra
+  return soDigitos.length >= 1 && soDigitos.length <= 4;
+}
+
+// Procura uma OS pelo numero em TODAS as fontes. A serie antiga (0001..0717)
+// vive na aba 'Assistencias parceiras' (antigo master renomeado no incidente
+// de 06/07, SEM cabecalho, colunas fixas B=numero C=cliente) e a aba manual da
+// Sumare tem cabecalho. A faixa 0001..0093 existe DUAS vezes, para clientes
+// diferentes — por isso o retorno e uma LISTA, nunca um objeto.
+function buscarOSPorNumero_(numero) {
+  var chave = chaveNumeroOS_(numero);
+  if (!chave) return [];
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var achados = [];
+
+  // 1. Master atual (AssistenciasTecnicas) — colunas conhecidas de registrarOS
+  var mestre = ss.getSheetByName(ABA_ASSISTENCIAS);
+  if (mestre && mestre.getLastRow() > 1) {
+    var dm = mestre.getDataRange().getValues();
+    var colAt = getColAtendimentoId(mestre);
+    for (var i = 1; i < dm.length; i++) {
+      if (chaveNumeroOS_(dm[i][1]) !== chave) continue;
+      achados.push({
+        numeroOS: String(dm[i][1] || ''),
+        fonte: 'master',
+        linha: i + 1,
+        cliente: String(dm[i][2] || ''),
+        cpf: String(dm[i][3] || ''),
+        telefone: String(dm[i][4] || ''),
+        modelo: String(dm[i][11] || ''),
+        chassi: String(dm[i][12] || ''),
+        problema: String(dm[i][19] || ''),
+        assistencia: String(dm[i][16] || ''),
+        status: String(dm[i][21] || 'Aberta'),
+        atendimentoId: colAt > 0 ? String(dm[i][colAt - 1] || '') : '',
+        data: dm[i][0] instanceof Date
+          ? Utilities.formatDate(dm[i][0], Session.getScriptTimeZone(), 'dd/MM/yyyy') : ''
+      });
+    }
+  }
+
+  // 2. Serie antiga (Assistencias parceiras) — sem cabecalho, B=numero C=cliente
+  // ATENCAO: usar encontrarAbaNormalizada_ (:2203), NAO getSheetByName. O nome real
+  // da aba na planilha e 'Assistencias parceiras ' COM ESPACO NO FIM (provado pelo
+  // inventario ao vivo de 27/07); getSheetByName e exato e devolveria null, deixando
+  // as 804 OS da serie antiga invisiveis — exatamente o bug que esta task conserta.
+  var antiga = encontrarAbaNormalizada_(ABA_ESPELHO_PARCEIRAS);
+  if (antiga && antiga.getLastRow() >= 1) {
+    var da = antiga.getRange(1, 1, antiga.getLastRow(), Math.min(antiga.getLastColumn(), 12)).getValues();
+    for (var j = 0; j < da.length; j++) {
+      if (chaveNumeroOS_(da[j][1]) !== chave) continue;
+      achados.push({
+        numeroOS: String(da[j][1] || ''),
+        fonte: 'serie-antiga',
+        linha: j + 1,
+        cliente: String(da[j][2] || ''),
+        cpf: '', telefone: '', modelo: '', chassi: '', problema: '',
+        assistencia: '', status: '', atendimentoId: '',
+        data: da[j][0] instanceof Date
+          ? Utilities.formatDate(da[j][0], Session.getScriptTimeZone(), 'dd/MM/yyyy') : ''
+      });
+    }
+  }
+
+  // 3. Aba manual da Sumare — por cabecalho, numeros digitados a mao.
+  // Mesmo motivo do item 2: a aba real se chama ' ASSISTENCIA SUMARE ' com espaco
+  // dos DOIS lados. Sempre encontrarAbaNormalizada_ para as abas de espelho.
+  var sumare = encontrarAbaNormalizada_(ABA_ESPELHO_SUMARE);
+  if (sumare && sumare.getLastRow() > 1) {
+    var cols = mapearColunasPorCabecalho_(sumare);
+    if ('numero os' in cols) {
+      var ds = sumare.getRange(2, 1, sumare.getLastRow() - 1, sumare.getLastColumn()).getValues();
+      for (var k = 0; k < ds.length; k++) {
+        if (chaveNumeroOS_(ds[k][cols['numero os']]) !== chave) continue;
+        achados.push({
+          numeroOS: String(ds[k][cols['numero os']] || ''),
+          fonte: 'sumare-manual',
+          linha: k + 2,
+          cliente: 'cliente' in cols ? String(ds[k][cols['cliente']] || '') : '',
+          cpf: '', telefone: '', modelo: '', chassi: '', problema: '',
+          assistencia: 'Sumare', status: '', atendimentoId: '', data: ''
+        });
+      }
+    }
+  }
+
+  return achados;
+}
+
+function buscarOS(numero) {
+  var achados = buscarOSPorNumero_(numero);
+  return {
+    ok: true,
+    numero: String(numero || ''),
+    total: achados.length,
+    ambiguo: achados.length > 1,
+    resultados: achados
+  };
 }
 
 // ========================================

@@ -70,7 +70,7 @@
             '<input type="date" id="alDataAte">' +
           '</div>' +
           '<div class="form-group" style="flex:2 1 200px;">' +
-            '<label for="alBusca">Busca (protocolo, nome, CPF, telefone)</label>' +
+            '<label for="alBusca">Busca (protocolo, OS, nome, CPF, telefone)</label>' +
             '<input type="text" id="alBusca" placeholder="Digite parte do texto...">' +
           '</div>' +
         '</div>' +
@@ -83,6 +83,7 @@
         '</div>' +
       '</div>' +
 
+      '<div id="alBlocoOS"></div>' +
       '<div id="alFeedback" style="margin-top:0.5rem;"></div>' +
       '<div id="alLista" style="margin-top:1rem;"></div>';
   }
@@ -99,6 +100,7 @@
 
   function carregarAtendimentos() {
     mostrarFeedback('Carregando...', 'info');
+    limparBlocoOS();
     var params = ['action=listar_atendimentos', 'limite=200'];
     if (filtrosAtivos.status) params.push('status=' + encodeURIComponent(filtrosAtivos.status));
     if (filtrosAtivos.categoria) params.push('categoria=' + encodeURIComponent(filtrosAtivos.categoria));
@@ -106,6 +108,10 @@
     if (filtrosAtivos.dataDe) params.push('dataDe=' + encodeURIComponent(filtrosAtivos.dataDe));
     if (filtrosAtivos.dataAte) params.push('dataAte=' + encodeURIComponent(filtrosAtivos.dataAte));
     if (filtrosAtivos.busca) params.push('busca=' + encodeURIComponent(filtrosAtivos.busca));
+
+    if (filtrosAtivos.busca && typeof pareceNumeroOS === 'function' && pareceNumeroOS(filtrosAtivos.busca)) {
+      buscarOSNaBusca(filtrosAtivos.busca);
+    }
 
     fetch(resolverUrl() + '?' + params.join('&'))
       .then(function(r) { return r.json(); })
@@ -141,6 +147,66 @@
     });
     filtrosAtivos = {};
     carregarAtendimentos();
+  }
+
+  // Busca de OS fora dos atendimentos (Task 1 reorg 2026-07-27): quando o texto
+  // digitado parece numero de OS, busca tambem nas 3 fontes (master + serie
+  // antiga orfa + aba manual da Sumare) e mostra num bloco separado, ja que
+  // essas OS podem nao ter (ou nunca ter tido) atendimento vinculado.
+  function buscarOSNaBusca(termo) {
+    fetch(resolverUrl() + '?action=buscar_os&numero=' + encodeURIComponent(termo))
+      .then(function(r) { return r.json(); })
+      .then(function(resp) {
+        if (resp && resp.ok) renderBlocoOS(resp);
+      })
+      .catch(function() { /* silencioso - a busca de atendimentos segue normal */ });
+  }
+
+  function limparBlocoOS() {
+    var div = document.getElementById('alBlocoOS');
+    if (div) div.innerHTML = '';
+  }
+
+  function renderBlocoOS(resp) {
+    var div = document.getElementById('alBlocoOS');
+    if (!div) return;
+    if (!resp.resultados || !resp.resultados.length) { div.innerHTML = ''; return; }
+
+    var itens = resp.resultados.map(function(r) {
+      var btn = r.atendimentoId
+        ? '<button type="button" class="btn-secundario btn-sm al-btn-os-atendimento" data-atendimento-id="' + escapeHtmlAt(r.atendimentoId) + '" style="margin-top:0.4rem;">Ver atendimento ' + escapeHtmlAt(r.atendimentoId) + '</button>'
+        : '';
+      return '<div style="background:#161625;border:1px solid #2a2a2a;border-radius:8px;padding:0.75rem 1rem;margin-bottom:0.5rem;">' +
+        '<div><strong style="color:#c6ff00;">OS ' + escapeHtmlAt(r.numeroOS) + '</strong>' +
+        (r.data ? ' <span style="color:#9a9a9a;font-size:0.78rem;">&bull; ' + escapeHtmlAt(r.data) + '</span>' : '') +
+        '</div>' +
+        '<div style="font-size:0.9rem;color:#e8e8f0;margin-top:0.2rem;">' + escapeHtmlAt(r.cliente || '(sem nome)') + '</div>' +
+        '<div style="font-size:0.78rem;color:#9a9a9a;margin-top:0.15rem;">' +
+          (r.status ? 'Status: ' + escapeHtmlAt(r.status) + ' &bull; ' : '') +
+          'fonte: ' + escapeHtmlAt(r.fonte) +
+        '</div>' +
+        btn +
+      '</div>';
+    }).join('');
+
+    var aviso = resp.ambiguo
+      ? '<div style="background:#f59e0b22;color:#f59e0b;padding:0.5rem 1rem;border-radius:6px;font-size:0.85rem;margin-bottom:0.5rem;">Este n&uacute;mero existe duas vezes (incidente de 06/07). Confira pela data e pelo cliente.</div>'
+      : '';
+
+    div.innerHTML = '<div class="secao-form" style="border-color:#f59e0b;">' +
+      '<div class="secao-form-titulo" style="color:#f59e0b;">&#9888; OS encontrada fora dos atendimentos</div>' +
+      aviso + itens +
+    '</div>';
+
+    var btns = div.querySelectorAll('.al-btn-os-atendimento');
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].addEventListener('click', function(e) {
+        var id = e.currentTarget.getAttribute('data-atendimento-id');
+        document.getElementById('alBusca').value = id;
+        filtrosAtivos.busca = id;
+        carregarAtendimentos();
+      });
+    }
   }
 
   function renderLista() {
