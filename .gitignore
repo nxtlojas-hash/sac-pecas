@@ -30,3 +30,6 @@ tools/sumare_import/data/motos.json
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# Worktrees isolados (superpowers) — nunca versionar
+.worktrees/
