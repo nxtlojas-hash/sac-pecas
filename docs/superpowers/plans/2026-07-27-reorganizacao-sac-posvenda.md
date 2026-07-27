@@ -21,6 +21,7 @@
 - **NADA É APAGADO NEM RENOMEADO — aba que sai de uso é OCULTADA** (decisão dela, 27/07). Renomear aba foi a causa do incidente de 06/07: o script recriou uma vazia, a numeração de OS voltou ao 0001 e duplicou 93 números que ainda hoje dão trabalho. Ocultar preserva nome e conteúdo.
 - **Toda substituição de fonte de dados é dual-write, nunca corte** (decisão dela, 27/07): o novo nasce ao lado do velho, os dois recebem gravação, a leitura vira depois, e o velho só para quando o novo estiver provado. O rollback é sempre voltar uma flag, nunca restaurar backup.
 - **Idempotência:** toda rotina de migração roda sob `LockService` e grava uma flag em `DocumentProperties` (padrão do `setupRoteamentoOsV1`), para uma segunda execução não duplicar.
+- **⚠️ NUNCA use `getSheetByName` para as abas de espelho — use `encontrarAbaNormalizada_` (`:2203`).** O inventário ao vivo de 27/07 provou que os nomes reais têm espaços parasitas: a aba é `'Assistencias parceiras '` (espaço no fim) e `' ASSISTÊNCIA SUMARÉ '` (espaço dos dois lados), enquanto as constantes `ABA_ESPELHO_PARCEIRAS`/`ABA_ESPELHO_SUMARE` não têm. `getSheetByName` é exato e devolve `null` **em silêncio** — a aba parceiras sozinha guarda **804 OS**, 75% de todo o histórico. Vale para as Tasks 1, 5 e 8.
 - **Texto visível ao usuário:** pt-BR. Nomes internos de função/variável seguem o estilo do arquivo (sem acento, camelCase, helpers com `_` no fim).
 - **Esta sessão NÃO escreve em `C:\dev\NXT\PAINEL-NXT.md`** — outra sessão ("organizar panorama") é dona dele. O delta do SAC é entregue em texto no fim.
 - **Prazo concorrente:** o webhook Meta → respond.io vence **05/08/2026**. Não é deste plano, mas se o WhatsApp cair, o pull que alimenta a caixa de entrada para junto.
@@ -264,7 +265,11 @@ function buscarOSPorNumero_(numero) {
   }
 
   // 2. Serie antiga (Assistencias parceiras) — sem cabecalho, B=numero C=cliente
-  var antiga = ss.getSheetByName(ABA_ESPELHO_PARCEIRAS);
+  // ATENCAO: usar encontrarAbaNormalizada_ (:2203), NAO getSheetByName. O nome real
+  // da aba na planilha e 'Assistencias parceiras ' COM ESPACO NO FIM (provado pelo
+  // inventario ao vivo de 27/07); getSheetByName e exato e devolveria null, deixando
+  // as 804 OS da serie antiga invisiveis — exatamente o bug que esta task conserta.
+  var antiga = encontrarAbaNormalizada_(ABA_ESPELHO_PARCEIRAS);
   if (antiga && antiga.getLastRow() >= 1) {
     var da = antiga.getRange(1, 1, antiga.getLastRow(), Math.min(antiga.getLastColumn(), 12)).getValues();
     for (var j = 0; j < da.length; j++) {
@@ -282,8 +287,10 @@ function buscarOSPorNumero_(numero) {
     }
   }
 
-  // 3. Aba manual da Sumare — por cabecalho, numeros digitados a mao
-  var sumare = ss.getSheetByName(ABA_ESPELHO_SUMARE);
+  // 3. Aba manual da Sumare — por cabecalho, numeros digitados a mao.
+  // Mesmo motivo do item 2: a aba real se chama ' ASSISTENCIA SUMARE ' com espaco
+  // dos DOIS lados. Sempre encontrarAbaNormalizada_ para as abas de espelho.
+  var sumare = encontrarAbaNormalizada_(ABA_ESPELHO_SUMARE);
   if (sumare && sumare.getLastRow() > 1) {
     var cols = mapearColunasPorCabecalho_(sumare);
     if ('numero os' in cols) {
