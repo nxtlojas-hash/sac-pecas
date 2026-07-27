@@ -18,6 +18,8 @@
 - **Deploy front:** `git push` na branch `master` publica no GitHub Pages (`nxtlojas-hash.github.io/sac-pecas`, ~1 min).
 - **Cache-busting:** todo deploy de front sobe o `?v=` em `index.html` (hoje `v2.35`) — nos 12 `<script>` e no `<link>` do CSS.
 - **Regra de ouro dos dados:** nunca reescrever a planilha inteira. Só `appendRow` e `setValue` em célula/intervalo específico. Antes de qualquer migração, **cópia da planilha** (Arquivo → Fazer uma cópia) com a data no nome.
+- **NADA É APAGADO NEM RENOMEADO — aba que sai de uso é OCULTADA** (decisão dela, 27/07). Renomear aba foi a causa do incidente de 06/07: o script recriou uma vazia, a numeração de OS voltou ao 0001 e duplicou 93 números que ainda hoje dão trabalho. Ocultar preserva nome e conteúdo.
+- **Toda substituição de fonte de dados é dual-write, nunca corte** (decisão dela, 27/07): o novo nasce ao lado do velho, os dois recebem gravação, a leitura vira depois, e o velho só para quando o novo estiver provado. O rollback é sempre voltar uma flag, nunca restaurar backup.
 - **Idempotência:** toda rotina de migração roda sob `LockService` e grava uma flag em `DocumentProperties` (padrão do `setupRoteamentoOsV1`), para uma segunda execução não duplicar.
 - **Texto visível ao usuário:** pt-BR. Nomes internos de função/variável seguem o estilo do arquivo (sem acento, camelCase, helpers com `_` no fim).
 - **Esta sessão NÃO escreve em `C:\dev\NXT\PAINEL-NXT.md`** — outra sessão ("organizar panorama") é dona dele. O delta do SAC é entregue em texto no fim.
@@ -1131,49 +1133,117 @@ Directive: nenhuma tela e removida sem decisao dela registrada no commit"
 
 **Ordem importa:** fazer isto **depois** das Tasks 1–7. Se as telas ainda não existem, você migra e fica sem como conferir; e se a Task 7 ainda não rodou, você migra peso morto.
 
+### ⚠️ Estratégia definida por ela em 27/07: DUAL-WRITE, não corte
+
+> *"podemos criar o novo fluxo, mantendo tudo ativo na planilha; quando os novos estiverem funcionais paramos a planilha antiga e só oculto as abas, deixo lá, para não corrermos riscos."*
+
+**Não existe momento de virada.** O novo nasce ao lado do velho, os dois recebem gravação ao mesmo tempo, e a planilha da expedição continua funcionando o tempo inteiro. Quando o novo estiver provado, o script **para de escrever** no velho e as abas são **ocultadas** — nunca apagadas, nunca renomeadas.
+
+**Este é o padrão que já deu certo duas vezes aqui:** o dual-write da logística (25/07, Firebase + Excel — provado ponta a ponta em 26/07) e o `espelharOS_` (`:2504`) que já vive neste mesmo arquivo espelhando OS nas abas Sumaré/parceiras. **Reuse `espelharOS_` como molde — não invente um mecanismo novo.**
+
+As 4 fases, e nenhuma começa sem a anterior verificada:
+
+| Fase | Escreve em | Lê de | Fim da fase |
+|---|---|---|---|
+| A | velho | velho | planilhas destino criadas e vazias |
+| B | **velho + novo** | velho | contagens batem por 3 dias seguidos |
+| C | **velho + novo** | **novo** | 7 dias sem incidente |
+| D | novo | novo | abas antigas **ocultadas** |
+
 **Files:**
-- Modify: `google-apps-script.js` (`getAtendimentosSheet()`, `getAssistenciasSheet()` + `setup*Spreadsheet()`)
+- Modify: `google-apps-script.js` (`getAtendimentosSheet()`, `getAssistenciasSheet()`, `espelharNoAntigo_()` + `setup*Spreadsheet()`)
 
-- [ ] **Step 1: Backup** — cópia da planilha, como na Task 5 Step 1.
+- [ ] **Step 1: Backup** — cópia da planilha, como na Task 5 Step 1. Mesmo com dual-write: o backup é o que permite errar sem medo.
 
-- [ ] **Step 2: Criar as planilhas destino**
+- [ ] **Step 2 (Fase A): Criar as planilhas destino**
 
-Escrever `setupAtendimentosSpreadsheet()` e `setupAssistenciasSpreadsheet()` espelhando `setupOrcamentosSpreadsheet()`: cria a planilha **sob a conta do script** (`openById` exige que quem executa seja dono ou tenha acesso — foi o tropeço de 21/07), põe na pasta `SAC`, grava o ID em `ScriptProperties` (`ATENDIMENTOS_SHEET_ID`, `ASSISTENCIAS_SHEET_ID`) e formata como texto as colunas de data (Sheets converte `"yyyy-MM-dd"` em `Date` na gravação — o motivo do `fmtDataOrc_`).
+`setupAtendimentosSpreadsheet()` e `setupAssistenciasSpreadsheet()` espelhando `setupOrcamentosSpreadsheet()` (`:1218`): cria a planilha **sob a conta do script** (`openById` exige que quem executa seja dono ou tenha acesso — foi o tropeço de 21/07), põe na pasta `SAC`, grava o ID em `ScriptProperties` (`ATENDIMENTOS_SHEET_ID`, `ASSISTENCIAS_SHEET_ID`) e formata como texto as colunas de data (Sheets converte `"yyyy-MM-dd"` em `Date` na gravação — o motivo do `fmtDataOrc_`).
 
-- [ ] **Step 3: Trocar os acessos**
+Verificar: as duas planilhas existem, com cabeçalho e **zero linhas de dado**.
 
-Substituir `ss.getSheetByName(SHEET_ATENDIMENTOS)` por `getAtendimentosSheet()` em **todas** as ocorrências, e o mesmo para `ABA_ASSISTENCIAS`. Contar antes:
+- [ ] **Step 3 (Fase B): Ligar o dual-write**
+
+```javascript
+// Flag de fase, para a virada ser um valor de configuracao e nao um deploy.
+// 'A' = so velho · 'B'/'C' = os dois · 'D' = so novo.
+function faseSeparacao_() {
+  return getProperty('FASE_SEPARACAO_SAC') || 'A';
+}
+
+// Espelha uma gravacao na aba antiga. Best-effort: NUNCA bloqueia o fluxo —
+// mesmo contrato de espelharOS_ (:2504), que ja faz isso neste arquivo.
+// Em fase D nao escreve mais no antigo, mas a funcao continua existindo:
+// e o caminho de volta se algo der errado.
+function espelharNoAntigo_(nomeAba, linha) {
+  if (faseSeparacao_() === 'D') return;
+  try {
+    var aba = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nomeAba);
+    if (aba) aba.appendRow(linha);
+  } catch (e) { /* espelho nunca derruba a gravacao principal */ }
+}
+```
+
+Trocar `ss.getSheetByName(SHEET_ATENDIMENTOS)` por `getAtendimentosSheet()` em todas as ocorrências (e o mesmo para `ABA_ASSISTENCIAS`), e em cada `appendRow` acrescentar a chamada de espelho. Contar antes para saber o tamanho da troca:
 
 ```bash
 grep -c "getSheetByName(SHEET_ATENDIMENTOS)" google-apps-script.js
 grep -c "getSheetByName(ABA_ASSISTENCIAS)" google-apps-script.js
 ```
 
-⚠️ `buscarClienteConsolidado` lê **as duas** — foi exatamente onde a separação dos orçamentos quebrou em 21/07 e precisou do fix de 22/07 (v42). Conferir essa função linha a linha.
+⚠️ `buscarClienteConsolidado` lê **as duas** fontes — foi exatamente onde a separação dos orçamentos quebrou em 21/07 e precisou do fix de 22/07 (v42). Conferir essa função linha a linha, e **em fase B/C ela deve ler do velho** para não mostrar histórico pela metade.
 
-- [ ] **Step 4: Copiar os dados e conferir contagem**
+- [ ] **Step 4 (Fase B): Backfill do histórico, sem tocar no original**
 
-Rotina `migrar_atendimentos_v1` com dry-run, no padrão da Task 5. Critério de aceite: `listar_atendimentos` devolve **o mesmo total de antes** (816 + o que entrou no meio), e `buscar_cliente_consolidado` de um CPF conhecido devolve os mesmos eventos.
+Rotina `copiar_atendimentos_v1` com dry-run: **copia** (nunca move) as linhas existentes para a planilha nova. A aba antiga sai desta task exatamente como entrou — mesmas linhas, mesma ordem.
 
-- [ ] **Step 5: Deixar a aba antiga como sombra por 30 dias**
+- [ ] **Step 5 (Fase B): Conferência de 3 dias**
 
-Renomear a aba original para `Atendimentos_ANTIGO_ate_2026-07-XX`. **Não apagar.** Só some depois de um mês de operação sem incidente.
+Comparar as contagens todo dia. Só passa para a fase C quando bater 3 dias seguidos:
 
-- [ ] **Step 6: Commit**
+```bash
+U='https://script.google.com/macros/s/AKfycbytZgFvvhTvYRgufyvFTGbMb27sxHnIQp256XQ6r7VZuX2B0RTdO3MIpbf4EcF8KgnYlw/exec'
+curl -sL "$U?action=conferir_dual_write" | python -c "
+import sys,json
+d=json.load(sys.stdin)
+for k,v in d.get('comparacao',{}).items():
+    ok='OK ' if v['antigo']==v['novo'] else 'DIVERGE'
+    print(f\"{ok} {k}: antigo={v['antigo']} novo={v['novo']}\")
+"
+```
+
+Escrever `conferirDualWrite()` que devolve `{comparacao:{atendimentos:{antigo,novo}, os:{antigo,novo}}}`. **Divergência não é motivo de pânico** — é motivo de olhar qual gravação não espelhou, corrigir e reiniciar a contagem dos 3 dias.
+
+- [ ] **Step 6 (Fase C): Virar só a LEITURA**
+
+`setProperty('FASE_SEPARACAO_SAC', 'C')` e apontar as leituras para a planilha nova. **A gravação continua nas duas.** Se algo quebrar aqui, o rollback é voltar a flag para `'B'` — sem deploy, sem perda, porque o velho nunca parou de receber.
+
+- [ ] **Step 7 (Fase D): Parar o velho e OCULTAR as abas**
+
+Depois de 7 dias em fase C sem incidente: `setProperty('FASE_SEPARACAO_SAC', 'D')`. Aí, **na mão, na planilha**: botão direito na aba → **Ocultar planilha**. Nas abas `Atendimentos`, `AssistenciasTecnicas` e as de espelho que saíram de uso.
+
+**NÃO apagar. NÃO renomear.** Renomear foi a causa do incidente de 06/07 — o script recriou a aba vazia e a numeração de OS voltou ao 0001, duplicando 93 números que até hoje dão trabalho. Ocultar não muda nome nem conteúdo: o script continua achando a aba se precisar.
+
+- [ ] **Step 8: Commit**
 
 ```bash
 git add google-apps-script.js
-git commit -m "refactor(sac): Atendimentos e OS saem da planilha da expedicao
+git commit -m "refactor(sac): Atendimentos e OS saem da expedicao por dual-write, sem corte
 
-A planilha 'Pedido de pecas' (3,78 MB) virou o banco do SAC inteiro. Segue o
-padrao provado em 21/07 com os orcamentos: abrir por ID via ScriptProperty.
+A planilha 'Pedido de pecas' (3,78 MB) virou o banco do SAC inteiro. A separacao
+acontece em 4 fases com flag em ScriptProperty (A/B/C/D): o novo nasce ao lado,
+os dois recebem gravacao, a leitura vira depois, e o velho so para no fim.
 
-Constraint: aba antiga fica como sombra por 30 dias, nao se apaga
+Constraint: estrategia definida por ela em 27/07 — dual-write, nunca corte
+Constraint: aba antiga e OCULTADA, nunca apagada nem renomeada (renomear causou
+  o incidente de 06/07: aba recriada vazia, numeracao de OS de volta ao 0001)
 Constraint: buscarClienteConsolidado le as duas fontes — foi o que quebrou em 21/07
-Confidence: medium
+Rejected: migrar e cortar | risco sem rollback numa planilha que a operacao usa hoje
+Rejected: mecanismo novo de espelho | espelharOS_ (:2504) ja faz isso neste arquivo
+Confidence: high
 Scope-risk: broad
+Directive: rollback de qualquer fase e voltar a flag FASE_SEPARACAO_SAC, sem deploy
 Directive: nenhuma tela do front muda — se precisou mexer no front, a separacao esta errada
-Not-tested: limite de 6 min de execucao do Apps Script com o volume total"
+Not-tested: limite de 6 min de execucao do Apps Script no backfill com o volume total"
 ```
 
 ---
