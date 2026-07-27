@@ -814,6 +814,40 @@ function atualizarBlingStatus(row, status, pedidoId) {
 }
 
 // ========================================
+// DIAGNOSTICO (read-only) — inventario das abas da planilha ativa.
+// GET ?action=inventario_abas — nao altera nada. Usado para planejar a
+// separacao das planilhas (plano 2026-07-27).
+// ========================================
+function inventarioAbas() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var abas = ss.getSheets();
+  var out = [];
+  for (var i = 0; i < abas.length; i++) {
+    var a = abas[i];
+    var linhas = a.getLastRow();
+    var cols = a.getLastColumn();
+    var cabecalho = [];
+    if (linhas >= 1 && cols >= 1) {
+      cabecalho = a.getRange(1, 1, 1, Math.min(cols, 30)).getValues()[0].map(function(c) {
+        return String(c || '').slice(0, 40);
+      });
+    }
+    out.push({
+      nome: a.getName(),
+      linhas: linhas,
+      colunas: cols,
+      registros: Math.max(0, linhas - 1),
+      primeiraLinha: cabecalho
+    });
+  }
+  return {
+    ok: true,
+    planilha: { id: ss.getId(), nome: ss.getName(), totalAbas: abas.length },
+    abas: out
+  };
+}
+
+// ========================================
 // ENTRY POINTS
 // ========================================
 
@@ -906,6 +940,9 @@ function doGet(e) {
           nota: e.parameter.nota,
           comentario: e.parameter.comentario
         }));
+
+      case 'inventario_abas':
+        return jsonResponse(inventarioAbas());
 
       // --- Painel interno (Task 9): pendencias/SLA e resumo de NPS ---
       case 'resumo_pendencias':
