@@ -60,7 +60,9 @@ string. **Cada um precisa de um `<script>` em `index.html`**, antes dos módulos
 - Modify: `google-apps-script.js` (adicionar action `inventario_abas` no `doGet`, ~linha 900)
 
 **Interfaces:**
-- Produces: `inventarioAbas()` → `{ok:true, planilha:{id,nome,tamanhoAbas}, abas:[{nome, linhas, colunas, ultimaColunaComDado, primeiraLinha:[...]}]}`. As Tasks 5 e 8 consomem essa saída para saber o que existe.
+- Produces: `inventarioAbas()` → `{ok:true, planilha:{id, nome, totalAbas}, abas:[{nome, linhas, colunas, registros, primeiraLinha:[...]}]}`. As Tasks 5 e 8 consomem essa saída para saber o que existe.
+
+⚠️ **Use exatamente estes nomes de campo.** `registros` é `linhas - 1` (desconta o cabeçalho) e é o número que interessa para dimensionar migração; `linhas` é o bruto. Uma versão anterior deste bloco listava `tamanhoAbas` e `ultimaColunaComDado` — campos que **não existem** no retorno. Corrigido em 27/07 depois da revisão da Task 0; se você está lendo um brief com os nomes antigos, este bloco manda.
 
 - [ ] **Step 1: Escrever a função (read-only, não altera nada)**
 
