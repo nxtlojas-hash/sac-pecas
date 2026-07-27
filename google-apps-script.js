@@ -933,6 +933,10 @@ function doGet(e) {
       case 'buscar_os':
         return jsonResponse(buscarOS(e.parameter.numero || e.parameter.os || ''));
 
+      // --- Lista de OS do master, com filtros (Task 2 reorg 2026-07-27) ---
+      case 'listar_os':
+        return jsonResponse(listarOS(e.parameter));
+
       // --- Acompanhamento publico da OS (QR / link do cliente) ---
       case 'status_publico':
         return jsonResponse(statusPublicoOS(e.parameter.os));
@@ -1059,6 +1063,10 @@ function doPost(e) {
 
       case 'atualizar_status_orcamento':
         return jsonResponse(atualizarStatusOrcamento(body.numero, body.novoStatus));
+
+      // --- Avanca o status de uma OS (Task 2 reorg 2026-07-27) ---
+      case 'atualizar_status_os':
+        return jsonResponse(atualizarStatusOS(body.numeroOS, body.novoStatus, 'sac', body.quem || ''));
 
       // --- Registrar Venda (Planilha + Bling) ---
       case 'registrar_venda':
@@ -4073,6 +4081,105 @@ function buscarOS(numero) {
     ambiguo: achados.length > 1,
     resultados: achados
   };
+}
+
+// ========================================
+// LISTA DE OS E AVANCO DE STATUS (Task 2 reorg 2026-07-27)
+// A tela de OS (os-lista.js) consome estas duas funcoes. Antes desta task o
+// unico jeito de mudar o status que o cliente ve no QR (statusPublicoOS) era
+// editar a celula da planilha na mao — "nao sei onde altera o status".
+// ========================================
+
+// Lista as OS do master com filtros. NAO lista a serie antiga (ela e historico
+// e nao tem colunas para status) — a serie antiga se acha pela busca (buscar_os).
+function listarOS(filtros) {
+  filtros = filtros || {};
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var aba = ss.getSheetByName(ABA_ASSISTENCIAS);
+  if (!aba || aba.getLastRow() < 2) return { ok: true, oses: [], total: 0 };
+
+  var colAt = getColAtendimentoId(aba);
+  var dados = aba.getDataRange().getValues();
+  var busca = String(filtros.busca || '').toLowerCase().trim();
+  var out = [];
+
+  for (var i = 1; i < dados.length; i++) {
+    var r = dados[i];
+    if (!String(r[1] || '').trim()) continue;
+    var o = {
+      numeroOS: String(r[1] || ''),
+      linha: i + 1,
+      cliente: String(r[2] || ''),
+      cpf: String(r[3] || ''),
+      telefone: String(r[4] || ''),
+      cidade: String(r[9] || ''),
+      modelo: String(r[11] || ''),
+      chassi: String(r[12] || ''),
+      tipo: String(r[15] || ''),
+      assistencia: String(r[16] || ''),
+      problema: String(r[19] || ''),
+      status: String(r[21] || 'Aberta'),
+      etapa: etapaDoStatus_(String(r[21] || 'Aberta')),
+      atendimentoId: colAt > 0 ? String(r[colAt - 1] || '') : '',
+      data: r[0] instanceof Date
+        ? Utilities.formatDate(r[0], Session.getScriptTimeZone(), 'dd/MM/yyyy') : ''
+    };
+    if (filtros.status && o.status !== filtros.status) continue;
+    if (filtros.semVinculo === 'sim' && o.atendimentoId) continue;
+    if (busca) {
+      var hay = (o.numeroOS + ' ' + o.cliente + ' ' + o.telefone + ' ' + o.cpf + ' ' + o.chassi).toLowerCase();
+      if (hay.indexOf(busca) === -1) continue;
+    }
+    out.push(o);
+  }
+
+  out.reverse();
+  var limite = parseInt(filtros.limite) || 200;
+  var total = out.length;
+  if (out.length > limite) out = out.slice(0, limite);
+  return { ok: true, oses: out, total: total, exibidos: out.length };
+}
+
+// Avanca o status da OS. So aceita os rotulos de ETAPAS_OS — status livre
+// quebraria a timeline publica do QR (etapaDoStatus_ cairia sempre em 0).
+// origem: 'sac' (tela interna) ou 'assistencia' (link com token, Task 3).
+function atualizarStatusOS(numeroOS, novoStatus, origem, quem) {
+  if (ETAPAS_OS.indexOf(novoStatus) === -1) {
+    return { ok: false, erro: 'Status invalido. Use: ' + ETAPAS_OS.join(' / ') };
+  }
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var aba = ss.getSheetByName(ABA_ASSISTENCIAS);
+    if (!aba) return { ok: false, erro: 'Aba de OS nao encontrada' };
+    var chave = chaveNumeroOS_(numeroOS);
+    var dados = aba.getDataRange().getValues();
+    for (var i = 1; i < dados.length; i++) {
+      if (chaveNumeroOS_(dados[i][1]) !== chave) continue;
+      var anterior = String(dados[i][21] || 'Aberta');
+      aba.getRange(i + 1, 22).setValue(novoStatus);
+      registrarHistoricoOS_(String(dados[i][1]), anterior, novoStatus, origem || 'sac', quem || '');
+      return { ok: true, numeroOS: String(dados[i][1]), status: novoStatus, anterior: anterior };
+    }
+    return { ok: false, erro: 'OS nao encontrada no master' };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// Trilha de auditoria — quem moveu o status e quando. Aba propria para nao
+// alargar o master (os indices de coluna de statusPublicoOS sao fixos).
+function registrarHistoricoOS_(numeroOS, de, para, origem, quem) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var aba = ss.getSheetByName('HistoricoOS');
+  if (!aba) {
+    aba = ss.insertSheet('HistoricoOS');
+    aba.appendRow(['DATA', 'NUMERO OS', 'DE', 'PARA', 'ORIGEM', 'QUEM']);
+    aba.getRange(1, 1, 1, 6).setFontWeight('bold');
+    aba.setFrozenRows(1);
+  }
+  aba.appendRow([new Date(), numeroOS, de, para, origem, quem]);
 }
 
 // ========================================
