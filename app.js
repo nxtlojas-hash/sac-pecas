@@ -71,6 +71,8 @@ function navigateTo(view, params) {
     if (typeof window.initClientes === 'function') window.initClientes();
   } else if (view === 'atendimentos') {
     if (typeof window.initAtendimentosLista === 'function') window.initAtendimentosLista();
+  } else if (view === 'os') {
+    if (typeof window.initOSLista === 'function') window.initOSLista();
   } else if (view === 'dashboard') {
     if (typeof initDashboard === 'function') initDashboard();
   } else if (view === 'formulario') {

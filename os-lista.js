@@ -102,8 +102,14 @@
   }
 
   function cardHTML(o, idx) {
-    var opcoes = ETAPAS.map(function(et) {
-      return '<option value="' + esc(et) + '"' + (et === o.status ? ' selected' : '') + '>' + esc(et) + '</option>';
+    // montarOpcoesStatus (lib/status-os.js) garante que o status REAL da linha
+    // sempre aparece marcado como selected — mesmo quando ele nao esta nas 5
+    // ETAPAS (toda OS nasce com 'Em andamento', que nao esta no enum). Sem
+    // isso o browser selecionava a 1a opcao da lista por omissao, e um clique
+    // desatento em "Salvar status" reescrevia o status real na planilha.
+    var listaOpcoes = (typeof montarOpcoesStatus === 'function') ? montarOpcoesStatus(o.status, ETAPAS) : [];
+    var opcoes = listaOpcoes.map(function(op) {
+      return '<option value="' + esc(op.valor) + '"' + (op.selecionado ? ' selected' : '') + '>' + esc(op.rotulo) + '</option>';
     }).join('');
     return '' +
       '<div class="al-card" data-idx="' + idx + '" style="background:#161625;border:1px solid #2a2a2a;border-radius:8px;padding:0.85rem 1rem;margin-bottom:0.5rem;">' +
@@ -115,7 +121,7 @@
         '<div>' + esc(o.cliente) + ' &bull; ' + esc(o.modelo) + ' &bull; ' + esc(o.assistencia) + '</div>' +
         '<div style="font-style:italic;color:#9a9a9a;">' + esc(o.problema) + '</div>' +
         '<div style="margin-top:.5rem;display:flex;gap:.5rem;flex-wrap:wrap;">' +
-          '<select class="os-status" data-os="' + esc(o.numeroOS) + '">' + opcoes + '</select>' +
+          '<select class="os-status" data-os="' + esc(o.numeroOS) + '" data-status-atual="' + esc(o.status) + '">' + opcoes + '</select>' +
           '<button class="os-salvar btn-secundario btn-sm" data-os="' + esc(o.numeroOS) + '">Salvar status</button>' +
           '<a class="btn-secundario btn-sm" target="_blank" rel="noopener" ' +
              'href="?view=acompanhar&os=' + encodeURIComponent(o.numeroOS) + '">Ver como o cliente vê</a>' +
@@ -145,6 +151,14 @@
         var card = btn.closest('.al-card');
         var select = card ? card.querySelector('.os-status') : null;
         if (!select) return;
+        // Guard: nao dispara escrita se a selecao for igual ao status atual —
+        // fecha o outro lado do bug do seletor (clique sem querer, ou clique
+        // "so pra ver", nao pode nunca reescrever nada na planilha).
+        var statusAtual = select.getAttribute('data-status-atual') || '';
+        if (select.value === statusAtual) {
+          mostrarFeedback('Selecione um status diferente do atual antes de salvar.', 'info');
+          return;
+        }
         salvarStatus(numeroOS, select.value, btn);
       });
     });
@@ -194,16 +208,9 @@
     carregar(filtrosAtuais());
   }
 
-  // A aba "OS" nao tem um initOS() ligado em app.js (fora do escopo desta task) —
-  // esta IIFE escuta o clique na propria aba, no mesmo #nav-tabs que app.js usa,
-  // sem interferir no listener dele (so filtra pelo data-view desta aba).
-  var navTabs = document.getElementById('nav-tabs');
-  if (navTabs) {
-    navTabs.addEventListener('click', function(e) {
-      var tab = e.target.closest('.nav-tab');
-      if (tab && tab.dataset.view === 'os') init();
-    });
-  }
-
+  // Ligado em app.js (navigateTo, case 'os') — mesmo mecanismo das outras
+  // views (initClientes, initEstoque, initAtendimentosLista). Nada de listener
+  // proprio em #nav-tabs: um so caminho pra abrir a tela, igual ao resto do app.
+  window.initOSLista = init;
   window.OSLista = { carregar: carregar };
 })();
