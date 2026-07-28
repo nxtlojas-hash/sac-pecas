@@ -78,7 +78,8 @@
           '<button type="button" class="btn-primario" id="alBtnAplicar">&#128269; Aplicar filtros</button>' +
           '<button type="button" class="btn-secundario" id="alBtnLimpar">Limpar</button>' +
           '<button type="button" class="btn-secundario" id="alBtnRefresh">&#x21bb; Atualizar</button>' +
-          '<button type="button" class="btn-secundario" id="alBtnMigrar" style="margin-left:0.5rem;border-color:#f59e0b;color:#f59e0b;">&#x1f504; Migrar pendentes</button>' +
+          // Aqui ficava "Migrar pendentes" (aposentado em 28/07 — ver o
+          // comentario no fim deste arquivo).
           '<span id="alResumo" style="color:#9a9a9a;font-size:0.85rem;margin-left:auto;"></span>' +
         '</div>' +
       '</div>' +
@@ -92,7 +93,6 @@
     document.getElementById('alBtnAplicar').addEventListener('click', aplicarFiltros);
     document.getElementById('alBtnLimpar').addEventListener('click', limparFiltros);
     document.getElementById('alBtnRefresh').addEventListener('click', carregarAtendimentos);
-    document.getElementById('alBtnMigrar').addEventListener('click', migrarPendentes);
     document.getElementById('alBusca').addEventListener('keydown', function(e) {
       if (e.key === 'Enter') { e.preventDefault(); aplicarFiltros(); }
     });
@@ -548,60 +548,38 @@
     el.innerHTML = '<div style="background:' + bg + ';color:#fff;padding:0.5rem 1rem;border-radius:6px;text-align:center;font-weight:600;font-size:0.85rem;">' + msg + '</div>';
   }
 
-  // --- Migracao retroativa de pendentes em atendimentos sinteticos ---
-  function migrarPendentes() {
-    mostrarFeedback('Verificando pendentes...', 'info');
-
-    // 1. Simulacao primeiro - conta quantos sao
-    fetch(resolverUrl(), {
-      method: 'POST',
-      body: JSON.stringify({ action: 'migrar_pendentes_para_atendimentos', simular: true }),
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' }
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(resp) {
-      if (!resp || !resp.sucesso) {
-        return mostrarFeedback('Erro: ' + (resp && resp.erro ? resp.erro : 'sem resposta'), 'erro');
-      }
-      mostrarFeedback('', '');
-      var total = resp.totalGeral;
-      if (total === 0) {
-        alert('Sem pendentes para migrar.\n\nTodos os orcamentos pendentes e OSes ja tem atendimento vinculado.');
-        return;
-      }
-      var msg = 'MIGRACAO RETROATIVA\n\n' +
-        'Vamos criar ' + total + ' atendimento(s) sintetico(s):\n' +
-        '  - ' + resp.totalOrcamentos + ' orcamento(s) pendente(s)\n' +
-        '  - ' + resp.totalOSes + ' OS(es) sem atendimento\n\n' +
-        'Cada doc vai virar 1 atendimento com status "Em andamento".\n' +
-        'Categoria/motivo deduzidos do tipo. Cliente copiado do doc.\n\n' +
-        'Isso e IRREVERSIVEL. Confirmar?';
-      if (!confirm(msg)) return;
-
-      mostrarFeedback('Migrando... isso pode demorar alguns segundos.', 'info');
-
-      // 2. Executar de verdade
-      fetch(resolverUrl(), {
-        method: 'POST',
-        body: JSON.stringify({ action: 'migrar_pendentes_para_atendimentos', simular: false }),
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' }
-      })
-      .then(function(r2) { return r2.json(); })
-      .then(function(resp2) {
-        if (resp2 && resp2.sucesso) {
-          mostrarFeedback(resp2.totalCriados + ' atendimento(s) criado(s) e vinculado(s) com sucesso.', 'sucesso');
-          carregarAtendimentos();
-        } else {
-          mostrarFeedback('Erro: ' + (resp2 && resp2.erro ? resp2.erro : 'sem resposta'), 'erro');
-        }
-      })
-      .catch(function(err) {
-        mostrarFeedback('Erro de rede: ' + err.message, 'erro');
-      });
-    })
-    .catch(function(err) {
-      mostrarFeedback('Erro de rede: ' + err.message, 'erro');
-    });
-  }
+  // --- "Migrar pendentes": APOSENTADO em 28/07 (decisao da dona do produto) ---
+  //
+  // O botao ficava aqui em cima, ao lado de "Aplicar filtros" e "Atualizar",
+  // com cara de filtro inofensivo. Ele nao era so perigoso — estava QUEBRADO,
+  // e as tres coisas erradas foram conferidas na fonte antes de tirar:
+  //
+  //  1. O ramo das OS era pulado inteiro. Ele so entrava se
+  //     headersOS.indexOf('atendimentoId') >= 0, e a aba AssistenciasTecnicas
+  //     nunca teve essa coluna: o cabecalho (CABECALHO_OS_) e todo em CAIXA
+  //     ALTA e vai de 'DATA ABERTURA' a 'TIPO ASSISTENCIA' (25 colunas medidas
+  //     em 27/07, docs/inventario-abas-2026-07-27.json). indexOf devolvia -1 e
+  //     as 270 OS nunca eram tocadas.
+  //  2. O ramo dos orcamentos lia a planilha ATIVA (a aba legada "Orcamentos",
+  //     9 registros) em vez da planilha SEPARADA onde os orcamentos vivem desde
+  //     21/07 (getOrcamentosSheet). Pior: procurava cabecalho em minusculas
+  //     ('status', 'cliente', 'telefone', 'vendedor') e os reais sao 'Status',
+  //     'ClienteNome', 'ClienteTelefone', 'Vendedor'. indexOf de array e
+  //     sensivel a caixa: tudo -1. Com idxStatus = -1, `status` saia sempre
+  //     vazio e TODA linha passava pelo filtro de "pendente"; com os indices de
+  //     cliente em -1, cada atendimento nasceria com nome, telefone e documento
+  //     em branco.
+  //  3. Nao havia trava de execucao unica. A gravacao do vinculo de volta no
+  //     doc (vincularDocAtendimento) procura o orcamento na planilha SEPARADA,
+  //     e o docId vinha da aba legada: nao achava a linha, nao carimbava nada,
+  //     e o `if (atId) continue` do proximo clique nunca via o carimbo. Apertar
+  //     de novo criaria tudo outra vez.
+  //
+  // O backend TAMBEM recusa esta rotina (google-apps-script.js, case
+  // 'migrar_pendentes_para_atendimentos'): quem estiver com o index.html velho
+  // em cache ainda ve o botao por um tempo, e o clique dele nao pode gravar
+  // nada. A funcao antiga continua la, fora do alcance do roteador, com o
+  // registro do que estava errado — para quem for reescrever um dia nao repetir
+  // os mesmos tres erros.
 
 })();

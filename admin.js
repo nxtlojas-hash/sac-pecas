@@ -386,6 +386,68 @@ function readFileAsBase64(file) {
   });
 }
 
+// ============================================================
+// CONFIRMACAO DE/PARA (Task 5 reorg 2026-07-28)
+// ============================================================
+// Modal de confirmacao usado pelos dois pontos que gravam direto: o preco/peso
+// da peca (saveAdminPart) e o saldo do estoque (renderEstoqueTable).
+//
+// NAO usa confirm() nativo de proposito: o dialogo do navegador trava a
+// automacao de teste, nao aceita o visual do app e nao da para ler o texto de
+// fora. Este aqui e o mesmo .modal-overlay/.modal-content que o resto do
+// arquivo ja usa, com z-index acima do modal de edicao (1000) para poder
+// aparecer POR CIMA dele sem fechar o formulario — quem cancelar volta para o
+// formulario com o que digitou ainda la.
+//
+// Devolve Promise<boolean>: true so quando a pessoa clica em Confirmar.
+// Cancelar, Esc e clique fora resolvem false — e false NUNCA grava nada.
+function confirmarAlteracao(texto) {
+  return new Promise(function(resolve) {
+    var anterior = document.getElementById('modal-confirma-alteracao');
+    if (anterior && anterior.parentNode) anterior.parentNode.removeChild(anterior);
+
+    var overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'modal-confirma-alteracao';
+    overlay.style.display = 'flex';
+    overlay.style.zIndex = '1200';
+    overlay.innerHTML =
+      '<div class="modal-content" style="max-width:540px;padding:1.5rem;">' +
+        '<div id="confirma-alteracao-texto" style="font-size:0.95rem;line-height:1.6;margin-bottom:1.5rem;"></div>' +
+        '<div style="display:flex;gap:0.75rem;justify-content:flex-end;">' +
+          '<button type="button" class="btn-cancelar" id="confirma-alteracao-cancelar">Cancelar</button>' +
+          '<button type="button" class="btn-primario" id="confirma-alteracao-ok">Confirmar</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+
+    // textContent, nao innerHTML: o texto carrega nome de peca vindo da
+    // planilha e nunca deve virar marcacao.
+    document.getElementById('confirma-alteracao-texto').textContent = texto;
+
+    var respondido = false;
+    function fechar(valor) {
+      if (respondido) return;
+      respondido = true;
+      document.removeEventListener('keydown', aoTeclar, true);
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+      resolve(valor);
+    }
+    function aoTeclar(ev) {
+      if (ev.key === 'Escape') { ev.preventDefault(); fechar(false); }
+    }
+
+    document.getElementById('confirma-alteracao-ok').addEventListener('click', function() { fechar(true); });
+    document.getElementById('confirma-alteracao-cancelar').addEventListener('click', function() { fechar(false); });
+    overlay.addEventListener('click', function(ev) { if (ev.target === overlay) fechar(false); });
+    document.addEventListener('keydown', aoTeclar, true);
+
+    // O foco comeca no Cancelar: quem estiver martelando Enter no teclado sai
+    // sem gravar, que e o lado seguro de errar.
+    document.getElementById('confirma-alteracao-cancelar').focus();
+  });
+}
+
 // --- Save part (add or edit) ---
 function saveAdminPart(isEdit, editModelId, editIdx) {
   var nome = document.getElementById('admin-peca-nome').value.trim();
@@ -431,6 +493,21 @@ function saveAdminPart(isEdit, editModelId, editIdx) {
   if (saveBtn) {
     saveBtn.disabled = true;
     saveBtn.textContent = 'Salvando...';
+  }
+
+  // Fecha o formulario e repinta as telas. Era codigo corrido no fim do
+  // .then(); virou funcao porque na edicao ele passou a acontecer DEPOIS da
+  // resposta do modal de confirmacao — fechar antes de perguntar apagaria o
+  // que ela digitou justamente quando ela clicasse em Cancelar.
+  function fecharModalEAtualizar() {
+    var modalAdmin = document.getElementById('modal-admin');
+    if (modalAdmin) modalAdmin.style.display = 'none';
+    refreshAdminTable();
+
+    // Refresh catalog if it's open
+    if (typeof catalogoModelId !== 'undefined' && catalogoModelId && typeof openCatalogo === 'function') {
+      openCatalogo(catalogoModelId);
+    }
   }
 
   imagePromise.then(function(imageData) {
@@ -493,125 +570,206 @@ function saveAdminPart(isEdit, editModelId, editIdx) {
         }
       });
 
-      // 3. Confirmacao se vai remover de algum modelo
-      if (toRemove.length > 0) {
-        var nomesRemove = toRemove.map(function(r) { return r.modelNome; }).join(', ');
-        if (!confirm('A peca "' + nomeOriginal + '" sera REMOVIDA de ' + toRemove.length + ' modelo(s): ' + nomesRemove + '.\n\nContinuar?')) {
-          if (saveBtn) {
-            saveBtn.disabled = false;
-            saveBtn.textContent = 'Salvar Alteracoes';
-          }
-          return;
-        }
+      // 3. CONFIRMACAO DE/PARA (Task 5 reorg 2026-07-28)
+      //
+      // Este e o lapis do cartao no catalogo. Ele reescreve PRECO e PESO em
+      // todos os modelos onde a peca existe, e ate hoje gravava direto: um
+      // digito a mais virava preco errado na rua sem ninguem ver acontecer. A
+      // dona do produto decidiu (28/07) que ele NAO some — ganha confirmacao,
+      // porque sumir deixaria a equipe sem como corrigir um preco errado.
+      //
+      // O aviso da remocao de modelos, que era um confirm() nativo aqui, entrou
+      // no MESMO modal: dois dialogos em sequencia fazem a pessoa clicar no
+      // segundo sem ler, e o nativo ainda trava a automacao de teste.
+      //
+      // A regra (o que mudou, se ha o que confirmar, e o texto) mora em
+      // lib/confirmacao-alteracao.js e e testada em node:test. Aqui so se
+      // pergunta e se obedece a resposta.
+      var nomesAfetados = [];
+      toUpdate.forEach(function(u) {
+        if (CATALOGO_MODELOS[u.mid]) nomesAfetados.push(CATALOGO_MODELOS[u.mid].nome);
+      });
+      toAdd.forEach(function(mid) {
+        if (CATALOGO_MODELOS[mid]) nomesAfetados.push(CATALOGO_MODELOS[mid].nome);
+      });
+      var nomesRemove = toRemove.map(function(r) { return r.modelNome; });
+
+      // O rotulo e o que ela ve no cartao que abriu ("Kay bateria 60V"); a
+      // frase de escopo logo depois diz em quantos modelos aquilo vale.
+      var rotuloAlvo = ((CATALOGO_MODELOS[editModelId] && CATALOGO_MODELOS[editModelId].nome) || '') +
+        ' ' + nomeOriginal;
+
+      // Trocar o NOME, subir imagem nova ou marcar um modelo a mais sao
+      // alteracoes de verdade e precisam gravar — mas nao sao de/para de valor,
+      // entao nao viram pergunta. So entram aqui para nao caírem no "nada
+      // mudou" e serem descartadas em silencio.
+      var outrasMudancas = (nome !== nomeOriginal) || hasNewImage || toAdd.length > 0;
+
+      var decisao = (typeof decidirGravacao === 'function')
+        ? decidirGravacao(rotuloAlvo, [
+            { campo: 'preco', rotulo: 'preço', tipo: 'moeda', de: sourcePeca.preco, para: preco },
+            { campo: 'peso', rotulo: 'peso', tipo: 'texto', de: sourcePeca.peso, para: peso }
+          ], {
+            escopo: (typeof escopoModelos === 'function') ? escopoModelos(nomesAfetados) : '',
+            avisos: [(typeof avisoRemocaoModelos === 'function') ? avisoRemocaoModelos(nomesRemove) : ''],
+            outrasMudancas: outrasMudancas
+          })
+        // Sem a lib carregada (404 no meio de um deploy), segue o comportamento
+        // que ja existia antes desta task: grava. Travar a edicao de preco por
+        // causa de um arquivo que nao baixou seria pior que a falta do aviso.
+        : null;
+
+      if (decisao && !decisao.gravar) {
+        // Nada mudou: nao grava, nao pergunta, e diz que nao gravou. O modal
+        // fica aberto — ela ainda pode corrigir o que quis mudar. Mesmo guard
+        // que a tela de OS usa no Salvar status.
+        mostrarFeedback(decisao.mensagem, 'info');
+        return;
       }
 
       // 4. Escolhe ancora pra fazer o upload da imagem (uma vez so).
       //    Prefere o modelo de origem se ele estiver em toUpdate.
+      //
+      // Daqui para baixo e a GRAVACAO. Virou funcao para poder acontecer depois
+      // da resposta do modal — antes era codigo corrido logo abaixo do
+      // confirm(), que era sincrono. Nada dentro dela mudou.
       var anchorMid = null;
       var anchorIdx = null;
       var anchorAction = null;
-      if (toUpdate.length > 0) {
-        var sourceInUpdate = null;
-        for (var iu = 0; iu < toUpdate.length; iu++) {
-          if (toUpdate[iu].mid === editModelId) { sourceInUpdate = toUpdate[iu]; break; }
+
+      function gravarEdicao() {
+        if (toUpdate.length > 0) {
+          var sourceInUpdate = null;
+          for (var iu = 0; iu < toUpdate.length; iu++) {
+            if (toUpdate[iu].mid === editModelId) { sourceInUpdate = toUpdate[iu]; break; }
+          }
+          var anchor = sourceInUpdate || toUpdate[0];
+          anchorMid = anchor.mid;
+          anchorIdx = anchor.idx;
+          anchorAction = 'editar';
+        } else if (toAdd.length > 0) {
+          anchorMid = toAdd[0];
+          anchorAction = 'adicionar';
         }
-        var anchor = sourceInUpdate || toUpdate[0];
-        anchorMid = anchor.mid;
-        anchorIdx = anchor.idx;
-        anchorAction = 'editar';
-      } else if (toAdd.length > 0) {
-        anchorMid = toAdd[0];
-        anchorAction = 'adicionar';
-      }
 
-      function applyRest(driveUrl) {
-        // Updates (pula a ancora)
-        toUpdate.forEach(function(u) {
-          if (u.mid === anchorMid && anchorAction === 'editar') return;
-          var p = CATALOGO_MODELOS[u.mid].pecas[u.idx];
-          if (!p) return;
-          p.nome = nome;
-          p.preco = preco;
-          p.peso = peso;
-          if (driveUrl) p.img = driveUrl;
-          else if (imgPath) p.img = imgPath;
-          savePartToSheets('editar', u.mid, u.idx, p, null, null, nomeOriginal);
-        });
+        function applyRest(driveUrl) {
+          // Updates (pula a ancora)
+          toUpdate.forEach(function(u) {
+            if (u.mid === anchorMid && anchorAction === 'editar') return;
+            var p = CATALOGO_MODELOS[u.mid].pecas[u.idx];
+            if (!p) return;
+            p.nome = nome;
+            p.preco = preco;
+            p.peso = peso;
+            if (driveUrl) p.img = driveUrl;
+            else if (imgPath) p.img = imgPath;
+            savePartToSheets('editar', u.mid, u.idx, p, null, null, nomeOriginal);
+          });
 
-        // Adicoes (pula a ancora)
-        toAdd.forEach(function(mid) {
-          if (mid === anchorMid && anchorAction === 'adicionar') return;
-          var newP = {
+          // Adicoes (pula a ancora)
+          toAdd.forEach(function(mid) {
+            if (mid === anchorMid && anchorAction === 'adicionar') return;
+            var newP = {
+              nome: nome,
+              preco: preco,
+              peso: peso,
+              img: driveUrl || imgPath || 'img/' + mid + '/' + nome + '.jpeg'
+            };
+            CATALOGO_MODELOS[mid].pecas.push(newP);
+            var newIdx = CATALOGO_MODELOS[mid].pecas.length - 1;
+            savePartToSheets('adicionar', mid, newIdx, newP, null, null);
+          });
+
+          // Remocoes. Cada toRemove e em modelo distinto, entao o idx capturado
+          // continua valido (nenhum splice anterior afetou aquele array).
+          toRemove.forEach(function(r) {
+            var currentPeca = CATALOGO_MODELOS[r.mid].pecas[r.idx];
+            var stubForBackend = { nome: currentPeca ? currentPeca.nome : nomeOriginal };
+            CATALOGO_MODELOS[r.mid].pecas.splice(r.idx, 1);
+            savePartToSheets('excluir', r.mid, r.idx, stubForBackend, null, null);
+          });
+
+          // Feedback agregado
+          var partes = [];
+          if (toUpdate.length > 0) partes.push(toUpdate.length + ' atualizado(s)');
+          if (toAdd.length > 0) partes.push(toAdd.length + ' adicionado(s)');
+          if (toRemove.length > 0) partes.push(toRemove.length + ' removido(s)');
+          if (partes.length > 0) {
+            mostrarFeedback('Peca "' + nome + '": ' + partes.join(', '), 'sucesso');
+          }
+          refreshAdminTable();
+        }
+
+        if (anchorMid && anchorAction === 'editar') {
+          var pAnchor = CATALOGO_MODELOS[anchorMid].pecas[anchorIdx];
+          pAnchor.nome = nome;
+          pAnchor.preco = preco;
+          pAnchor.peso = peso;
+          if (imgPath) pAnchor.img = imgPath;
+
+          savePartToSheets('editar', anchorMid, anchorIdx, pAnchor, imagemBase64, imagemNome, nomeOriginal).then(function(resp) {
+            if (resp && resp.sucesso === false) {
+              mostrarFeedback('Erro ao atualizar peca na planilha: ' + (resp.erro || 'desconhecido'), 'erro');
+              return;
+            }
+            var driveUrl = (resp && resp.imagemUrl) ? resp.imagemUrl : null;
+            if (driveUrl) {
+              pAnchor.img = driveUrl;
+              refreshAdminTable();
+            }
+            applyRest(driveUrl);
+          });
+        } else if (anchorMid && anchorAction === 'adicionar') {
+          var newAnchor = {
             nome: nome,
             preco: preco,
             peso: peso,
-            img: driveUrl || imgPath || 'img/' + mid + '/' + nome + '.jpeg'
+            img: imgPath || 'img/' + anchorMid + '/' + nome + '.jpeg'
           };
-          CATALOGO_MODELOS[mid].pecas.push(newP);
-          var newIdx = CATALOGO_MODELOS[mid].pecas.length - 1;
-          savePartToSheets('adicionar', mid, newIdx, newP, null, null);
-        });
-
-        // Remocoes. Cada toRemove e em modelo distinto, entao o idx capturado
-        // continua valido (nenhum splice anterior afetou aquele array).
-        toRemove.forEach(function(r) {
-          var currentPeca = CATALOGO_MODELOS[r.mid].pecas[r.idx];
-          var stubForBackend = { nome: currentPeca ? currentPeca.nome : nomeOriginal };
-          CATALOGO_MODELOS[r.mid].pecas.splice(r.idx, 1);
-          savePartToSheets('excluir', r.mid, r.idx, stubForBackend, null, null);
-        });
-
-        // Feedback agregado
-        var partes = [];
-        if (toUpdate.length > 0) partes.push(toUpdate.length + ' atualizado(s)');
-        if (toAdd.length > 0) partes.push(toAdd.length + ' adicionado(s)');
-        if (toRemove.length > 0) partes.push(toRemove.length + ' removido(s)');
-        if (partes.length > 0) {
-          mostrarFeedback('Peca "' + nome + '": ' + partes.join(', '), 'sucesso');
+          CATALOGO_MODELOS[anchorMid].pecas.push(newAnchor);
+          var newAnchorIdx = CATALOGO_MODELOS[anchorMid].pecas.length - 1;
+          savePartToSheets('adicionar', anchorMid, newAnchorIdx, newAnchor, imagemBase64, imagemNome).then(function(resp) {
+            var driveUrl = (resp && resp.imagemUrl) ? resp.imagemUrl : null;
+            if (driveUrl) {
+              newAnchor.img = driveUrl;
+              refreshAdminTable();
+            }
+            applyRest(driveUrl);
+          });
+        } else {
+          // So tem remocoes
+          applyRest(null);
         }
-        refreshAdminTable();
+
+        fecharModalEAtualizar();
       }
 
-      if (anchorMid && anchorAction === 'editar') {
-        var pAnchor = CATALOGO_MODELOS[anchorMid].pecas[anchorIdx];
-        pAnchor.nome = nome;
-        pAnchor.preco = preco;
-        pAnchor.peso = peso;
-        if (imgPath) pAnchor.img = imgPath;
-
-        savePartToSheets('editar', anchorMid, anchorIdx, pAnchor, imagemBase64, imagemNome, nomeOriginal).then(function(resp) {
-          if (resp && resp.sucesso === false) {
-            mostrarFeedback('Erro ao atualizar peca na planilha: ' + (resp.erro || 'desconhecido'), 'erro');
-            return;
-          }
-          var driveUrl = (resp && resp.imagemUrl) ? resp.imagemUrl : null;
-          if (driveUrl) {
-            pAnchor.img = driveUrl;
-            refreshAdminTable();
-          }
-          applyRest(driveUrl);
+      // 5. Pergunta (se houver o que perguntar) e so entao grava.
+      //
+      // O `return` da cadeia e proposital: ele prende o .finally() la embaixo
+      // ate a pessoa responder, entao o botao "Salvar Alteracoes" continua
+      // desabilitado enquanto o modal esta na tela — nao da para disparar a
+      // gravacao duas vezes.
+      if (decisao && decisao.confirmar) {
+        return confirmarAlteracao(decisao.texto).then(function(confirmou) {
+          if (!confirmou) return; // Cancelar nao grava NADA e nao fecha o formulario
+          gravarEdicao();
         });
-      } else if (anchorMid && anchorAction === 'adicionar') {
-        var newAnchor = {
-          nome: nome,
-          preco: preco,
-          peso: peso,
-          img: imgPath || 'img/' + anchorMid + '/' + nome + '.jpeg'
-        };
-        CATALOGO_MODELOS[anchorMid].pecas.push(newAnchor);
-        var newAnchorIdx = CATALOGO_MODELOS[anchorMid].pecas.length - 1;
-        savePartToSheets('adicionar', anchorMid, newAnchorIdx, newAnchor, imagemBase64, imagemNome).then(function(resp) {
-          var driveUrl = (resp && resp.imagemUrl) ? resp.imagemUrl : null;
-          if (driveUrl) {
-            newAnchor.img = driveUrl;
-            refreshAdminTable();
-          }
-          applyRest(driveUrl);
-        });
-      } else {
-        // So tem remocoes
-        applyRest(null);
       }
+      if (!decisao && toRemove.length > 0) {
+        // Sem a lib carregada, o de/para se perde — mas o aviso da remocao ja
+        // existia ANTES desta task (era o confirm() nativo daqui). Perde-lo em
+        // silencio seria transformar uma queda de arquivo em peca apagada de
+        // modelo sem ninguem perguntar.
+        return confirmarAlteracao('A peça "' + nomeOriginal + '" será REMOVIDA de ' +
+          toRemove.length + ' modelo(s): ' + nomesRemove.join(', ') + '. Confirmar?')
+          .then(function(confirmou) {
+            if (!confirmou) return;
+            gravarEdicao();
+          });
+      }
+      gravarEdicao();
+      return;
     } else {
       // Add new part to selected models
       var validModels = selectedModels.filter(function(mid) { return !!CATALOGO_MODELOS[mid]; });
@@ -671,14 +829,7 @@ function saveAdminPart(isEdit, editModelId, editIdx) {
       mostrarFeedback('Peca "' + nome + '" adicionada a ' + selectedModels.length + ' modelo(s)!', 'sucesso');
     }
 
-    // Close modal and refresh
-    document.getElementById('modal-admin').style.display = 'none';
-    refreshAdminTable();
-
-    // Refresh catalog if it's open
-    if (typeof catalogoModelId !== 'undefined' && catalogoModelId && typeof openCatalogo === 'function') {
-      openCatalogo(catalogoModelId);
-    }
+    fecharModalEAtualizar();
   }).catch(function(err) {
     console.error('Admin: erro ao processar imagem', err);
     mostrarFeedback('Erro ao processar imagem: ' + err.message, 'erro');
@@ -988,16 +1139,63 @@ function renderEstoqueTable() {
     input.focus();
     input.select();
 
+    // Uma resposta so por edicao. O blur dispara mais de uma vez (abrir o modal
+    // tira o foco do campo; o Escape remove o input do DOM, o que tambem dispara
+    // blur), e sem esta trava a mesma alteracao perguntaria duas vezes.
+    var tratado = false;
+
+    function pintarCelula(valor) {
+      cell.textContent = valor;
+      cell.classList.toggle('estoque-cell-zero', valor === 0);
+    }
+
     function saveValue() {
+      if (tratado) return;
+      tratado = true;
+
       var newVal = parseInt(input.value) || 0;
       if (newVal < 0) newVal = 0;
 
-      adminEstoque[idx][field] = newVal;
-      cell.textContent = newVal;
-      cell.classList.toggle('estoque-cell-zero', newVal === 0);
+      // A celula volta ao valor ANTIGO enquanto a pergunta esta na tela: numero
+      // novo pintado antes da confirmacao e uma promessa que o Cancelar teria
+      // de desfazer.
+      pintarCelula(currentVal);
 
-      // Salvar no Sheets
-      salvarEstoqueItem(adminEstoque[idx]);
+      // CONFIRMACAO DE/PARA (Task 5 reorg 2026-07-28). Este clique reescrevia o
+      // estoque na hora, sem perguntar e sem registro — e o numero que ele muda
+      // e o que todas as telas leem. Decisao da dona do produto (28/07): nao
+      // sumir com o campo, e sim confirmar, para continuar dando para corrigir
+      // um saldo errado.
+      var item = adminEstoque[idx];
+      var rotuloCampo = field === 'sumare' ? 'saldo em Sumaré' : field === 'jaragua' ? 'saldo em Jaraguá' : 'saldo (' + field + ')';
+      var decisao = (typeof decidirGravacao === 'function')
+        ? decidirGravacao(
+            (item.modeloNome || item.modelo || '') + ' — ' + item.peca,
+            [{ campo: field, rotulo: rotuloCampo, tipo: 'inteiro', de: currentVal, para: newVal }],
+            { escopo: (typeof ESCOPO_SALDO === 'string') ? ESCOPO_SALDO : '' }
+          )
+        // Sem a lib carregada, mantem o comportamento anterior a esta task
+        // (grava direto) em vez de deixar o estoque sem como ser corrigido.
+        : null;
+
+      function gravar() {
+        adminEstoque[idx][field] = newVal;
+        pintarCelula(newVal);
+        salvarEstoqueItem(adminEstoque[idx]);
+      }
+
+      if (!decisao) { gravar(); return; }
+
+      if (!decisao.gravar) {
+        // Digitou o mesmo numero: nao vai POST nenhum para a planilha.
+        mostrarFeedback(decisao.mensagem, 'info');
+        return;
+      }
+
+      confirmarAlteracao(decisao.texto).then(function(confirmou) {
+        if (!confirmou) return; // Cancelar nao grava nada e a celula ja esta no valor antigo
+        gravar();
+      });
     }
 
     input.addEventListener('blur', saveValue);
@@ -1007,8 +1205,11 @@ function renderEstoqueTable() {
         input.blur();
       }
       if (ev.key === 'Escape') {
-        cell.textContent = currentVal;
-        cell.classList.toggle('estoque-cell-zero', currentVal === 0);
+        // Escape e um cancelamento: marca como tratado ANTES de tirar o input
+        // do DOM, senao o blur que vem em seguida gravava o valor digitado — o
+        // Escape nunca cancelou de verdade nesta tela.
+        tratado = true;
+        pintarCelula(currentVal);
       }
     });
   };

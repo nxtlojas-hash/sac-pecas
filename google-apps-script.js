@@ -1117,8 +1117,19 @@ function doPost(e) {
       case 'marcar_nps_enviado':
         return jsonResponse(marcarNpsEnviado(body));
 
+      // APOSENTADA em 28/07 por decisao da dona do produto ("os botoes
+      // perigosos poderiam ser excluidos") e por estar quebrada. O botao saiu
+      // do front (atendimentos-lista.js), mas quem estiver com o index.html
+      // velho em cache ainda o ve por um tempo — entao a recusa mora AQUI, que
+      // e o unico lugar que o cache do navegador nao alcanca. A funcao
+      // migrarPendentesParaAtendimentos continua no arquivo, inalcancavel por
+      // este roteador, com o registro do que estava errado.
       case 'migrar_pendentes_para_atendimentos':
-        return jsonResponse(migrarPendentesParaAtendimentos(body));
+        return jsonResponse({
+          sucesso: false,
+          aposentada: true,
+          erro: 'A rotina "Migrar pendentes" foi aposentada em 28/07/2026 por decisao da dona do produto e por estar quebrada (nao migrava OS nenhuma, lia a aba de orcamentos errada e podia duplicar tudo a cada clique). Nada foi gravado. Se voce ainda ve o botao, recarregue a pagina.'
+        });
 
       // --- Movimentacoes de Estoque (Fase E1 NXT SAC) ---
       case 'registrar_movimentacao':
@@ -1948,7 +1959,14 @@ function gerenciarPeca(body) {
     var found = false;
     for (var i = 1; i < data.length; i++) {
       if (data[i][1] === modelo && data[i][3].toString().toLowerCase() === nomeBusca) {
+        // Trilha de preco/peso (Task 5, 28/07): a linha antiga so existe ATE a
+        // proxima instrucao, entao o de/para e lido aqui, antes de sobrescrever.
+        var precoAntes = data[i][4];
+        var pesoAntes = data[i][5];
+        var alvoHist = (modeloNome || modelo) + ' — ' + (body.nomeOriginal || nome);
         sheet.getRange(i + 1, 1, 1, 7).setValues([[timestamp, modelo, modeloNome, nome, preco, peso, img]]);
+        registrarAlteracaoValor_('peca', alvoHist, 'preco', precoAntes, preco, 'admin_catalogo');
+        registrarAlteracaoValor_('peca', alvoHist, 'peso', pesoAntes, peso, 'admin_catalogo');
         found = true;
         break;
       }
@@ -2110,7 +2128,13 @@ function atualizarEstoque(body) {
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][0]).toLowerCase() === modeloLower &&
         String(data[i][1]).toLowerCase() === pecaLower) {
+      // Trilha do saldo (Task 5, 28/07): le o de/para antes de sobrescrever.
+      var sumareAntes = data[i][2];
+      var jaraguaAntes = data[i][3];
+      var alvoEst = modelo + ' — ' + peca;
       sheet.getRange(i + 1, 1, 1, 5).setValues([[modelo, peca, sumare, jaragua, timestamp]]);
+      registrarAlteracaoValor_('saldo', alvoEst, 'sumare', sumareAntes, sumare, 'admin_estoque');
+      registrarAlteracaoValor_('saldo', alvoEst, 'jaragua', jaraguaAntes, jaragua, 'admin_estoque');
       return { sucesso: true, mensagem: 'Estoque atualizado: ' + peca + ' (' + modelo + ')' };
     }
   }
@@ -2873,6 +2897,50 @@ function marcarNpsEnviado(payload) {
 }
 
 /**
+ * ============================================================================
+ * APOSENTADA EM 28/07/2026 — NAO ALCANCAVEL PELO ROTEADOR (doPost).
+ * ============================================================================
+ * O case 'migrar_pendentes_para_atendimentos' agora devolve uma recusa
+ * explicita e NAO chama mais esta funcao. Ela fica aqui de proposito, como
+ * registro: quem for reescrever a migracao retroativa um dia precisa saber por
+ * que esta versao nunca funcionou, para nao repetir os mesmos tres erros.
+ *
+ * ERRO 1 — o ramo das OS era pulado inteiro.
+ *   `headersOS.indexOf('atendimentoId')` sempre deu -1: a aba
+ *   AssistenciasTecnicas nao tem essa coluna. O cabecalho e o CABECALHO_OS_
+ *   deste mesmo arquivo, todo em CAIXA ALTA ('DATA ABERTURA' ... 'PAGAMENTO
+ *   FEITO'), medido com 25 colunas em 27/07
+ *   (docs/inventario-abas-2026-07-27.json). Com idxAtOS < 0 o `if` abaixo
+ *   nunca abria e as 270 OS nunca foram migradas — o botao dizia "0 OS sem
+ *   atendimento" e a pessoa concluia que estava tudo vinculado.
+ *   Quem reescrever: carimbe o vinculo pelo caminho que FUNCIONA hoje
+ *   (carimbarDocNoAtendimento_ / getColAtendimentoId), que cria a coluna, em
+ *   vez de supor que ela existe.
+ *
+ * ERRO 2 — lia a planilha errada e o cabecalho errado dos orcamentos.
+ *   `ss.getSheetByName(ABA_ORCAMENTOS)` le a aba legada da planilha ATIVA (9
+ *   registros). Desde 21/07 os orcamentos vivem numa planilha SEPARADA, que so
+ *   getOrcamentosSheet() abre. E os cabecalhos procurados estavam em
+ *   minusculas ('status', 'cliente', 'telefone', 'documento', 'vendedor')
+ *   enquanto os reais (ORC_HEADERS) sao 'Status', 'ClienteNome',
+ *   'ClienteTelefone', 'ClienteDocumento', 'Vendedor'. indexOf de array e
+ *   sensivel a caixa: todos -1. Consequencia dupla e silenciosa: com
+ *   idxStatus = -1 o `status` saia sempre vazio e TODA linha passava pelo
+ *   filtro de "pendente"; com os indices do cliente em -1, cada atendimento
+ *   nasceria sem nome, sem telefone e sem documento.
+ *
+ * ERRO 3 — sem trava de execucao unica, reapertar duplicava tudo.
+ *   A protecao era o `if (atId) continue`, que depende do vinculo ter sido
+ *   carimbado de volta no doc. Mas vincularDocAtendimento procura o orcamento
+ *   na planilha SEPARADA e o docId vinha da aba legada: nao achava a linha,
+ *   devolvia { sucesso: false } — que esta funcao nem olha — e nada era
+ *   carimbado. O clique seguinte criaria os mesmos atendimentos de novo.
+ *   Quem reescrever: LockService + marca de "ja rodou" em ScriptProperties, e
+ *   trate a resposta do vinculo em vez de ignora-la.
+ *
+ * ----------------------------------------------------------------------------
+ * Descricao original (mantida para contexto):
+ *
  * Migracao retroativa: cria atendimentos sinteticos para docs pendentes sem atendimentoId.
  * Considera "pendente":
  *   - Orcamentos com status='pendente' (case insensitive ou vazio) e atendimentoId vazio
@@ -4714,6 +4782,64 @@ function registrarHistoricoOS_(numeroOS, de, para, origem, quem) {
     aba.setFrozenRows(1);
   }
   aba.appendRow([new Date(), numeroOS, de, para, origem, quem]);
+}
+
+// ============================================================================
+// TRILHA DE PRECO E SALDO (Task 5 reorg 2026-07-28)
+// ============================================================================
+// Aba "HistoricoPrecoEstoque": o que mudou, DE quanto PARA quanto e QUANDO, nos
+// dois pontos que reescrevem valor direto — o preco/peso da peca (gerenciarPeca)
+// e o saldo do estoque (atualizarEstoque). Mesmo arranjo do HistoricoOS que a
+// Task 2 criou: aba propria, criada na primeira escrita, para nao alargar as
+// abas cujos indices de coluna sao fixos no codigo.
+//
+// NAO EXISTE COLUNA "QUEM", DE PROPOSITO. O web app roda como a conta dona do
+// script ("Executar como: Eu", instrucoes no topo deste arquivo), entao
+// Session.getActiveUser() nao devolve a pessoa que clicou — devolveria sempre a
+// mesma conta, para qualquer atendente. Uma coluna assim seria uma assinatura
+// falsa em cima de uma alteracao de preco: pior que nao ter registro nenhum.
+// Para ter QUEM de verdade seria preciso identificar a pessoa na tela (login ou
+// campo de operador), que e outra decisao e outra task.
+//
+// So registra o que MUDOU: uma linha por campo alterado. Reescrever a mesma
+// peca com o mesmo preco nao vira linha — trilha cheia de nao-evento e trilha
+// que ninguem le. E nunca derruba a gravacao: se a aba nao puder ser criada ou
+// escrita, o valor ja foi (ou sera) gravado do mesmo jeito e o erro morre aqui.
+function registrarAlteracaoValor_(tipo, alvo, campo, de, para, origem) {
+  try {
+    if (!mudouValor_(de, para)) return false;
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var aba = ss.getSheetByName('HistoricoPrecoEstoque');
+    if (!aba) {
+      aba = ss.insertSheet('HistoricoPrecoEstoque');
+      aba.appendRow(['DATA', 'TIPO', 'ALVO', 'CAMPO', 'DE', 'PARA', 'ORIGEM']);
+      aba.getRange(1, 1, 1, 7).setFontWeight('bold');
+      aba.setFrozenRows(1);
+    }
+    aba.appendRow([new Date(), tipo, alvo, campo, de === null || de === undefined ? '' : de,
+      para === null || para === undefined ? '' : para, origem || '']);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+// Os dois valores sao diferentes o bastante para virar linha de historico?
+//
+// Independente de proposito da lib do front (lib/confirmacao-alteracao.js): la
+// a pergunta e "vale perguntar para a pessoa?", aqui e "vale gravar na trilha?".
+// Numeros comparam por numero e com 2 casas (890 e '890,00' e 890.004 sao o
+// mesmo preco); o resto compara como texto sem espaco em volta.
+function mudouValor_(a, b) {
+  var sa = String(a === null || a === undefined ? '' : a).trim();
+  var sb = String(b === null || b === undefined ? '' : b).trim();
+  if (sa === sb) return false;
+  if (sa !== '' && sb !== '') {
+    var na = Number(String(sa).replace(',', '.'));
+    var nb = Number(String(sb).replace(',', '.'));
+    if (!isNaN(na) && !isNaN(nb)) return Math.round(na * 100) !== Math.round(nb * 100);
+  }
+  return true;
 }
 
 // ========================================
