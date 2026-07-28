@@ -8,7 +8,23 @@
   'use strict';
   var URL_API = (typeof GOOGLE_SCRIPT_URL !== 'undefined') ? GOOGLE_SCRIPT_URL : '';
   var ETAPAS = ['Aberta', 'Em análise', 'Aguardando aprovação', 'Em conserto', 'Pronto p/ retirar'];
+  // Corte de payload do backend (listarOS corta em `limite` e devolve as mais
+  // recentes). NAO aumente pra "resolver" contagem: o corte protege o payload,
+  // quem tem que falar a verdade sobre ele e o resumo da tela.
+  var LIMITE_LISTA = 200;
   var cache = [];
+  // Contadores da ultima resposta: `total` = quantas OS casam com o filtro na
+  // planilha; `exibidos` = quantas de fato vieram. Em producao (28/07) sao 283
+  // e 200 — a tela escrevia "200 OS" e escondia 83 sem avisar ninguem.
+  var totalUltimaResposta = 0;
+  var exibidosUltimaResposta = 0;
+  // Status ja vistos NESTA sessao, no valor cru que veio do backend. So cresce,
+  // nunca encolhe: o filtro montado apenas com a resposta ATUAL apagava o unico
+  // status que acha alguma coisa. Sequencia real de 2 cliques: abre a tela
+  // (dropdown com 'Em andamento'), escolhe 'Em conserto', o backend devolve 0,
+  // e a remontagem tirava 'Em andamento' da lista — a atendente perdia o filtro
+  // util de vista e so o recuperava passando por 'Todos'.
+  var statusVistos = [];
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) {
@@ -62,7 +78,7 @@
     }).map(function(k) {
       return k + '=' + encodeURIComponent(filtros[k]);
     }).join('&');
-    return fetch(URL_API + '?action=listar_os&limite=200' + (q ? '&' + q : ''))
+    return fetch(URL_API + '?action=listar_os&limite=' + LIMITE_LISTA + (q ? '&' + q : ''))
       .then(function(r) { return r.json(); })
       .then(function(d) {
         if (!d || !d.ok) {
@@ -70,6 +86,10 @@
           return d;
         }
         cache = d.oses || [];
+        // Aba vazia devolve so { ok, oses:[], total:0 }, sem `exibidos` — por
+        // isso cada contador cai no tamanho da lista quando nao vem numero.
+        totalUltimaResposta = (typeof d.total === 'number') ? d.total : cache.length;
+        exibidosUltimaResposta = (typeof d.exibidos === 'number') ? d.exibidos : cache.length;
         render();
         mostrarFeedback('', '');
         return d;
@@ -129,18 +149,80 @@
       '</div>';
   }
 
+  // O resumo tem que CONTAR o corte, nao esconder: com 283 OS no filtro e 200
+  // no payload a tela escrevia "200 OS", e a atendente jurava que as outras 83
+  // nao existiam.
+  function contagens() {
+    // `exibidos` e quantas o backend diz ter mandado; cache.length e quantas a
+    // tela recebeu. Se divergirem, vale o menor — o resumo nunca pode prometer
+    // mais OS do que existem na tela.
+    var mostradas = cache.length;
+    if (exibidosUltimaResposta > 0 && exibidosUltimaResposta < mostradas) mostradas = exibidosUltimaResposta;
+    var total = totalUltimaResposta > mostradas ? totalUltimaResposta : mostradas;
+    return { mostradas: mostradas, total: total, cortada: total > mostradas };
+  }
+
+  function textoResumo(c) {
+    if (!c.cortada) return c.mostradas + ' OS';
+    return 'Mostrando as ' + c.mostradas + ' OS mais recentes de ' + c.total +
+      ' no total. As ' + (c.total - c.mostradas) + ' mais antigas ficaram de fora desta lista — use a busca para achá-las.';
+  }
+
+  function pintarResumo() {
+    var resumo = document.getElementById('osResumo');
+    if (!resumo) return;
+    var c = contagens();
+    // textContent (nao innerHTML): so numeros nossos entram aqui, e assim
+    // continua imune a texto vindo do backend.
+    resumo.textContent = textoResumo(c);
+    // Amarelo quando tem OS fora da tela; cinza quando a lista esta inteira.
+    resumo.style.color = c.cortada ? '#f59e0b' : '#9a9a9a';
+    resumo.style.fontWeight = c.cortada ? '600' : 'normal';
+  }
+
+  // Guarda os status crus que ja passaram pela tela. Cru (sem trim) porque e
+  // exatamente isso que vai virar valor de <option> e depois querystring — o
+  // backend compara por igualdade exata e nao trima.
+  function lembrarStatusVistos(oses) {
+    oses = oses || [];
+    for (var i = 0; i < oses.length; i++) {
+      var bruto = oses[i] == null ? '' : (typeof oses[i] === 'string' ? oses[i] : oses[i].status);
+      var st = String(bruto == null ? '' : bruto);
+      if (!st.trim() || statusVistos.indexOf(st) !== -1) continue;
+      statusVistos.push(st);
+    }
+  }
+
+  // Refaz o <select> do filtro com a uniao das 5 ETAPAS + os status ja vistos
+  // na sessao + a selecao atual (montarOpcoesFiltroStatus, lib/status-os.js).
+  // Sem isso o filtro so oferecia as 5 ETAPAS e devolvia sempre lista vazia —
+  // as 283 OS de producao estao em 'Em andamento', que nao esta no enum. E sem
+  // o acumulado (statusVistos) um filtro que devolve zero apagava justamente o
+  // 'Em andamento' que a atendente precisava clicar de volta.
+  function atualizarFiltroStatus() {
+    var sel = document.getElementById('osStatus');
+    if (!sel || typeof montarOpcoesFiltroStatus !== 'function') return;
+    // Le a selecao ANTES de trocar as opcoes: a recarga nao pode zerar o filtro.
+    var selecionado = sel.value;
+    lembrarStatusVistos(cache);
+    sel.innerHTML = montarOpcoesFiltroStatus(cache, ETAPAS, selecionado, statusVistos).map(function(op) {
+      return '<option value="' + esc(op.valor) + '"' + (op.selecionado ? ' selected' : '') + '>' + esc(op.rotulo) + '</option>';
+    }).join('');
+  }
+
   function render() {
     var div = document.getElementById('osLista');
-    var resumo = document.getElementById('osResumo');
     if (!div) return;
+
+    // Antes do early-return da lista vazia: filtrar por um status e nao achar
+    // nada nao pode fazer a opcao escolhida sumir do seletor.
+    atualizarFiltroStatus();
+    pintarResumo();
 
     if (cache.length === 0) {
       div.innerHTML = '<div style="padding:2rem;text-align:center;color:#9a9a9a;">Nenhuma OS encontrada com esses filtros.</div>';
-      if (resumo) resumo.textContent = '0 OS';
       return;
     }
-
-    if (resumo) resumo.textContent = cache.length + ' OS';
 
     div.innerHTML = cache.map(cardHTML).join('');
 
