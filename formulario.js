@@ -314,7 +314,7 @@ function buildFormHTML() {
       '<div class="modal-content modal-resumo">' +
         '<div class="modal-resumo-header">' +
           '<h3>Resumo do Atendimento</h3>' +
-          '<button class="modal-close" onclick="fecharResumoModal()">&times;</button>' +
+          '<button class="modal-close" id="btnFecharResumo" onclick="fecharResumoModal()">&times;</button>' +
         '</div>' +
         '<div class="checklist-envio">' +
           '<div class="checklist-item" id="checkPlanilha">' +
@@ -334,7 +334,7 @@ function buildFormHTML() {
         '<div class="modal-resumo-actions">' +
           '<button type="button" class="btn-primario" onclick="copiarResumo()">Copiar Resumo</button>' +
           '<button type="button" class="btn-secundario" onclick="gerarPDFSeparacao()">PDF Separacao</button>' +
-          '<button type="button" class="btn-sucesso" onclick="novaVenda()">Novo Atendimento</button>' +
+          '<button type="button" class="btn-sucesso" id="btnNovoAtendimento" onclick="novaVenda()">Novo Atendimento</button>' +
         '</div>' +
       '</div>' +
     '</div>';
@@ -1139,9 +1139,13 @@ function registrarVenda(event) {
 function enviarParaGoogle(venda) {
   if (GOOGLE_SCRIPT_URL.indexOf('SUBSTITUIR') !== -1) {
     console.warn('Google Apps Script nao configurado');
-    atualizarChecklist('checkPlanilha', false);
-    atualizarChecklist('checkBling', false);
-    atualizarChecklist('checkEstoque', false, 'URL nao configurada');
+    mostrarAvisoVenda('perigo',
+      'A venda NAO foi enviada.',
+      'O sistema esta sem a URL do servidor configurada, entao a venda nem chegou a sair daqui. ' +
+      'Chame o responsavel pelo sistema. ' + instrucaoConferirAntes(venda));
+    atualizarChecklist('checkPlanilha', false, 'Nao enviou para a planilha (sistema sem configuracao)');
+    atualizarChecklist('checkBling', false, 'Nao enviou para o Bling (sistema sem configuracao)');
+    atualizarChecklist('checkEstoque', false, 'Estoque nao foi mexido');
     finalizarEnvio();
     return;
   }
@@ -1179,32 +1183,195 @@ function enviarParaGoogle(venda) {
     totalGeral: venda.totalGeral
   };
 
-  fetch(GOOGLE_SCRIPT_URL, {
+  // ATENCAO (2026-07-28): este POST era mode:'no-cors'. A resposta vinha OPACA,
+  // o navegador nunca conseguia ler o corpo, e o codigo dava visto verde na
+  // planilha E no Bling sempre que nao houve erro de rede. No apagao do Bling de
+  // 12-15/07 a tela mostrou verde em vendas cuja nota nunca saiu.
+  // Agora lemos a resposta de verdade, no mesmo padrao que baixaEstoqueVenda ja
+  // usa neste arquivo (Content-Type text/plain + resp.text() + JSON.parse).
+  // NAO volte para no-cors: o visto passaria a mentir de novo.
+  var timeoutId = null;
+  var opcoes = {
     method: 'POST',
-    mode: 'no-cors',
     redirect: 'follow',
+    headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify(payload)
-  })
-  .then(function(response) {
-    if (response.type === 'opaque' || response.ok) {
-      atualizarChecklist('checkPlanilha', true);
-      atualizarChecklist('checkBling', true);
-      // Baixa automatica de estoque (atualiza checkEstoque internamente)
-      baixaEstoqueVenda(venda);
-    } else {
-      atualizarChecklist('checkPlanilha', false);
-      atualizarChecklist('checkBling', false);
-      atualizarChecklist('checkEstoque', false, 'Nao tentado - venda falhou');
-    }
-    finalizarEnvio();
-  })
-  .catch(function(error) {
-    console.error('Erro ao enviar:', error);
-    atualizarChecklist('checkPlanilha', false);
-    atualizarChecklist('checkBling', false);
-    atualizarChecklist('checkEstoque', false, 'Nao tentado - venda falhou');
-    finalizarEnvio();
+  };
+
+  // Rede de seguranca: sem isso a tela pode ficar em "Enviando..." pra sempre e
+  // travar a atendente. Abortar cai no estado DESCONHECIDO (nunca em "falhou").
+  if (typeof AbortController !== 'undefined') {
+    var controller = new AbortController();
+    opcoes.signal = controller.signal;
+    timeoutId = setTimeout(function() { controller.abort(); }, 180000);
+  }
+
+  fetch(GOOGLE_SCRIPT_URL, opcoes)
+    .then(function(response) { return response.text(); })
+    .then(function(text) {
+      if (timeoutId) clearTimeout(timeoutId);
+
+      var data = null;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        data = null;
+      }
+
+      // Chegou resposta, mas nao da pra entender. NAO sabemos se a venda entrou.
+      if (!data || typeof data.planilha !== 'boolean') {
+        console.warn('registrar_venda: resposta ilegivel do servidor:', text);
+        vendaEstadoDesconhecido(venda);
+        finalizarEnvio();
+        return;
+      }
+
+      aplicarResultadoVenda(data, venda);
+      finalizarEnvio();
+    })
+    .catch(function(error) {
+      if (timeoutId) clearTimeout(timeoutId);
+      // Rede caiu / abortou / resposta nao chegou: NAO sabemos se a venda entrou.
+      // E PROIBIDO dizer que falhou aqui — a atendente refaria a venda e sairia
+      // pedido e nota fiscal EM DOBRO.
+      console.error('registrar_venda: nao consegui ler a resposta:', error);
+      vendaEstadoDesconhecido(venda);
+      finalizarEnvio();
+    });
+}
+
+// REGRA ABSOLUTA (rodada 2): a tela NUNCA manda registrar de novo sem conferir antes.
+//
+// Por que: planilha:false NAO prova que a venda ficou de fora. gravarNaPlanilha
+// faz sheet.appendRow([...]) e SO DEPOIS roda os setNumberFormat
+// (google-apps-script.js:687 e 725-727). Se a formatacao estourar, a LINHA JA
+// ESTA NA PLANILHA e mesmo assim o servidor responde planilha:false. A rodada 1
+// dizia "Pode registrar de novo (...) nao ha risco de duplicar" exatamente
+// nesse caso — seguir a instrucao gerava pedido em dobro e nota fiscal em dobro.
+//
+// Todo caminho que possa terminar num NOVO registro passa por aqui, e a ordem
+// dos tres passos e parte da instrucao: abrir, procurar, so entao registrar.
+function instrucaoConferirAntes(venda) {
+  var ident = (venda && venda.id) ? venda.id : '';
+  var quem = (venda && venda.cliente && venda.cliente.nome) ? venda.cliente.nome : '';
+  return 'Antes de registrar de novo, confira nesta ordem: ' +
+    '1) abra a planilha de pedidos; ' +
+    '2) procure o pedido ' + (ident ? ident + ' ' : '') + 'pelo ID e pelo nome do cliente' +
+      (quem ? ' (' + quem + ')' : '') + '; ' +
+    '3) so registre de novo se ELE NAO ESTIVER LA. ' +
+    'Se o pedido estiver na planilha, NAO registre de novo: sairia pedido e nota fiscal em dobro.';
+}
+
+// Aplica na tela o que o SERVIDOR de fato respondeu.
+// As duas pernas sao independentes: a venda FICA SALVA na planilha mesmo quando
+// o Bling falha. Por isso cada visto reflete o seu proprio campo.
+function aplicarResultadoVenda(data, venda) {
+  var erros = (data && Object.prototype.toString.call(data.erros) === '[object Array]') ? data.erros : [];
+  var motivoBling = motivoDoErro(erros, 'Bling');
+  var motivoPlanilha = motivoDoErro(erros, 'Planilha');
+  var outros = erros.filter(function(e) {
+    return String(e).indexOf('Bling') !== 0 && String(e).indexOf('Planilha') !== 0;
   });
+
+  if (erros.length) console.warn('registrar_venda: erros do servidor', erros);
+
+  // --- Visto da planilha ---
+  if (data.planilha) {
+    atualizarChecklist('checkPlanilha', true, 'Venda SALVA na planilha');
+  } else {
+    atualizarChecklist('checkPlanilha', false,
+      'NAO gravou na planilha' + (motivoPlanilha ? ' - ' + motivoPlanilha : ''));
+  }
+
+  // --- Visto do Bling ---
+  if (data.bling) {
+    atualizarChecklist('checkBling', true,
+      'Nota enviada para o Bling' + (data.blingPedidoId ? ' (pedido ' + data.blingPedidoId + ')' : ''));
+  } else {
+    atualizarChecklist('checkBling', false,
+      'A nota NAO saiu no Bling' + (motivoBling ? ' - ' + motivoBling : ''));
+  }
+
+  // --- Aviso grande, escrito pra quem esta com pressa ---
+  if (data.planilha && data.bling) {
+    if (outros.length) {
+      mostrarAvisoVenda('atencao',
+        'Venda salva e nota emitida. NAO registre de novo.',
+        'O servidor avisou de um problema secundario: ' + outros.join(' | ') + '. O pedido e a nota estao feitos; so mostre esse aviso ao responsavel.');
+    } else {
+      mostrarAvisoVenda('ok',
+        'Tudo certo: venda salva e nota emitida.',
+        'Pode seguir para o proximo atendimento.');
+    }
+  } else if (data.planilha && !data.bling) {
+    mostrarAvisoVenda('atencao',
+      'A VENDA ESTA SALVA. NAO registre de novo.',
+      'So a nota fiscal que nao saiu no Bling. O pedido ' + (venda && venda.id ? venda.id + ' ' : '') + 'ja esta na planilha. Avise o responsavel para emitir a nota. Se voce registrar a venda outra vez, vai sair pedido em dobro.');
+  } else if (!data.planilha && data.bling) {
+    // Pior combinacao: a nota JA existe. Refazer duplicaria nota fiscal.
+    mostrarAvisoVenda('perigo',
+      'A NOTA JA SAIU, mas a venda nao entrou na planilha. NAO registre de novo.',
+      'A nota fiscal ' + (data.blingPedidoId ? '(pedido ' + data.blingPedidoId + ') ' : '') + 'ja foi emitida no Bling. Registrar de novo faria sair NOTA EM DOBRO. Chame o responsavel para lancar essa venda na planilha na mao.');
+  } else {
+    // O servidor disse que nao gravou nada. E o cenario mais provavel de estar
+    // limpo — mas "provavel" nao autoriza refazer. Ver instrucaoConferirAntes:
+    // a linha entra na planilha ANTES do ultimo passo de gravacao, entao
+    // planilha:false convive com o pedido ja la dentro.
+    mostrarAvisoVenda('perigo',
+      'A venda provavelmente NAO entrou - mas CONFIRA antes de registrar de novo.',
+      'O servidor respondeu que nao gravou na planilha nem no Bling, entao provavelmente nao entrou mesmo. ' +
+      'So que essa resposta NAO e garantia: o pedido e escrito na planilha antes do ultimo passo da gravacao, ' +
+      'e quando esse passo falha o servidor responde "nao gravou" com o pedido JA la dentro. ' +
+      instrucaoConferirAntes(venda) + ' ' +
+      'Motivo informado pelo servidor: ' + (motivoPlanilha || motivoBling || 'o servidor nao explicou') + '.');
+  }
+
+  // --- Estoque ---
+  // So NAO baixa quando o servidor disse explicitamente que a planilha nao gravou.
+  if (data.planilha) {
+    baixaEstoqueVenda(venda); // atualiza checkEstoque por dentro
+  } else {
+    atualizarChecklist('checkEstoque', false, 'Estoque nao foi baixado (a venda nao entrou na planilha)');
+  }
+}
+
+// TERCEIRO ESTADO: nao deu para ler a resposta.
+// Nao sabemos se a venda entrou. E proibido dizer "deu certo" e e igualmente
+// proibido dizer "falhou" — dizer que falhou faz a atendente refazer a venda e
+// duplicar pedido + nota fiscal.
+function vendaEstadoDesconhecido(venda) {
+  marcarChecklistIndefinido('checkPlanilha', 'NAO SEI se gravou na planilha - confira antes de refazer');
+  marcarChecklistIndefinido('checkBling', 'NAO SEI se a nota saiu - confira antes de refazer');
+
+  mostrarAvisoVenda('atencao',
+    'NAO DEU PARA CONFIRMAR. Nao registre de novo agora.',
+    'A resposta do servidor nao chegou, mas a venda PODE ter sido salva do mesmo jeito. ' +
+    instrucaoConferirAntes(venda) + ' ' +
+    'O estoque tambem nao foi mexido por enquanto: ele sera conferido junto com a venda.');
+
+  // ESTOQUE: NAO baixa aqui. (Rodada 2 revoga a instrucao da rodada 1.)
+  //
+  // Baixar no estado desconhecido era o defeito, nao o comportamento a preservar:
+  // enquanto o POST era no-cors a resposta opaca sempre parecia sucesso, entao a
+  // baixa saia mesmo quando a venda nao tinha entrado. Pior, este e justamente o
+  // caminho que pode terminar num novo registro — dar baixa agora e mandar
+  // conferir/refazer depois produz DOIS debitos de estoque para UMA venda.
+  // Sem saber se a venda entrou, a resposta honesta e o terceiro estado.
+  marcarChecklistIndefinido('checkEstoque',
+    'NAO SEI se o estoque foi baixado - sera conferido junto com a venda');
+}
+
+// Extrai o motivo legivel de um erro do servidor ('Bling: Error: xxx' -> 'Error: xxx').
+function motivoDoErro(erros, prefixo) {
+  if (!erros || !erros.length) return '';
+  for (var i = 0; i < erros.length; i++) {
+    var e = String(erros[i]);
+    if (e.indexOf(prefixo) === 0) {
+      var msg = e.substring(prefixo.length).replace(/^\s*:\s*/, '').trim();
+      return msg.length > 180 ? msg.substring(0, 180) + '...' : msg;
+    }
+  }
+  return '';
 }
 
 // --- Stock check when adding part ---
@@ -1251,6 +1418,12 @@ function verificarEstoquePeca(modelId, pecaNome) {
 // Antes era fire-and-forget com log no console; agora agrega resultados
 // via Promise.all e atualiza o item "checkEstoque" do checklist do modal de
 // resumo com sucesso/falha. Detalhes vao pro console pra debug.
+//
+// So e chamada quando o servidor CONFIRMOU planilha:true. Nao existe mais o
+// parametro de sufixo "mas so vale se a venda estiver na planilha": no estado
+// desconhecido a baixa nao acontece (ver vendaEstadoDesconhecido), porque baixar
+// sem saber se a venda entrou — e ainda por cima mandar conferir/refazer depois —
+// gera dois debitos de estoque para uma unica venda.
 function baixaEstoqueVenda(venda) {
   if (typeof GOOGLE_SCRIPT_URL === 'undefined' || GOOGLE_SCRIPT_URL.indexOf('SUBSTITUIR') !== -1) {
     atualizarChecklist('checkEstoque', false, 'URL nao configurada - estoque nao atualizado');
@@ -1327,6 +1500,7 @@ function finalizarEnvio() {
     btn.disabled = false;
     btn.textContent = 'Registrar Atendimento';
   }
+  destravarModalAposEnvio();
 }
 
 // --- Summary Modal ---
@@ -1378,7 +1552,8 @@ function mostrarResumoModal(venda) {
   ultimoResumo = texto;
   ultimaVendaPDF = venda;
 
-  // Reset checklist
+  // Reset checklist (e o aviso da venda anterior, senao ele fica na tela mentindo)
+  limparAvisoVenda();
   resetChecklist('checkPlanilha', 'Enviando para planilha...');
   resetChecklist('checkBling', 'Enviando para Bling...');
   resetChecklist('checkEstoque', 'Atualizando estoque...');
@@ -1388,6 +1563,38 @@ function mostrarResumoModal(venda) {
 
   var modal = document.getElementById('resumoModal');
   if (modal) modal.style.display = 'flex';
+
+  travarModalDuranteEnvio();
+}
+
+// FIX 3(a): enquanto a requisicao esta em voo, fechar o modal apaga o unico
+// lugar onde o aviso antiduplicacao aparece — a resposta chega e escreve num
+// modal invisivel. Entao o X e o "Novo Atendimento" ficam desabilitados ate a
+// resposta chegar (ou o timeout de 180s estourar, que tambem chama finalizarEnvio).
+function travarModalDuranteEnvio() {
+  var fechar = document.getElementById('btnFecharResumo');
+  if (fechar) {
+    fechar.disabled = true;
+    fechar.title = 'Aguarde: ainda estou enviando a venda';
+  }
+  var novo = document.getElementById('btnNovoAtendimento');
+  if (novo) {
+    novo.disabled = true;
+    novo.textContent = 'Enviando... aguarde';
+  }
+}
+
+function destravarModalAposEnvio() {
+  var fechar = document.getElementById('btnFecharResumo');
+  if (fechar) {
+    fechar.disabled = false;
+    fechar.title = '';
+  }
+  var novo = document.getElementById('btnNovoAtendimento');
+  if (novo) {
+    novo.disabled = false;
+    novo.textContent = 'Novo Atendimento';
+  }
 }
 
 function resetChecklist(elementId, label) {
@@ -1398,6 +1605,88 @@ function resetChecklist(elementId, label) {
   if (icon) icon.textContent = '\u23F3';
   if (span) span.textContent = label;
   el.classList.remove('done');
+  limparEstiloIndefinido(el);
+}
+
+// O estado "nao sei" pinta o item por style inline (o style.css so tem verde/padrao),
+// entao qualquer outro estado precisa limpar essa pintura ou a cor gruda na venda seguinte.
+function limparEstiloIndefinido(el) {
+  el.style.color = '';
+  el.style.fontWeight = '';
+}
+
+// TERCEIRO ESTADO do checklist: nem verde (deu certo) nem vermelho (falhou).
+// Ambar + triangulo = "nao sabemos, va conferir antes de refazer".
+function marcarChecklistIndefinido(elementId, texto) {
+  var el = document.getElementById(elementId);
+  if (!el) return;
+  var icon = el.querySelector('.checklist-icon');
+  var span = el.querySelector('span:last-child');
+  if (icon) icon.textContent = '\u26A0\uFE0F';
+  if (span) span.textContent = texto || 'Nao deu para confirmar';
+  el.classList.remove('done');
+  el.style.color = '#a06600';
+  el.style.fontWeight = '700';
+}
+
+// Aviso grande no topo do modal. Usa textContent (nunca innerHTML) porque o texto
+// pode carregar mensagem de erro vinda do servidor.
+function mostrarAvisoVenda(nivel, titulo, texto) {
+  var aviso = document.getElementById('avisoVenda');
+  if (!aviso) {
+    var lista = document.querySelector('#resumoModal .checklist-envio');
+    if (!lista || !lista.parentNode) return;
+    aviso = document.createElement('div');
+    aviso.id = 'avisoVenda';
+    lista.parentNode.insertBefore(aviso, lista);
+  }
+
+  var paletas = {
+    ok:      { fundo: '#e8f5e9', borda: '#2e7d32', texto: '#1b5e20' },
+    atencao: { fundo: '#fff8e1', borda: '#f9a825', texto: '#6d4c00' },
+    perigo:  { fundo: '#ffebee', borda: '#c62828', texto: '#8e1010' }
+  };
+  var cor = paletas[nivel] || paletas.atencao;
+
+  aviso.style.display = 'block';
+  aviso.style.margin = '0.75rem 1.25rem 0';
+  aviso.style.padding = '0.85rem 1rem';
+  aviso.style.borderRadius = '6px';
+  aviso.style.background = cor.fundo;
+  aviso.style.borderLeft = '5px solid ' + cor.borda;
+  aviso.style.color = cor.texto;
+  aviso.style.lineHeight = '1.45';
+  aviso.textContent = '';
+
+  var h = document.createElement('div');
+  h.style.fontWeight = '800';
+  h.style.fontSize = '1rem';
+  h.style.marginBottom = '0.25rem';
+  h.textContent = titulo;
+
+  var p = document.createElement('div');
+  p.style.fontSize = '0.9rem';
+  p.textContent = texto;
+
+  aviso.appendChild(h);
+  aviso.appendChild(p);
+
+  // FIX 3(b): se a noticia NAO e "tudo certo", o aviso nao pode morrer num modal
+  // fechado. Ela pode ter fechado a tela antes da resposta chegar (ou o modal
+  // pode ter sido fechado por qualquer outro caminho): reabrimos na marra, aqui,
+  // que e o unico ponto por onde todo aviso passa. 'ok' nao reabre nada — nao ha
+  // o que avisar e reabrir seria so incomodo.
+  if (nivel !== 'ok') {
+    var modal = document.getElementById('resumoModal');
+    if (modal) modal.style.display = 'flex';
+  }
+}
+
+function limparAvisoVenda() {
+  var aviso = document.getElementById('avisoVenda');
+  if (!aviso) return;
+  aviso.style.display = 'none';
+  aviso.textContent = '';
 }
 
 function atualizarChecklist(elementId, sucesso, customText) {
@@ -1405,6 +1694,7 @@ function atualizarChecklist(elementId, sucesso, customText) {
   if (!el) return;
   var icon = el.querySelector('.checklist-icon');
   var span = el.querySelector('span:last-child');
+  limparEstiloIndefinido(el);
 
   var defaultOk = {
     checkPlanilha: 'Enviado para planilha!',
@@ -1449,11 +1739,15 @@ function fallbackCopy() {
 }
 
 function fecharResumoModal() {
+  // Trava tambem em codigo, nao so no botao desabilitado: qualquer caminho que
+  // feche o modal durante o envio esconderia o aviso antiduplicacao.
+  if (envioEmAndamento) return;
   var modal = document.getElementById('resumoModal');
   if (modal) modal.style.display = 'none';
 }
 
 function novaVenda() {
+  if (envioEmAndamento) return;
   fecharResumoModal();
   var form = document.getElementById('vendaPecaForm');
   if (form) form.reset();
@@ -2115,4 +2409,22 @@ function salvarComoOrcamento() {
       btn.innerHTML = '📄 Salvar como Orçamento';
     }
   });
+}
+
+// Export so para teste (tests/venda-resultado.test.js). Mesmo guard de
+// lib/status-os.js: no browser `module` nao existe, a linha e ignorada e nada
+// aqui muda. O fluxo de venda e o mais caro do sistema (pedido + nota fiscal),
+// entao aplicarResultadoVenda e vendaEstadoDesconhecido precisam ser exercitados
+// de verdade, e nao so lidos.
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    aplicarResultadoVenda: aplicarResultadoVenda,
+    vendaEstadoDesconhecido: vendaEstadoDesconhecido,
+    enviarParaGoogle: enviarParaGoogle,
+    instrucaoConferirAntes: instrucaoConferirAntes,
+    mostrarAvisoVenda: mostrarAvisoVenda,
+    travarModalDuranteEnvio: travarModalDuranteEnvio,
+    destravarModalAposEnvio: destravarModalAposEnvio,
+    finalizarEnvio: finalizarEnvio
+  };
 }
