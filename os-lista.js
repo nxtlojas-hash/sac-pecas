@@ -508,6 +508,15 @@
     if (!container) return;
     container.innerHTML = buildHTML();
     setupListeners();
+    // Chegada vinda do cartao do atendimento (atendimentos-lista.js clicou num
+    // chip OS-...): abre a tela ja filtrada naquele numero. Espelho exato do
+    // window.__buscaAtendimento que ESTA tela usa no caminho inverso — um so
+    // mecanismo para navegar entre as duas views.
+    if (window.__buscaOS) {
+      var campoBusca = document.getElementById('osBusca');
+      if (campoBusca) campoBusca.value = window.__buscaOS;
+      window.__buscaOS = null;
+    }
     carregar(filtrosAtuais());
   }
 

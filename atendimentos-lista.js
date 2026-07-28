@@ -285,9 +285,33 @@
           editarStatusFromList(atendimentosCache[idx], idx);
         });
       }
+      ligarChipsOS(det);
     } else {
       det.style.display = 'none';
     }
+  }
+
+  // Chips de "Docs vinculados". O que casa com /^OS-/ vira BOTAO que abre a tela
+  // de OS ja filtrada naquele numero, com o status atual do lado (Task 4 reorg
+  // 2026-07-28) — e o "tudo sobre um atendimento no mesmo lugar". Os outros
+  // documentos (PCA-, ORC-) continuam chips de leitura: nao existe tela propria
+  // para abrir filtrada neles.
+  function pareceNumeroDeOS(doc) {
+    return /^OS-/i.test(String(doc == null ? '' : doc).trim());
+  }
+
+  function chipDocHTML(d) {
+    var texto = escapeHtmlAt(d);
+    if (!pareceNumeroDeOS(d)) {
+      return '<span style="background:#22c55e22;color:#22c55e;padding:0.15rem 0.5rem;border-radius:4px;font-size:0.75rem;font-weight:600;margin-right:0.25rem;">' + texto + '</span>';
+    }
+    return '<span style="display:inline-flex;align-items:center;gap:0.35rem;margin-right:0.35rem;">' +
+        '<button type="button" class="al-btn-abrir-os btn-secundario btn-sm" data-os="' + texto + '" ' +
+          'style="font-size:0.75rem;font-weight:600;padding:0.15rem 0.5rem;">' + texto + ' &#8599;</button>' +
+        // Status preenchido depois, por consulta (preencherStatusChipOS): a lista de
+        // atendimentos nao traz status de OS, e inventar um aqui seria mentir.
+        '<span class="al-os-status" data-os="' + texto + '" style="font-size:0.72rem;color:#9a9a9a;">consultando status...</span>' +
+      '</span>';
   }
 
   function renderDetalhe(a, idx) {
@@ -297,7 +321,7 @@
         var arr = typeof a.docsVinculados === 'string' ? JSON.parse(a.docsVinculados) : a.docsVinculados;
         if (Array.isArray(arr) && arr.length) {
           docsHtml = '<div style="margin-top:0.5rem;"><strong style="color:var(--cor-primaria);">Docs vinculados:</strong> ' +
-            arr.map(function(d) { return '<span style="background:#22c55e22;color:#22c55e;padding:0.15rem 0.5rem;border-radius:4px;font-size:0.75rem;font-weight:600;margin-right:0.25rem;">' + escapeHtmlAt(d) + '</span>'; }).join('') +
+            arr.map(chipDocHTML).join('') +
           '</div>';
         }
       } catch (e) { /* ignora */ }
@@ -324,6 +348,56 @@
       '<div style="margin-top:0.6rem;display:flex;gap:0.5rem;flex-wrap:wrap;">' +
         '<button type="button" class="al-btn-editar-' + idx + ' btn-secundario btn-sm" style="font-size:0.78rem;">&#9998; Editar status</button>' +
       '</div>';
+  }
+
+  // Liga os botoes de OS do bloco "Docs vinculados" e busca o status de cada um.
+  function ligarChipsOS(det) {
+    if (!det) return;
+
+    var botoes = det.querySelectorAll('.al-btn-abrir-os');
+    for (var i = 0; i < botoes.length; i++) {
+      botoes[i].addEventListener('click', function(e) {
+        e.stopPropagation(); // nao recolhe o detalhe do cartao
+        var numero = e.currentTarget.getAttribute('data-os');
+        // MESMO hook do caminho inverso (os-lista.js manda window.__buscaAtendimento
+        // e navega para 'atendimentos'). Espelho dele, nada de mecanismo novo.
+        window.__buscaOS = numero;
+        if (typeof navigateTo === 'function') navigateTo('os');
+      });
+    }
+
+    var alvos = det.querySelectorAll('.al-os-status');
+    for (var j = 0; j < alvos.length; j++) {
+      preencherStatusChipOS(alvos[j]);
+    }
+  }
+
+  // Status da OS do chip. Usa buscar_os (a mesma action do bloco "OS encontrada
+  // fora dos atendimentos") porque ela procura nas tres fontes: a OS vinculada
+  // pode ser da serie antiga, que listar_os nao le.
+  function preencherStatusChipOS(el) {
+    var numero = el.getAttribute('data-os');
+    if (!numero) { el.textContent = ''; return; }
+    fetch(resolverUrl() + '?action=buscar_os&numero=' + encodeURIComponent(numero))
+      .then(function(r) { return r.json(); })
+      .then(function(resp) {
+        var achados = (resp && resp.ok && resp.resultados) ? resp.resultados : [];
+        if (!achados.length) { el.textContent = '(não encontrada)'; return; }
+        // Numero repetido entre as bases (incidente de 06/07) devolve mais de um.
+        // Mostrar o primeiro com status e melhor que escolher em silencio: o
+        // botao ao lado leva para a tela de OS, onde os dois aparecem.
+        var comStatus = null;
+        for (var i = 0; i < achados.length; i++) {
+          if (achados[i] && String(achados[i].status || '').trim()) { comStatus = achados[i]; break; }
+        }
+        if (!comStatus) { el.textContent = '(sem status)'; return; }
+        el.textContent = comStatus.status + (achados.length > 1 ? ' (+' + (achados.length - 1) + ' com o mesmo número)' : '');
+        el.style.color = '#3b82f6';
+      })
+      .catch(function() {
+        // Rede caiu: o botao continua funcionando, so nao ha status para mostrar.
+        el.textContent = '';
+      });
   }
 
   function editarStatusFromList(atendimento, idx) {

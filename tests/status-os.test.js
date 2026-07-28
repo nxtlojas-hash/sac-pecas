@@ -814,7 +814,7 @@ function bancadaListar(linhas) {
   // teste seria comparar com uma copia — o erro que este teste existe pra pegar.
   return new Function(
     'SpreadsheetApp', 'ABA_ASSISTENCIAS', 'getColAtendimentoId',
-    'termosDaBusca', 'montarTextoBusca', 'textoCasaTermos',
+    'termosDaBusca', 'montarTextoBusca', 'textoCasaTermos', 'contarSemVinculo',
     'etapaDoStatus_', 'Utilities', 'Session',
     decEtapas.codigo + '\n' +
     corpoFuncao(GAS, 'listarOS') + '\nreturn { listarOS: listarOS, ETAPAS_OS: ETAPAS_OS };'
@@ -825,6 +825,11 @@ function bancadaListar(linhas) {
     NOME_MASTER,
     function() { return 0; },
     buscaTexto.termosDaBusca, buscaTexto.montarTextoBusca, buscaTexto.textoCasaTermos,
+    // contarSemVinculo entrou em listarOS na Task 4 (instrumentacao da adesao ao
+    // vinculo OS<->atendimento). Injetado da lib, como as funcoes de busca: o
+    // teste irmao em tests/vinculo-atendimento.test.js prova que a copia dentro
+    // do google-apps-script.js e identica a esta.
+    require('../lib/vinculo-atendimento.js').contarSemVinculo,
     new Function(corpoFuncao(GAS, 'etapaDoStatus_') + '\nreturn etapaDoStatus_;')(),
     { formatDate: function() { return '01/07/2026'; } },
     { getScriptTimeZone: function() { return 'America/Sao_Paulo'; } }

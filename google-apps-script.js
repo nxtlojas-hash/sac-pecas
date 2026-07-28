@@ -2555,7 +2555,18 @@ function registrarOS(dados) {
           var ultLinhaOS = aba.getLastRow();
           aba.getRange(ultLinhaOS, colAtOS).setValue(dados.atendimentoId);
         }
-      } catch (eAt) { /* nao bloqueia o fluxo */ }
+        // Outro lado do vinculo: carimba a OS em docsVinculados do atendimento.
+        // Sem isso o cartao do atendimento nunca mostra a OS — causa medida de
+        // docsVinculados = 0 em 816 atendimentos (diagnostico 27/07; 0 em 892 na
+        // releitura ao vivo de 28/07).
+        //
+        // Vai direto no carimbarDocNoAtendimento_ e NAO em vincularDocAtendimento:
+        // aquela funcao procura o doc pela coluna A, que na aba de OS e a data —
+        // para tipoDoc 'os' ela nunca acha e devolve erro sem carimbar nada
+        // (auditoria 28/07, detalhe no cabecalho dela). O atendimentoId na linha
+        // da OS ja foi gravado logo acima, entao aqui so falta o outro lado.
+        carimbarDocNoAtendimento_(dados.atendimentoId, numeroOS);
+      } catch (eAt) { /* nao bloqueia o fluxo: OS aberta vale mais que vinculo */ }
     }
 
     // Roteamento Sumare vs terceirizada (spec 2026-07-12). Form antigo em cache
@@ -3397,11 +3408,90 @@ function getColAtendimentoId(sheet) {
 }
 
 /**
+ * Indice 0-based de um cabecalho numa linha de cabecalhos ja lida. -1 se nao existe.
+ * Comparacao por nome normalizado (trim + minuscula), igual ao getColAtendimentoId.
+ *
+ * Existe porque indice fixo mentiu em producao: listarAtendimentos lia
+ * docsVinculados em row[17] (coluna R) e a aba Atendimentos tem 17 colunas, com
+ * docsVinculados na Q (indice 16) — conferido ao vivo em 28/07 via
+ * ?action=inventario_abas. O campo voltava sempre vazio e o conteudo da Q saia
+ * rotulado como `acoes`.
+ */
+function indiceCabecalho_(headers, nome) {
+  if (!headers || !headers.length) return -1;
+  var alvo = String(nome || '').trim().toLowerCase();
+  for (var i = 0; i < headers.length; i++) {
+    if (String(headers[i]).trim().toLowerCase() === alvo) return i;
+  }
+  return -1;
+}
+
+/**
+ * Carimba `docId` na lista docsVinculados do atendimento. Idempotente: doc que
+ * ja esta na lista nao entra duas vezes. Devolve true se o atendimento existe
+ * (tenha gravado agora ou ja estivesse la), false se nao achou a linha.
+ *
+ * Este e o lado do vinculo que a TELA DO ATENDIMENTO LE. O outro lado (o
+ * atendimentoId na linha do doc) e gravado por quem chama.
+ *
+ * Extraido de vincularDocAtendimento em 28/07 para registrarOS poder carimbar
+ * sem depender da busca por docId que aquela funcao faz — busca que NAO acha OS
+ * (ver o comentario dentro de vincularDocAtendimento).
+ */
+function carimbarDocNoAtendimento_(atendimentoId, docId) {
+  if (!atendimentoId || !docId) return false;
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheetAt = ss.getSheetByName(SHEET_ATENDIMENTOS);
+  if (!sheetAt) return false;
+
+  var dadosAt = sheetAt.getDataRange().getValues();
+  for (var j = 1; j < dadosAt.length; j++) {
+    if (String(dadosAt[j][0]) !== String(atendimentoId)) continue;
+    var rDocsVinc = j + 1;
+    // Coluna docsVinculados pode ainda nao existir nesta planilha (legado)
+    var ultimaCol = sheetAt.getLastColumn();
+    var headers = sheetAt.getRange(1, 1, 1, ultimaCol).getValues()[0];
+    var idxDV = indiceCabecalho_(headers, 'docsVinculados');
+    var colDV = idxDV >= 0 ? idxDV + 1 : 0;
+    if (colDV === 0) {
+      // Cria coluna docsVinculados
+      sheetAt.getRange(1, ultimaCol + 1).setValue('docsVinculados');
+      sheetAt.getRange(1, ultimaCol + 1).setFontWeight('bold');
+      colDV = ultimaCol + 1;
+    }
+    var atual = sheetAt.getRange(rDocsVinc, colDV).getValue() || '';
+    var lista = [];
+    if (atual) {
+      try { lista = JSON.parse(atual); if (!Array.isArray(lista)) lista = []; } catch (e) { lista = []; }
+    }
+    if (lista.indexOf(docId) === -1) {
+      lista.push(docId);
+      sheetAt.getRange(rDocsVinc, colDV).setValue(JSON.stringify(lista));
+    }
+    return true;
+  }
+  return false;
+}
+
+/**
  * Vincula um documento (PCA/ORC/OS) a um atendimento existente.
  * payload: { atendimentoId, tipoDoc: 'venda'|'orcamento'|'os', docId }
  * 1. Acha doc na aba correspondente
  * 2. Preenche coluna atendimentoId
- * 3. Atualiza docsVinculados (coluna R) do atendimento
+ * 3. Atualiza docsVinculados do atendimento (carimbarDocNoAtendimento_)
+ *
+ * ATENCAO (auditoria 28/07) — tipoDoc 'os' NAO FUNCIONA por este caminho.
+ * A busca do doc e feita na coluna A (`data[i][0]`), e na aba
+ * AssistenciasTecnicas a coluna A e 'DATA ABERTURA': o numero da OS mora na B.
+ * Ou seja, para uma OS esta funcao sempre cai no 'Doc ... nao encontrado' e
+ * devolve sucesso:false ANTES de tocar em docsVinculados. Vale para venda
+ * (aba Registros) e orcamento, cujas abas tem o id na coluna A.
+ *
+ * Nao foi "consertado" aqui de proposito: mexer na busca mexeria tambem nos dois
+ * caminhos que funcionam hoje, e o botao "Vincular" de clientes.js chama esta
+ * funcao com tipoDoc vindo do evento. registrarOS carimba o vinculo pelo
+ * caminho direto (carimbarDocNoAtendimento_). Vinculo manual de OS ja existente
+ * continua sem funcionar — esta relatado para o controlador decidir.
  */
 function vincularDocAtendimento(payload) {
   if (!payload || !payload.atendimentoId || !payload.docId || !payload.tipoDoc) {
@@ -3435,39 +3525,8 @@ function vincularDocAtendimento(payload) {
 
   sheet.getRange(linha, colAt).setValue(payload.atendimentoId);
 
-  // Atualiza docsVinculados do atendimento (coluna R, idx 18)
-  var sheetAt = ss.getSheetByName(SHEET_ATENDIMENTOS);
-  if (sheetAt) {
-    var dadosAt = sheetAt.getDataRange().getValues();
-    for (var j = 1; j < dadosAt.length; j++) {
-      if (String(dadosAt[j][0]) === String(payload.atendimentoId)) {
-        var rDocsVinc = j + 1;
-        // Coluna docsVinculados pode ainda nao existir nesta planilha (legado)
-        var ultimaCol = sheetAt.getLastColumn();
-        var colDV = 0;
-        var headers = sheetAt.getRange(1, 1, 1, ultimaCol).getValues()[0];
-        for (var k = 0; k < headers.length; k++) {
-          if (String(headers[k]).trim().toLowerCase() === 'docsvinculados') { colDV = k + 1; break; }
-        }
-        if (colDV === 0) {
-          // Cria coluna docsVinculados
-          sheetAt.getRange(1, ultimaCol + 1).setValue('docsVinculados');
-          sheetAt.getRange(1, ultimaCol + 1).setFontWeight('bold');
-          colDV = ultimaCol + 1;
-        }
-        var atual = sheetAt.getRange(rDocsVinc, colDV).getValue() || '';
-        var lista = [];
-        if (atual) {
-          try { lista = JSON.parse(atual); if (!Array.isArray(lista)) lista = []; } catch(e) { lista = []; }
-        }
-        if (lista.indexOf(payload.docId) === -1) {
-          lista.push(payload.docId);
-          sheetAt.getRange(rDocsVinc, colDV).setValue(JSON.stringify(lista));
-        }
-        break;
-      }
-    }
-  }
+  // Outro lado do vinculo — o que a tela do atendimento le.
+  carimbarDocNoAtendimento_(payload.atendimentoId, payload.docId);
 
   return { sucesso: true, atendimentoId: payload.atendimentoId, docId: payload.docId };
 }
@@ -3488,6 +3547,16 @@ function listarAtendimentos(filtros) {
   if (ultLinha < 2) return { sucesso: true, atendimentos: [] };
 
   var ultCol = sheet.getLastColumn();
+  // Colunas do fim da aba pelo CABECALHO, nunca por indice fixo (28/07).
+  // O codigo lia `acoes: row[16]` e `docsVinculados: row[17]`, mas a aba tem 17
+  // colunas e docsVinculados e a Q — indice 16. Ou seja: docsVinculados vinha
+  // SEMPRE vazio (a coluna R nao existe) e o conteudo dele saia rotulado como
+  // `acoes`. A tela do atendimento continuaria mostrando zero doc mesmo depois
+  // de o vinculo passar a ser gravado. `acoes` nao existe como coluna hoje
+  // (registrarAtendimento grava so A..P); quando existir, e achada aqui.
+  var cabecalhos = sheet.getRange(1, 1, 1, ultCol).getValues()[0];
+  var idxAcoes = indiceCabecalho_(cabecalhos, 'acoes');
+  var idxDocsVinc = indiceCabecalho_(cabecalhos, 'docsVinculados');
   var dados = sheet.getRange(2, 1, ultLinha - 1, ultCol).getValues();
   var dataDe = filtros.dataDe ? new Date(filtros.dataDe) : null;
   var dataAte = filtros.dataAte ? new Date(filtros.dataAte) : null;
@@ -3513,8 +3582,8 @@ function listarAtendimentos(filtros) {
       dataFechamento: row[13],
       motivoFechamento: row[14],
       npsEnviado: row[15],
-      acoes: row[16] || '',
-      docsVinculados: row[17] || ''
+      acoes: idxAcoes >= 0 ? (row[idxAcoes] || '') : '',
+      docsVinculados: idxDocsVinc >= 0 ? (row[idxDocsVinc] || '') : ''
     };
 
     if (dataDe && new Date(at.dataAbertura) < dataDe) continue;
@@ -4384,13 +4453,42 @@ function buscarOSHistorico(q) {
 // editar a celula da planilha na mao — "nao sei onde altera o status".
 // ========================================
 
+// ========================================
+// INSTRUMENTACAO DA ADESAO AO VINCULO (Task 4 reorg 2026-07-28)
+// COPIA IDENTICA de lib/vinculo-atendimento.js. O backend e um arquivo unico
+// colado no editor do Apps Script e nao consegue dar require na pasta lib/ —
+// mesmo arranjo de pareceNumeroOS e das funcoes de busca aqui em cima.
+// tests/vinculo-atendimento.test.js compara os corpos das duas copias, entao
+// consertar so um lado quebra o teste de proposito. Se mexer aqui, mexa la.
+//
+// Por que a contagem existe: o bloqueio de "OS sem atendimento" ficou SO NO
+// FRONT (quem estiver com o index.html velho em cache nao pode ser impedido de
+// abrir OS no meio do expediente). Este numero e a unica forma de enxergar, sem
+// abrir a planilha, se ainda nasce OS solta — e e ele que decide, daqui a alguns
+// dias, se da para ligar o bloqueio tambem aqui.
+// ========================================
+
+function contarSemVinculo(oses) {
+  oses = oses || [];
+  var n = 0;
+  for (var i = 0; i < oses.length; i++) {
+    var o = oses[i];
+    var id = (o && typeof o === 'object') ? o.atendimentoId : null;
+    if (!String(id == null ? '' : id).trim()) n++;
+  }
+  return n;
+}
+
 // Lista as OS do master com filtros. NAO lista a serie antiga (ela e historico
 // e nao tem colunas para status) — a serie antiga se acha pela busca (buscar_os).
 function listarOS(filtros) {
   filtros = filtros || {};
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var aba = ss.getSheetByName(ABA_ASSISTENCIAS);
-  if (!aba || aba.getLastRow() < 2) return { ok: true, oses: [], total: 0 };
+  // semVinculo tambem aqui: quem le a metrica por GET nao pode receber
+  // `undefined` quando a aba esta vazia — zero OS sao zero OS soltas, e um
+  // campo que some em um dos caminhos vira ruido na hora de comparar os dias.
+  if (!aba || aba.getLastRow() < 2) return { ok: true, oses: [], total: 0, semVinculo: 0 };
 
   var colAt = getColAtendimentoId(aba);
   var dados = aba.getDataRange().getValues();
@@ -4436,6 +4534,11 @@ function listarOS(filtros) {
   out.reverse();
   var limite = parseInt(filtros.limite) || 200;
   var total = out.length;
+  // Contado ANTES do corte, de proposito: `semVinculo` anda com `total`, nunca
+  // com `exibidos`. Contar depois faria o numero encostar no teto do payload
+  // (200) e parecer que a adesao melhorou quando so cresceu a lista — o mesmo
+  // engano que a tela ja cometeu escrevendo "200 OS" com 283 no filtro.
+  var semVinculo = contarSemVinculo(out);
   if (out.length > limite) out = out.slice(0, limite);
   // `etapas` viaja junto (28/07): a tela de OS tinha uma COPIA hardcoded do
   // enum. Com os rotulos mudando agora ('Pronto p/ retirar' -> 'Finalizado'),
@@ -4443,7 +4546,10 @@ function listarOS(filtros) {
   // dos lados sobe — e o front oferece um status que atualizarStatusOS recusa.
   // O front usa este campo quando ele vem e cai na copia local quando nao vem
   // (a v45, ainda no ar, nao manda).
-  return { ok: true, oses: out, total: total, exibidos: out.length, etapas: ETAPAS_OS };
+  // `semVinculo` e INSTRUMENTACAO, nao funcionalidade: nenhuma tela mostra este
+  // numero para a atendente. Ele viaja aqui para dar de ler por GET
+  // (?action=listar_os) quantas OS ainda nascem soltas.
+  return { ok: true, oses: out, total: total, exibidos: out.length, semVinculo: semVinculo, etapas: ETAPAS_OS };
 }
 
 // Avanca o status da OS. So aceita os rotulos de ETAPAS_OS mais o alias legado

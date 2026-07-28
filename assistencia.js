@@ -58,14 +58,328 @@
   // Atendimento vinculado (setado por aplicarPreFillOS quando wizard atendimento -> OS)
   var atendimentoVinculadoOS = '';
 
+  // Atendimentos ja conhecidos pelo formulario: { 'PV-...': atendimento }.
+  // Nasce com os em aberto (datalist) e cresce com os que forem consultados por
+  // protocolo digitado (aoTrocarAtendimentoOS).
+  var atendimentosConhecidosOS = {};
+
   window.initAssistencia = function() {
     var container = document.getElementById('assistencia-container');
     if (!container) return;
     container.innerHTML = buildFormHTMLAssistencia();
+    // O HTML do formulário é reconstruído aqui, então TODA memória do protocolo
+    // anterior morre junto. Sem esta linha o guard anti-consulta-dupla
+    // (ultimoProtocoloConsultadoOS) sobrevivia à troca de tela e valia entre OS
+    // DIFERENTES: abrir a segunda OS com o mesmo protocolo errado não repetia a
+    // consulta e engolia a mensagem de erro — a atendente via um campo mudo.
+    esquecerAtendimentoConsultadoOS();
     setupListenersAssistencia();
     carregarCadastroAssistencias();
+    carregarAtendimentosAbertosOS();
     console.log('Formulário Assistência Técnica inicializado');
   };
+
+  // Sugestões do campo Atendimento (protocolo).
+  //
+  // Uma requisição só, sem filtro de status na querystring, e o filtro do que é
+  // "em aberto" feito aqui: listarAtendimentos compara status por igualdade
+  // exata, então filtrar por 'Aberto' no servidor esconderia justamente os
+  // atendimentos 'Em andamento' — que são os que mais viram OS. O datalist é
+  // sugestão, não trava: protocolo fora da lista continua podendo ser digitado.
+  var STATUS_ATENDIMENTO_EM_ABERTO = ['Aberto', 'Em andamento', 'Aguardando cliente'];
+
+  function carregarAtendimentosAbertosOS() {
+    try {
+      var url = resolverUrl() + '?action=listar_atendimentos&limite=200';
+      fetch(url)
+        .then(function(r) { return r.json(); })
+        .then(function(resp) {
+          if (!resp || !resp.sucesso || !resp.atendimentos) return;
+          atendimentosConhecidosOS = {};
+          var opts = '';
+          resp.atendimentos.forEach(function(a) {
+            if (!a || !a.id) return;
+            if (STATUS_ATENDIMENTO_EM_ABERTO.indexOf(String(a.status || 'Aberto')) === -1) return;
+            atendimentosConhecidosOS[String(a.id).trim().toUpperCase()] = a;
+            var rotulo = (a.nomeCliente || '(sem nome)') + (a.modeloEquipamento ? ' — ' + a.modeloEquipamento : '');
+            opts += '<option value="' + escapeHtml(a.id) + '">' + escapeHtml(rotulo) + '</option>';
+          });
+          var dl = document.getElementById('osAtendimentoLista');
+          if (dl) dl.innerHTML = opts;
+        })
+        .catch(function() { /* sem sugestões; o campo continua digitável */ });
+    } catch (e) { /* silencioso */ }
+  }
+
+  // Protocolo digitado/escolhido, já normalizado (trim + maiúscula). O backend
+  // acha o atendimento por igualdade exata de string.
+  function protocoloDoCampoOS() {
+    var el = document.getElementById('osAtendimentoId');
+    // Existindo o campo, ele é a ÚNICA fonte da verdade — inclusive vazio. Cair
+    // no atendimentoVinculadoOS quando o campo está em branco faria a OS ser
+    // vinculada ao protocolo que a atendente acabou de APAGAR para trocar.
+    // A variável só vale como origem quando o campo não existe na tela (form
+    // antigo em cache abrindo com preFill vindo do wizard de atendimento).
+    var bruto = el ? el.value : (atendimentoVinculadoOS || '');
+    return (typeof normalizarProtocoloAtendimento === 'function')
+      ? normalizarProtocoloAtendimento(bruto)
+      : String(bruto == null ? '' : bruto).trim().toUpperCase();
+  }
+
+  function mostrarInfoAtendimentoOS(msg, tipo) {
+    var el = document.getElementById('osAtendimentoInfo');
+    if (!el) return;
+    if (!msg) { el.innerHTML = ''; return; }
+    var cor = tipo === 'erro' ? '#ef4444' : tipo === 'sucesso' ? '#22c55e' : '#3b82f6';
+    el.innerHTML = '<div style="background:' + cor + '22;color:' + cor + ';padding:0.5rem 0.75rem;border-radius:6px;font-size:0.85rem;font-weight:600;">' + escapeHtml(msg) + '</div>';
+  }
+
+  // Só preenche campo VAZIO. Escolher o protocolo depois de digitar os dados do
+  // cliente não pode apagar o que a atendente acabou de digitar.
+  function setSeVazioOS(id, val) {
+    if (!val) return;
+    var el = document.getElementById(id);
+    if (!el || String(el.value || '').trim()) return;
+    el.value = val;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  function selecionarModeloOS(nome) {
+    if (!nome) return;
+    var sel = document.getElementById('osModelo');
+    if (!sel) return;
+    for (var i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value === nome || sel.options[i].textContent === nome) {
+        sel.selectedIndex = i;
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
+        return;
+      }
+    }
+  }
+
+  function aplicarAtendimentoNoFormularioOS(a, p) {
+    setSeVazioOS('osNomeCliente', a.nomeCliente);
+    setSeVazioOS('osTelefoneCliente', a.telefone);
+    setSeVazioOS('osCpfCliente', a.cpfCnpj);
+    setSeVazioOS('osNotaFiscal', a.notaFiscal);
+    selecionarModeloOS(a.modeloEquipamento);
+    mostrarInfoAtendimentoOS('Atendimento ' + p + ' — ' + (a.nomeCliente || '(sem nome)') + '. Esta OS será vinculada a ele.', 'sucesso');
+  }
+
+  // Último protocolo já consultado no servidor (evita consulta repetida quando
+  // 'change' e 'blur' disparam em sequência). Zerado a cada initAssistencia.
+  var ultimoProtocoloConsultadoOS = '';
+
+  // O RESULTADO da última consulta, não só o fato de ela ter acontecido.
+  // { protocolo, resultado, mensagem, tipo } — `resultado` é um dos
+  // CONSULTA_* da lib. É isto que submeterOS lê para recusar um vínculo
+  // fantasma (protocolo com a cara certa apontando para atendimento nenhum).
+  //
+  // O valor de partida é "não perguntei" de propósito: enquanto não houver
+  // resposta do servidor, o envio segue. A lib decide (decidirEnvioOS) — aqui
+  // só se anota o que se ouviu.
+  var consultaAtendimentoOS = { protocolo: '', resultado: 'nao_consultado', mensagem: '', tipo: '' };
+
+  function anotarConsultaOS(p, resultado, mensagem, tipo) {
+    consultaAtendimentoOS = {
+      protocolo: p || '',
+      resultado: resultado,
+      mensagem: mensagem || '',
+      tipo: tipo || ''
+    };
+    if (mensagem) mostrarInfoAtendimentoOS(mensagem, tipo);
+  }
+
+  function esquecerAtendimentoConsultadoOS() {
+    ultimoProtocoloConsultadoOS = '';
+    consultaAtendimentoOS = { protocolo: '', resultado: 'nao_consultado', mensagem: '', tipo: '' };
+  }
+
+  // Texto do "não achei" — mora na lib, junto da regra que bloqueia por ele.
+  // Sem a lib carregada o formulário continua funcionando (a mensagem é mais
+  // curta e nada é bloqueado): perder o <script> não pode travar a OS.
+  function msgAtendimentoInexistenteOS(p) {
+    return (typeof mensagemAtendimentoInexistente === 'function')
+      ? mensagemAtendimentoInexistente(p)
+      : 'Não achei o atendimento ' + p + '.';
+  }
+
+  // Texto do "criei o atendimento". Também mora na lib, porque o aviso de que o
+  // número MUDOU é parte da regra (quem criou por cima de um protocolo precisa
+  // saber disso), não enfeite de tela. Sem a lib, um texto curto que diz o mesmo.
+  function msgAtendimentoCriadoOS(novo, substituido) {
+    if (typeof mensagemAtendimentoCriado === 'function') return mensagemAtendimentoCriado(novo, substituido);
+    return 'Atendimento ' + novo + ' criado' +
+      (substituido ? ' no lugar de ' + substituido : '') + '. Esta OS será vinculada a ele.';
+  }
+
+  // Escolheu/digitou um protocolo: traz os dados do cliente daquele atendimento.
+  function aoTrocarAtendimentoOS() {
+    var p = protocoloDoCampoOS();
+    if (!p) { esquecerAtendimentoConsultadoOS(); mostrarInfoAtendimentoOS('', ''); return; }
+
+    var a = atendimentosConhecidosOS[p];
+    if (a) {
+      // Veio do datalist (ou de uma consulta anterior desta mesma tela): o
+      // atendimento existe e está aqui na mão, sem precisar perguntar de novo.
+      anotarConsultaOS(p, 'existe');
+      return aplicarAtendimentoNoFormularioOS(a, p);
+    }
+
+    // 'change' e 'blur' disparam em sequência quando se digita e sai do campo.
+    // Sem esta trava o mesmo protocolo desconhecido vira duas consultas (e duas
+    // mensagens brigando pelo mesmo espaço). Mesmo arranjo do ultimaBuscaAutoOS.
+    if (p === ultimoProtocoloConsultadoOS) {
+      // Repete o que a consulta anterior concluiu: a mensagem não pode sumir da
+      // tela só porque o evento veio duas vezes.
+      if (consultaAtendimentoOS.protocolo === p && consultaAtendimentoOS.mensagem) {
+        mostrarInfoAtendimentoOS(consultaAtendimentoOS.mensagem, consultaAtendimentoOS.tipo);
+      }
+      return;
+    }
+    ultimoProtocoloConsultadoOS = p;
+    anotarConsultaOS(p, 'consultando');
+
+    // Fora do datalist não é erro: o protocolo pode ser de um atendimento
+    // fechado, ou fora dos 200 mais recentes. Procura antes de reclamar — quem
+    // digita um protocolo válido tem direito aos dados do cliente do mesmo
+    // jeito que quem escolheu na lista. `busca` do listar_atendimentos casa por
+    // id (google-apps-script.js), então o próprio PV- é a consulta.
+    mostrarInfoAtendimentoOS('Procurando o atendimento ' + p + '...', 'info');
+    fetch(resolverUrl() + '?action=listar_atendimentos&busca=' + encodeURIComponent(p) + '&limite=10')
+      .then(function(r) { return r.json(); })
+      .then(function(resp) {
+        // A resposta pode chegar depois de a atendente ter trocado o protocolo.
+        // Só desenha se ainda for o mesmo campo — resposta velha pintando por
+        // cima seria uma tela confiante e errada.
+        if (protocoloDoCampoOS() !== p) return;
+
+        // Resposta que não dá para ler (erro do servidor, HTML de falha, campo
+        // faltando) NÃO é "não existe": é falta de informação. Anotar
+        // 'nao_existe' aqui recusaria a OS por causa de um erro do backend —
+        // exatamente o que a regra de falhar ABERTO proíbe.
+        if (!resp || !resp.sucesso || !resp.atendimentos || typeof resp.atendimentos.length !== 'number') {
+          anotarConsultaOS(p, 'indeterminado',
+            'Não consegui conferir o atendimento ' + p + ' agora. A OS pode ser enviada assim mesmo.', 'info');
+          return;
+        }
+
+        var lista = resp.atendimentos;
+        var achado = null;
+        for (var i = 0; i < lista.length; i++) {
+          if (String((lista[i] || {}).id || '').trim().toUpperCase() === p) { achado = lista[i]; break; }
+        }
+        if (!achado) {
+          // O servidor respondeu e o protocolo não está lá. É a ÚNICA situação
+          // em que o envio é recusado por existência (decidirEnvioOS).
+          anotarConsultaOS(p, 'nao_existe', msgAtendimentoInexistenteOS(p), 'erro');
+          return;
+        }
+        atendimentosConhecidosOS[p] = achado;
+        anotarConsultaOS(p, 'existe');
+        aplicarAtendimentoNoFormularioOS(achado, p);
+      })
+      .catch(function() {
+        // Conferir é um extra: falha de rede aqui não pode impedir a OS. Quem
+        // recusa protocolo fora do formato é o envio (decidirEnvioOS).
+        if (protocoloDoCampoOS() !== p) return;
+        anotarConsultaOS(p, 'indeterminado',
+          'Não consegui conferir o atendimento ' + p + ' agora. A OS pode ser enviada assim mesmo.', 'info');
+      });
+  }
+
+  // Caminho 2: não tem protocolo. Cria o atendimento aqui mesmo e usa o PV- novo.
+  // Sem este botão o campo obrigatório vira beco para quem abre a OS pela aba
+  // "Assistências" sem ter passado por um atendimento.
+  //
+  // Uma criação por vez: sem esta trava, o segundo clique criava um SEGUNDO
+  // atendimento e trocava o protocolo do campo em silêncio — o primeiro ficava
+  // órfão na planilha e a OS ia para o outro.
+  var criandoAtendimentoOS = false;
+
+  function criarAtendimentoParaOS() {
+    var btn = document.getElementById('btnCriarAtendimentoOS');
+
+    // (1) Requisição no ar: o botão desabilitado já cobre o clique duplo, mas ele
+    // pode não existir (form antigo em cache) — a trava real é esta. Ela protege
+    // do clique repetido e não participa da decisão de criar ou não.
+    if (criandoAtendimentoOS) return;
+
+    // (2) O guard existe para proteger um VÍNCULO REAL, não um texto com a cara
+    // certa. Quem decide é a lib (decidirCriacaoAtendimento): só recusa quando
+    // está PROVADO que o protocolo do campo existe. Recusar por formato fechava
+    // um laço — a mensagem do protocolo inexistente manda clicar aqui, e o botão
+    // respondia "apague o protocolo do campo antes".
+    //
+    // Sem a lib carregada nada recusa: perder o <script> não pode deixar a
+    // atendente sem conseguir criar o atendimento da OS.
+    var protocoloAtual = protocoloDoCampoOS();
+    var decisao = (typeof decidirCriacaoAtendimento === 'function')
+      ? decidirCriacaoAtendimento(protocoloAtual, consultaAtendimentoOS)
+      : { criar: true, motivo: 'sem_lib', mensagem: '', protocolo: protocoloAtual, substituira: '' };
+    if (!decisao.criar) return mostrarInfoAtendimentoOS(decisao.mensagem, 'erro');
+
+    var nome = (document.getElementById('osNomeCliente').value || '').trim();
+    var telefone = (document.getElementById('osTelefoneCliente').value || '').replace(/\D/g, '');
+
+    // Atendimento sem nome nem telefone não serve para achar nada depois — seria
+    // trocar uma OS solta por um atendimento vazio.
+    if (!nome) return mostrarInfoAtendimentoOS('Informe o nome do cliente antes de criar o atendimento.', 'erro');
+    if (!validarTelefoneOS(telefone)) return mostrarInfoAtendimentoOS('Informe um telefone válido antes de criar o atendimento.', 'erro');
+
+    criandoAtendimentoOS = true;
+    if (btn) { btn.disabled = true; btn.textContent = 'Criando...'; }
+    // Quando a criação vai trocar o protocolo que estava no campo, o aviso é
+    // este — antes de acontecer, para não ser surpresa.
+    mostrarInfoAtendimentoOS(decisao.mensagem || 'Criando atendimento...', 'info');
+
+    fetch(resolverUrl(), {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'registrar_atendimento',
+        categoria: 'Pos-venda',
+        motivo: 'Assistencia tecnica',
+        origem: 'Formulario de OS',
+        nomeCliente: nome,
+        telefone: telefone,
+        cpfCnpj: (document.getElementById('osCpfCliente').value || '').replace(/\D/g, ''),
+        notaFiscal: (document.getElementById('osNotaFiscal').value || '').trim(),
+        modeloEquipamento: document.getElementById('osModelo').value || '',
+        descricao: (document.getElementById('osProblema').value || '').trim()
+      }),
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(resp) {
+        if (resp && resp.sucesso && resp.id) {
+          var campo = document.getElementById('osAtendimentoId');
+          if (campo) campo.value = resp.id;
+          atendimentoVinculadoOS = resp.id;
+          // Acabou de nascer no servidor: existe, e ninguém precisa perguntar de
+          // novo. O guard (2) lá em cima passa a valer a partir daqui — para
+          // criar outro, ela apaga o campo.
+          var pNovo = (typeof normalizarProtocoloAtendimento === 'function')
+            ? normalizarProtocoloAtendimento(resp.id)
+            : String(resp.id).trim().toUpperCase();
+          atendimentosConhecidosOS[pNovo] = resp.atendimento || { id: resp.id, nomeCliente: nome, telefone: telefone };
+          ultimoProtocoloConsultadoOS = pNovo;
+          anotarConsultaOS(pNovo, 'existe');
+          // `decisao.substituira` foi lido do campo ANTES do POST: se havia um
+          // protocolo ali, a mensagem tem que dizer que o número mudou — senão
+          // ela procura a OS depois pelo protocolo antigo.
+          mostrarInfoAtendimentoOS(msgAtendimentoCriadoOS(resp.id, decisao.substituira), 'sucesso');
+        } else {
+          mostrarInfoAtendimentoOS('Não consegui criar o atendimento: ' + ((resp && resp.erro) || 'sem resposta'), 'erro');
+        }
+      })
+      .catch(function(err) {
+        mostrarInfoAtendimentoOS('Erro de rede ao criar o atendimento: ' + err.message, 'erro');
+      })
+      .finally(function() {
+        criandoAtendimentoOS = false;
+        if (btn) { btn.disabled = false; btn.innerHTML = '&#10133; Criar atendimento para esta OS'; }
+      });
+  }
 
   // Busca lista do servidor e atualiza dropdown + cache
   function carregarCadastroAssistencias() {
@@ -119,6 +433,37 @@
     return '' +
       '<form id="osForm" autocomplete="off">' +
         '<h2 style="color:var(--cor-primaria);margin-bottom:1rem;">🔧 Abertura de OS — Assistência Técnica</h2>' +
+
+        // SEÇÃO 0 — ATENDIMENTO (Task 4 reorg 2026-07-28)
+        // Primeiro campo do formulário de propósito: `docsVinculados` estava em
+        // 0 de 892 atendimentos porque o vínculo só existia para quem chegava
+        // aqui pela ficha do atendimento — e o caminho mais visível (aba
+        // "Assistências" no topo) abria OS solta, que some do histórico do
+        // cliente. Dois caminhos e nenhum terceiro: informar o protocolo, ou
+        // criar o atendimento aqui mesmo.
+        '<div class="secao-form" id="osSecaoAtendimento">' +
+          '<div class="secao-form-titulo">Atendimento</div>' +
+          '<div class="form-row">' +
+            '<div class="form-group" style="flex:2 1 260px;">' +
+              '<label for="osAtendimentoId">Atendimento (protocolo) *</label>' +
+              // maxlength 12 era o tamanho EXATO de 'PV-2026-0123' — e por isso
+              // truncava ' PV-2026-0123' colado do WhatsApp (o espaço da frente
+              // vem junto na cópia): o campo ficava com 'PV-2026-012' e ela
+              // levava "protocolo inválido" num número que copiou certo.
+              // protocoloDoCampoOS() já dá trim antes de validar; o limite só
+              // precisa caber a colagem com sujeira em volta.
+              '<input type="text" id="osAtendimentoId" list="osAtendimentoLista" placeholder="PV-2026-XXXX" autocomplete="off" maxlength="24">' +
+              '<datalist id="osAtendimentoLista"></datalist>' +
+              '<span style="display:block;font-size:0.78rem;color:#9a9a9a;margin-top:0.25rem;">Digite ou escolha o protocolo — é por ele que a OS é encontrada depois.</span>' +
+            '</div>' +
+            '<div class="form-group" style="flex:1 1 240px;">' +
+              '<label for="btnCriarAtendimentoOS">Não tem protocolo?</label>' +
+              '<button type="button" class="btn-secundario" id="btnCriarAtendimentoOS">&#10133; Criar atendimento para esta OS</button>' +
+              '<span style="display:block;font-size:0.78rem;color:#9a9a9a;margin-top:0.25rem;">Preencha nome e telefone do cliente e clique aqui.</span>' +
+            '</div>' +
+          '</div>' +
+          '<div id="osAtendimentoInfo" style="margin-top:0.5rem;"></div>' +
+        '</div>' +
 
         // SEÇÃO 1 — DADOS DO CLIENTE
         '<div class="secao-form">' +
@@ -319,6 +664,21 @@
       });
     }
 
+    // Campo Atendimento (protocolo): 'change' cobre a escolha no datalist e a
+    // saída do campo; 'blur' cobre quem digita e clica direto em outro campo.
+    var campoAt = document.getElementById('osAtendimentoId');
+    if (campoAt) {
+      campoAt.addEventListener('change', aoTrocarAtendimentoOS);
+      campoAt.addEventListener('blur', aoTrocarAtendimentoOS);
+      campoAt.addEventListener('keydown', function(e) {
+        // Enter neste campo não pode submeter o formulário por engano.
+        if (e.key === 'Enter') { e.preventDefault(); aoTrocarAtendimentoOS(); }
+      });
+    }
+
+    var btnCriarAt = document.getElementById('btnCriarAtendimentoOS');
+    if (btnCriarAt) btnCriarAt.addEventListener('click', criarAtendimentoParaOS);
+
     var btnAbrir = document.getElementById('btnAbrirOS');
     if (btnAbrir) btnAbrir.addEventListener('click', submeterOS);
   }
@@ -382,6 +742,39 @@
   // --- Submit ---
   function submeterOS() {
     if (submetendo) return;
+
+    // Primeira validação, na ordem em que o formulário é lido: sem atendimento a
+    // OS nasce solta e some do histórico do cliente (docsVinculados = 0 em 892).
+    //
+    // O BLOQUEIO É SÓ DAQUI, do front — o backend continua aceitando OS sem
+    // atendimento de propósito (decisão do controlador, 28/07): a equipe está
+    // usando o sistema agora e quem estiver com o index.html velho em cache
+    // (sem este campo) não pode ficar impedido de abrir OS no meio do
+    // expediente. O resíduo de OS solta vindo de cache velho se cura sozinho e é
+    // medido pelo campo `semVinculo` de listar_os.
+    //
+    // Se a lib não tiver carregado, NÃO bloqueia: falhar fechado aqui deixaria
+    // a equipe sem conseguir abrir OS nenhuma por causa de um <script> perdido.
+    //
+    // O 2º argumento é o que o servidor respondeu sobre ESTE protocolo
+    // (consultaAtendimentoOS, preenchido por aoTrocarAtendimentoOS). Sem ele a
+    // validação olhava só o FORMATO: PV-2026-0500 no lugar de PV-2026-0050
+    // passava, e nascia um vínculo FANTASMA — chip apontando para lugar nenhum e
+    // OS invisível no histórico do cliente, que é pior do que nenhum vínculo.
+    // A lib só recusa quando o servidor DISSE que não existe; rede caída,
+    // backend fora ou consulta não feita seguem o envio (falha aberto).
+    if (typeof decidirEnvioOS === 'function') {
+      var decisao = decidirEnvioOS(protocoloDoCampoOS(), consultaAtendimentoOS);
+      if (decisao.bloquear) {
+        var campoAtOS = document.getElementById('osAtendimentoId');
+        if (campoAtOS) campoAtOS.focus();
+        mostrarInfoAtendimentoOS(decisao.mensagem, 'erro');
+        return mostrarFeedbackOS(decisao.mensagem, 'erro');
+      }
+      atendimentoVinculadoOS = decisao.protocolo;
+    } else {
+      atendimentoVinculadoOS = protocoloDoCampoOS();
+    }
 
     var tipoAssistencia = (document.querySelector('input[name="osTipoAssistencia"]:checked') || {}).value || '';
 
@@ -768,24 +1161,28 @@
     if (!preFill || !preFill.cliente) return;
     var c = preFill.cliente;
     atendimentoVinculadoOS = preFill.atendimentoId || '';
+    // O campo do protocolo é a fonte da verdade do envio (protocoloDoCampoOS):
+    // quem chega pelo wizard do atendimento vê o protocolo preenchido em vez de
+    // um campo obrigatório vazio logo abaixo do banner que diz que está vinculado.
+    setIfOS('osAtendimentoId', atendimentoVinculadoOS);
+    // Este protocolo veio do atendimento que ela acabou de abrir: existe, e a
+    // consulta fica anotada como tal. (Sem isto o estado ficaria 'não
+    // consultado' — que também deixa enviar, mas gastaria uma ida ao servidor
+    // para redescobrir o que o wizard já sabia.)
+    if (atendimentoVinculadoOS) {
+      var pPre = (typeof normalizarProtocoloAtendimento === 'function')
+        ? normalizarProtocoloAtendimento(atendimentoVinculadoOS)
+        : String(atendimentoVinculadoOS).trim().toUpperCase();
+      ultimoProtocoloConsultadoOS = pPre;
+      anotarConsultaOS(pPre, 'existe');
+    }
 
     // Preenche campos do cliente
     setIfOS('osNomeCliente', c.nome);
     setIfOS('osTelefoneCliente', c.telefone);
     setIfOS('osCpfCliente', c.cpfCnpj);
     setIfOS('osNotaFiscal', c.notaFiscal);
-    if (c.modelo) {
-      var sel = document.getElementById('osModelo');
-      if (sel) {
-        for (var i = 0; i < sel.options.length; i++) {
-          if (sel.options[i].value === c.modelo || sel.options[i].textContent === c.modelo) {
-            sel.selectedIndex = i;
-            sel.dispatchEvent(new Event('change', { bubbles: true }));
-            break;
-          }
-        }
-      }
-    }
+    selecionarModeloOS(c.modelo);
 
     // Moto vinculada no wizard: chassi + data de compra direto na OS
     if (preFill.moto) {
