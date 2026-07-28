@@ -937,6 +937,10 @@ function doGet(e) {
       case 'listar_os':
         return jsonResponse(listarOS(e.parameter));
 
+      // --- Busca do historico (3 fontes) por nome/numero/telefone/CPF (Task 4) ---
+      case 'buscar_os_historico':
+        return jsonResponse(buscarOSHistorico(e.parameter.q || e.parameter.busca || ''));
+
       // --- Acompanhamento publico da OS (QR / link do cliente) ---
       case 'status_publico':
         return jsonResponse(statusPublicoOS(e.parameter.os));
@@ -1091,6 +1095,11 @@ function doPost(e) {
 
       case 'setup_roteamento_os_v1':
         return jsonResponse(setupRoteamentoOsV1(body));
+
+      // Migracao de vocabulario 'Em andamento' -> 'Aberta' (28/07). SEM
+      // {"confirmar":"SIM"} e dry-run: responde o que faria e nao grava nada.
+      case 'migrar_status_os_em_andamento_v1':
+        return jsonResponse(migrarStatusOsEmAndamentoV1(body));
 
       case 'reprocessar_bling_v1':
         return jsonResponse(reprocessarBlingV1(body));
@@ -2520,7 +2529,18 @@ function registrarOS(dados) {
       dados.assistenciaTelefone || '',
       dados.problemaRelatado || '',
       dados.observacoes || '',
-      'Em andamento',
+      // Status inicial 'Aberta' — a 1a etapa de ETAPAS_OS (:3925). Nascia como
+      // 'Em andamento' ate 28/07: vocabulario trocado, 'Em andamento' e status
+      // de ATENDIMENTO, nao de OS. O efeito era que TODA OS nova ja nascia fora
+      // do enum, e por isso o seletor da tela de OS nunca tinha o status real
+      // marcado. As 287 OS que ficaram com o valor antigo se acertam pela action
+      // POST migrar_status_os_em_andamento_v1 (:migrarStatusOsEmAndamentoV1).
+      //
+      // Literal de proposito, e nao ETAPAS_OS[0]: se um dia a ordem do enum
+      // mudar ou a declaracao (:3925) parar de rodar antes desta linha, o
+      // literal ainda grava um status valido. ETAPAS_OS[0] gravaria `undefined`
+      // na coluna 22 de toda OS nova, em silencio.
+      'Aberta',
       'Não',
       'Não'
     ];
@@ -3918,7 +3938,58 @@ function motosCliente(query) {
 // o status editando a coluna Status da aba AssistenciasTecnicas.
 // ========================================
 
-var ETAPAS_OS = ['Aberta', 'Em análise', 'Aguardando aprovação', 'Em conserto', 'Pronto p/ retirar'];
+// A ULTIMA etapa e 'Finalizado', nao 'Pronto p/ retirar' (decisao da dona do
+// produto, 28/07): a maioria das assistencias e prestada na CASA do cliente, e
+// a timeline do QR estava mandando o cliente ir buscar uma moto que o tecnico
+// vai entregar. Continuam sendo 5 etapas — so o rotulo da ultima mudou.
+//
+// etapaDoStatus_ NAO precisou mudar: o regex dela ja casa /finaliz/ e devolve 4.
+// Consequencia conhecida: OS-2026-0864 esta gravada como 'Pronto p/ retirar' e
+// vira status fora do enum. Ela continua aparecendo certa pro cliente (o regex
+// ainda casa /pronto|retirar/ -> 4) e certa na tela interna (montarOpcoesStatus
+// marca o valor real como "fora do padrao"). A dona ajusta essa OS na mao —
+// nao ha codigo de migracao pra ela de proposito, e o alias logo abaixo tira a
+// pressa dessa correcao manual.
+var ETAPAS_OS = ['Aberta', 'Em análise', 'Aguardando aprovação', 'Em conserto', 'Finalizado'];
+
+// ALIAS LEGADO **so de entrada**. 'Pronto p/ retirar' saiu do enum em 28/07 e
+// NAO e mais oferecido em lugar nenhum: nao entra em ETAPAS_OS, nao vai na
+// resposta de listar_os e nao aparece na mensagem de erro. Mas continua ACEITO
+// por atualizarStatusOS, e gravado exatamente como veio.
+//
+// Por que: trocar o rotulo da ultima etapa abre uma janela de incompatibilidade
+// em QUALQUER ordem de publicacao, porque front e backend sobem separados —
+//   * front novo + backend v45: a tela oferece 'Finalizado', que a v45 nao tem
+//     no enum dela e recusa;
+//   * backend v46 + front velho preso no cache do navegador (a tela e estatica
+//     e ninguem da Ctrl+F5 no meio do expediente): a tela oferece
+//     'Pronto p/ retirar' e, sem este alias, a v46 recusaria.
+// Nos dois casos quem leva 'Status invalido' na cara e a atendente, com o
+// cliente esperando. Este alias fecha o segundo caso; o ETAPAS_PADRAO do
+// os-lista.js (:18) fecha o primeiro.
+//
+// GRAVA O VALOR COMO VEIO, sem converter em silencio para 'Finalizado': a
+// pessoa escolheu aquele rotulo e a planilha (e o HistoricoOS) tem que contar a
+// verdade do que foi escolhido. Nao ha perda pro cliente: etapaDoStatus_ manda
+// os dois para a ultima etapa (o regex casa /pronto|retirar|finaliz/), entao a
+// timeline do QR fica igual dos dois jeitos.
+//
+// De quebra: a OS-2026-0864, hoje gravada em 'Pronto p/ retirar', deixa de ser
+// um problema se a dona demorar a ajustar na mao — o valor dela continua sendo
+// um status gravavel em vez de um que o proprio backend recusa.
+//
+// QUANDO REMOVER: so quando NINGUEM mais puder ter o front velho em cache, ou
+// seja, depois que a v46 estiver no ar tempo suficiente para todo navegador da
+// equipe ter carregado o index.html novo (?v=2.39). Ate la, remover isto
+// reabre a janela. O custo de manter e uma linha de array.
+var ETAPAS_OS_ALIAS_LEGADO = ['Pronto p/ retirar'];
+
+// Este status pode ser GRAVADO? Enum atual OU alias legado.
+// De proposito nao existe o caminho inverso (nada aqui vira sugestao de menu):
+// o alias e tolerancia de entrada, nunca opcao oferecida.
+function statusOsAceito_(status) {
+  return ETAPAS_OS.indexOf(status) !== -1 || ETAPAS_OS_ALIAS_LEGADO.indexOf(status) !== -1;
+}
 
 function etapaDoStatus_(status) {
   var s = String(status || '').toLowerCase()
@@ -3985,6 +4056,55 @@ function pareceNumeroOS(texto) {
   var soDigitos = s.replace(/\D/g, '');
   if (soDigitos !== s.replace(/[\s.\-\/]/g, '')) return false; // tem letra
   return soDigitos.length >= 1 && soDigitos.length <= 4;
+}
+
+// ========================================
+// NORMALIZACAO DA BUSCA LIVRE (Task 4 reorg 2026-07-28)
+// COPIA IDENTICA de lib/busca-texto.js. O backend e um arquivo unico colado no
+// editor do Apps Script e nao consegue dar require na pasta lib/ — mesmo arranjo
+// que pareceNumeroOS (aqui em cima) ja usa. tests/busca-texto.test.js compara os
+// corpos das duas copias, entao consertar so um lado quebra o teste de proposito.
+// Se mexer aqui, mexa la.
+//
+// Fecha dois furos medidos em producao em 28/07 (v45):
+//   listar_os&busca=alessandra        -> 1 OS
+//   listar_os&busca=Alessandra%20Rita -> 0 OS  <- e a cliente existe, com tres OS
+// Substring contigua nunca casa primeiro+ultimo nome, e sem tirar acento
+// 'goncalves' nunca acha 'GONÇALVES'.
+// ========================================
+
+function normalizarTextoBusca(s) {
+  return String(s == null ? '' : s)
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function termosDaBusca(busca) {
+  var n = normalizarTextoBusca(busca);
+  if (!n) return [];
+  return n.split(' ');
+}
+
+function textoCasaTermos(texto, termos) {
+  if (!termos || !termos.length) return false;
+  var alvo = normalizarTextoBusca(texto);
+  if (!alvo) return false;
+  for (var i = 0; i < termos.length; i++) {
+    if (alvo.indexOf(termos[i]) === -1) return false;
+  }
+  return true;
+}
+
+function montarTextoBusca(campos) {
+  campos = campos || [];
+  var partes = [];
+  for (var i = 0; i < campos.length; i++) {
+    var c = campos[i];
+    if (c == null) continue;
+    var s = String(c);
+    if (s) partes.push(s);
+  }
+  return partes.join(' ');
 }
 
 // Procura uma OS pelo numero em TODAS as fontes. A serie antiga (0001..0717)
@@ -4084,6 +4204,180 @@ function buscarOS(numero) {
 }
 
 // ========================================
+// BUSCA DO HISTORICO NAS 3 FONTES POR TEXTO LIVRE (Task 4 reorg 2026-07-28)
+// GET ?action=buscar_os_historico&q=alessandra%20rita
+//
+// Por que existe: buscar_os so acha por NUMERO e listarOS (a aba OS) so le o
+// master. As ~816 OS da serie antiga eram inalcancaveis por NOME. Em 28/07 a
+// equipe procurou 'Alessandra Soares' na aba OS e concluiu que a OS nao existia;
+// existiam TRES (OS-2026-0535, 0536 e 0572), todas na serie antiga. A atendente
+// nao tem que saber em que aba mora cada base.
+//
+// SOMENTE LEITURA, e o retorno NAO traz campo status para item nenhum. A serie
+// antiga nao tem coluna de status e a aba da Sumare e digitada a mao: devolver
+// um status aqui convidaria a tela a oferecer um seletor que nao tem onde gravar
+// (atualizarStatusOS so escreve no master).
+// ========================================
+
+// Teto de itens devolvidos. Existe pra proteger o payload: a varredura passa por
+// ~1100 linhas das tres abas e um termo curto ('silva') casa com muita coisa.
+// Quem conta a verdade sobre o corte e o campo `truncado` + `total`.
+var LIMITE_HISTORICO_OS = 50;
+
+function buscarOSHistorico(q) {
+  var termos = termosDaBusca(q);
+  // Busca vazia devolve vazio, nunca a base inteira (ver textoCasaTermos).
+  if (!termos.length) {
+    return { ok: true, q: String(q || ''), total: 0, exibidos: 0, truncado: false, resultados: [] };
+  }
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var tz = Session.getScriptTimeZone();
+  var achados = [];
+
+  function dataFmt(v) {
+    return v instanceof Date ? Utilities.formatDate(v, tz, 'dd/MM/yyyy') : '';
+  }
+
+  // A ORDEM DA VARREDURA E A PRIORIDADE DO CORTE (rodada 3, 28/07).
+  //
+  // O corte final e um slice(0, LIMITE_HISTORICO_OS) sobre `achados` na ordem em
+  // que foram empilhados, e a TELA descarta do bloco tudo que veio do master e ja
+  // esta na lista de cima (filtrarHistoricoNovos, os-lista.js). Com o master
+  // varrido primeiro isso gastava o corte com quem nao ia aparecer: medido em
+  // 28/07, 'silva' casa 41 linhas no master e 9 na serie antiga — o slice
+  // guardava 41+9, o dedup do front apagava os 41 e sobravam 9 cartoes, enquanto
+  // as outras ~800 linhas da serie antiga (a razao desta action existir) nem
+  // chegavam a ser consideradas.
+  //
+  // Por isso as fontes de HISTORICO vem primeiro e o master por ultimo: as 50
+  // vagas vao para os registros que SO aparecem aqui. O master continua na
+  // varredura (e util quando o filtro de status ou o corte das 200 escondeu a
+  // linha da lista principal) — so nao come as vagas antes dos outros.
+  //
+  // Escolhi inverter a ordem em vez de dar cota por fonte porque cota fixa gasta
+  // vaga a toa quando uma das fontes traz pouco (a Sumare tem 164 linhas no
+  // total) e ainda precisaria de uma regra de sobra pra nao devolver menos de 50
+  // com material disponivel. A inversao nao tem esse problema e cabe numa linha.
+
+  // 1. Serie antiga ('Assistencias parceiras' — o nome real tem ESPACO NO FIM).
+  // SEMPRE encontrarAbaNormalizada_, nunca getSheetByName: o getSheetByName e
+  // exato e devolve null com o espaco parasita, que foi exatamente como estas OS
+  // ficaram invisiveis.
+  //
+  // Aba SEM CABECALHO e com o MESMO LAYOUT DO MASTER — ela E o antigo master
+  // renomeado no incidente de 06/07 (garantirAbaEspelhoParceiras_ cria com
+  // CABECALHO_OS_ e espelharOS_ escreve a linha inteira do master aqui). O
+  // inventario ao vivo de 27/07 (docs/inventario-abas-2026-07-27.json) confirma:
+  // 26 colunas, e a linha 1 e OS-2026-0034 | Simone Aparecida dos Santos |
+  // CPF 33320112864 | telefone 11975791430 | ... | Kay | chassi JH2400921000W0527
+  // | ... | Garantia | Anderson Tecnico - Extrema MG | ... | problema | 'Em andamento'.
+  //
+  // Ate a rodada 2 o comentario daqui dizia que a aba "nao tem telefone, CPF,
+  // modelo nem status", e em cima dessa afirmacao FALSA a busca varria so
+  // [numero, cliente] e devolvia modelo/assistencia/problema vazios: colar o
+  // telefone 11975791430 nao achava a OS-2026-0034. Nao volte a estreitar.
+  //
+  // Posicoes IGUAIS as do master (as ja provadas em buscarOSPorNumero_ e
+  // listarOS): 0 Data, 1 NumeroOS, 2 Cliente, 3 CPF, 4 Telefone, 11 Modelo,
+  // 12 Chassi, 16 Assistencia, 19 Problema. STATUS (21) existe na aba mas
+  // continua FORA do retorno de proposito — atualizarStatusOS so escreve no
+  // master, e devolver status aqui convidaria a tela a oferecer um seletor que
+  // nao tem onde gravar.
+  var antiga = encontrarAbaNormalizada_(ABA_ESPELHO_PARCEIRAS);
+  if (antiga && antiga.getLastRow() >= 1) {
+    // CABECALHO_OS_.length (24) e a largura do layout do master, que e o layout
+    // desta aba. O antigo teto de 12 colunas cortava fora chassi (12),
+    // assistencia (16) e problema (19).
+    var da = antiga.getRange(1, 1, antiga.getLastRow(),
+      Math.min(antiga.getLastColumn(), CABECALHO_OS_.length)).getValues();
+    for (var j = 0; j < da.length; j++) {
+      var ra = da[j];
+      if (!String(ra[1] || '').trim()) continue;
+      if (!textoCasaTermos(montarTextoBusca([ra[1], ra[2], ra[3], ra[4], ra[12]]), termos)) continue;
+      achados.push({
+        numeroOS: String(ra[1] || ''),
+        cliente: String(ra[2] || ''),
+        data: dataFmt(ra[0]),
+        fonte: 'serie-antiga',
+        modelo: String(ra[11] || ''),
+        assistencia: String(ra[16] || ''),
+        problema: String(ra[19] || '')
+      });
+    }
+  }
+
+  // 2. Aba manual da Sumare (' ASSISTENCIA SUMARE ', espacos nas DUAS pontas —
+  // de novo encontrarAbaNormalizada_). Colunas por CABECALHO, nunca por posicao:
+  // a planilha e digitada a mao. 'numero os' e 'cliente' sao as que
+  // buscarOSPorNumero_ ja usa; as outras sao lidas so se o cabecalho existir e
+  // caem em '' quando nao existir — cabecalho ausente nunca quebra a busca.
+  var sumare = encontrarAbaNormalizada_(ABA_ESPELHO_SUMARE);
+  if (sumare && sumare.getLastRow() > 1) {
+    var cols = mapearColunasPorCabecalho_(sumare);
+    if ('numero os' in cols) {
+      var ds = sumare.getRange(2, 1, sumare.getLastRow() - 1, sumare.getLastColumn()).getValues();
+      var val = function(linha, nome) {
+        return (nome in cols) ? linha[cols[nome]] : '';
+      };
+      for (var k = 0; k < ds.length; k++) {
+        var rs = ds[k];
+        var numS = String(val(rs, 'numero os') || '');
+        if (!numS.trim()) continue;
+        if (!textoCasaTermos(montarTextoBusca([numS, val(rs, 'cliente'), val(rs, 'telefone')]), termos)) continue;
+        achados.push({
+          numeroOS: numS,
+          cliente: String(val(rs, 'cliente') || ''),
+          data: dataFmt(val(rs, 'data')),
+          fonte: 'sumare-manual',
+          modelo: String(val(rs, 'modelo') || ''),
+          assistencia: 'Sumare',
+          problema: String(val(rs, 'qual problema') || '')
+        });
+      }
+    }
+  }
+
+  // 3. Master atual (AssistenciasTecnicas) — POR ULTIMO de proposito, ver a nota
+  // sobre a ordem da varredura la em cima. MESMAS posicoes de coluna que
+  // buscarOSPorNumero_ usa — conferidas na pratica contra as fotos da planilha,
+  // nao mudar: 0 Data, 1 NumeroOS, 2 Cliente, 3 CPF, 4 Telefone, 11 Modelo,
+  // 12 Chassi, 16 Assistencia, 19 Problema.
+  // O master entra na varredura porque a tela tambem cai aqui quando um filtro
+  // de status escondeu a linha da lista principal.
+  var mestre = ss.getSheetByName(ABA_ASSISTENCIAS);
+  if (mestre && mestre.getLastRow() > 1) {
+    var dm = mestre.getDataRange().getValues();
+    for (var i = 1; i < dm.length; i++) {
+      var rm = dm[i];
+      if (!String(rm[1] || '').trim()) continue;
+      if (!textoCasaTermos(montarTextoBusca([rm[1], rm[2], rm[3], rm[4], rm[12]]), termos)) continue;
+      achados.push({
+        numeroOS: String(rm[1] || ''),
+        cliente: String(rm[2] || ''),
+        data: dataFmt(rm[0]),
+        fonte: 'master',
+        modelo: String(rm[11] || ''),
+        assistencia: String(rm[16] || ''),
+        problema: String(rm[19] || '')
+      });
+    }
+  }
+
+  var total = achados.length;
+  var truncado = total > LIMITE_HISTORICO_OS;
+  if (truncado) achados = achados.slice(0, LIMITE_HISTORICO_OS);
+  return {
+    ok: true,
+    q: String(q || ''),
+    total: total,
+    exibidos: achados.length,
+    truncado: truncado,
+    resultados: achados
+  };
+}
+
+// ========================================
 // LISTA DE OS E AVANCO DE STATUS (Task 2 reorg 2026-07-27)
 // A tela de OS (os-lista.js) consome estas duas funcoes. Antes desta task o
 // unico jeito de mudar o status que o cliente ve no QR (statusPublicoOS) era
@@ -4100,7 +4394,11 @@ function listarOS(filtros) {
 
   var colAt = getColAtendimentoId(aba);
   var dados = aba.getDataRange().getValues();
-  var busca = String(filtros.busca || '').toLowerCase().trim();
+  // Termos normalizados (lib/busca-texto.js): tira acento dos DOIS lados e exige
+  // TODOS os termos, em qualquer ordem. Antes era hay.indexOf(busca) — substring
+  // CONTIGUA e com acento: 'Alessandra Rita' nao achava 'Alessandra Soares de
+  // Souza rita' e 'goncalves' nunca achava 'GONÇALVES'.
+  var termosBusca = termosDaBusca(filtros.busca);
   var out = [];
 
   for (var i = 1; i < dados.length; i++) {
@@ -4126,9 +4424,11 @@ function listarOS(filtros) {
     };
     if (filtros.status && o.status !== filtros.status) continue;
     if (filtros.semVinculo === 'sim' && o.atendimentoId) continue;
-    if (busca) {
-      var hay = (o.numeroOS + ' ' + o.cliente + ' ' + o.telefone + ' ' + o.cpf + ' ' + o.chassi).toLowerCase();
-      if (hay.indexOf(busca) === -1) continue;
+    // Busca vazia continua NAO filtrando: termosDaBusca devolve [] e o if nem entra
+    // (textoCasaTermos com lista vazia reprova tudo, de proposito).
+    if (termosBusca.length) {
+      var hay = montarTextoBusca([o.numeroOS, o.cliente, o.telefone, o.cpf, o.chassi]);
+      if (!textoCasaTermos(hay, termosBusca)) continue;
     }
     out.push(o);
   }
@@ -4137,14 +4437,25 @@ function listarOS(filtros) {
   var limite = parseInt(filtros.limite) || 200;
   var total = out.length;
   if (out.length > limite) out = out.slice(0, limite);
-  return { ok: true, oses: out, total: total, exibidos: out.length };
+  // `etapas` viaja junto (28/07): a tela de OS tinha uma COPIA hardcoded do
+  // enum. Com os rotulos mudando agora ('Pronto p/ retirar' -> 'Finalizado'),
+  // duas listas em arquivos diferentes divergem no primeiro deploy em que so um
+  // dos lados sobe — e o front oferece um status que atualizarStatusOS recusa.
+  // O front usa este campo quando ele vem e cai na copia local quando nao vem
+  // (a v45, ainda no ar, nao manda).
+  return { ok: true, oses: out, total: total, exibidos: out.length, etapas: ETAPAS_OS };
 }
 
-// Avanca o status da OS. So aceita os rotulos de ETAPAS_OS — status livre
-// quebraria a timeline publica do QR (etapaDoStatus_ cairia sempre em 0).
+// Avanca o status da OS. So aceita os rotulos de ETAPAS_OS mais o alias legado
+// (ETAPAS_OS_ALIAS_LEGADO) — status livre quebraria a timeline publica do QR
+// (etapaDoStatus_ cairia sempre em 0).
 // origem: 'sac' (tela interna) ou 'assistencia' (link com token, Task 3).
 function atualizarStatusOS(numeroOS, novoStatus, origem, quem) {
-  if (ETAPAS_OS.indexOf(novoStatus) === -1) {
+  // statusOsAceito_ aceita tambem 'Pronto p/ retirar', que saiu do enum mas
+  // ainda pode chegar de um front velho em cache — o porque completo esta na
+  // declaracao de ETAPAS_OS_ALIAS_LEGADO. A MENSAGEM de erro continua listando
+  // so ETAPAS_OS: o alias nao e opcao, e tolerancia.
+  if (!statusOsAceito_(novoStatus)) {
     return { ok: false, erro: 'Status invalido. Use: ' + ETAPAS_OS.join(' / ') };
   }
   var lock = LockService.getScriptLock();
@@ -4163,6 +4474,123 @@ function atualizarStatusOS(numeroOS, novoStatus, origem, quem) {
       return { ok: true, numeroOS: String(dados[i][1]), status: novoStatus, anterior: anterior };
     }
     return { ok: false, erro: 'OS nao encontrada no master' };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ========================================
+// MIGRACAO 'Em andamento' -> 'Aberta' (28/07)
+// POST {"action":"migrar_status_os_em_andamento_v1"}         -> DRY-RUN (padrao)
+// POST {"action":"migrar_status_os_em_andamento_v1","confirmar":"SIM"} -> grava
+//
+// Contexto: registrarOS gravava 'Em andamento' como status inicial — vocabulario
+// de ATENDIMENTO que vazou pra OS. Resultado: 287 das 290 OS do master estao num
+// status que nao existe no enum, entao o filtro da tela e o seletor de cada
+// cartao trabalhavam contra um valor legado. registrarOS ja nasce 'Aberta'; esta
+// action acerta o passado.
+//
+// E uma ACTION de POST, e nao uma funcao pra rodar no editor, porque a automacao
+// do editor do Apps Script falhou no dia — precisa ser chamavel por URL.
+//
+// DRY-RUN E O PADRAO: sem {"confirmar":"SIM"} ela le, conta e devolve exatamente
+// o que faria, sem escrever um byte. Rodar sem querer nao causa dano.
+// ========================================
+
+// O valor legado, byte a byte. Comparacao EXATA e sem trim: e assim que
+// listarOS filtra (:4313) e e assim que o valor foi gravado. Uma variante com
+// espaco parasita ('Em andamento ') NAO e tocada de proposito — este projeto ja
+// levou um susto com espaco invisivel em nome de aba ('Assistencias parceiras ')
+// e o certo aqui e nao adivinhar: ela aparece no dry-run como nao-alterada e a
+// dona decide.
+var STATUS_OS_LEGADO = 'Em andamento';
+
+function migrarStatusOsEmAndamentoV1(body) {
+  var confirmado = !!(body && body.confirmar === 'SIM');
+  var destino = ETAPAS_OS[0]; // 'Aberta'
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var aba = ss.getSheetByName(ABA_ASSISTENCIAS);
+    if (!aba || aba.getLastRow() < 2) {
+      return { ok: true, dryRun: !confirmado, examinadas: 0, alteradas: 0, exemplos: [], destino: destino };
+    }
+
+    var dados = aba.getDataRange().getValues();
+    var examinadas = 0;
+    var linhasAlvo = [];
+    var exemplos = [];
+
+    for (var i = 1; i < dados.length; i++) {
+      examinadas++;
+      // Valor CRU da celula, sem String() e sem trim. Se a celula guardar um
+      // numero ou uma data, `!==` ja reprova — que e o comportamento certo.
+      if (dados[i][21] !== STATUS_OS_LEGADO) continue;
+      linhasAlvo.push(i + 1);
+      var numero = String(dados[i][1] || '').trim();
+      if (numero && exemplos.length < 5) exemplos.push(numero);
+    }
+
+    if (!confirmado || linhasAlvo.length === 0) {
+      return {
+        ok: true,
+        dryRun: !confirmado,
+        examinadas: examinadas,
+        alteradas: linhasAlvo.length,
+        exemplos: exemplos,
+        // `destino` viaja na resposta pra quem for confirmar poder LER o valor
+        // exato que vai ser gravado antes de mandar o "SIM" — nao ter que
+        // confiar que ETAPAS_OS[0] e o que ele imagina.
+        destino: destino,
+        mensagem: !confirmado
+          ? 'DRY-RUN: nada foi gravado. ' + linhasAlvo.length + ' OS iriam de ' +
+            STATUS_OS_LEGADO + ' para ' + destino +
+            '. Mande {"confirmar":"SIM"} para aplicar.'
+          : 'Nada a fazer: nenhuma linha com status ' + STATUS_OS_LEGADO + '.'
+      };
+    }
+
+    // Escreve SO na coluna 22, e so nas linhas que casaram. Em blocos de linhas
+    // contiguas: as ~287 linhas sao quase um bloco unico, entao sao 1-3
+    // setValues em vez de 287 setValue — a diferenca entre segundos e o teto de
+    // 6 min de execucao do web app. Nenhuma outra coluna e lida pra escrita, e
+    // as linhas que nao casaram nao sao reescritas nem com o proprio valor.
+    var b = 0;
+    while (b < linhasAlvo.length) {
+      var ini = b;
+      while (b + 1 < linhasAlvo.length && linhasAlvo[b + 1] === linhasAlvo[b] + 1) b++;
+      var qtd = b - ini + 1;
+      var bloco = [];
+      for (var k = 0; k < qtd; k++) bloco.push([destino]);
+      aba.getRange(linhasAlvo[ini], 22, qtd, 1).setValues(bloco);
+      b++;
+    }
+
+    // UMA linha de resumo no HistoricoOS, nunca uma por OS. 287 linhas afogariam
+    // a trilha real (quem moveu qual OS, e quando) num ruido que ninguem leria —
+    // e o evento aqui e um SO: uma correcao de vocabulario em lote, nao 287
+    // decisoes de atendimento. Zero linhas tambem seria errado: sem registro,
+    // quem abrir a planilha semana que vem acha que essas OS sempre estiveram
+    // 'Aberta'. O numero da OS vira o rotulo do lote e `quem` guarda a contagem.
+    registrarHistoricoOS_(
+      '(lote: ' + linhasAlvo.length + ' OS)',
+      STATUS_OS_LEGADO,
+      destino,
+      'migracao_status_os_v1',
+      String(body && body.quem ? body.quem : 'migracao')
+    );
+
+    return {
+      ok: true,
+      dryRun: false,
+      examinadas: examinadas,
+      alteradas: linhasAlvo.length,
+      exemplos: exemplos,
+      destino: destino,
+      mensagem: linhasAlvo.length + ' OS movidas de ' + STATUS_OS_LEGADO + ' para ' + destino + '.'
+    };
   } finally {
     lock.releaseLock();
   }
