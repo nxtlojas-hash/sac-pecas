@@ -33,3 +33,13 @@ __pycache__/
 
 # Worktrees isolados (superpowers) — nunca versionar
 .worktrees/
+
+# Material interno que NAO pode ir para repo publico (decisao 29/07/2026).
+# O repo e publico porque o GitHub Pages serve o site a partir dele.
+# Documentos internos vivem em ../sac-pecas-docs/
+explicação/
+explicacao/
+*.ogg
+*.m4a
+*.mp3
+ajustes/
