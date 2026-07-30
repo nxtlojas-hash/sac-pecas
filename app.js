@@ -411,8 +411,8 @@ function abrirGuiaUso() {
 
       '<div class="guia-section">' +
         '<h3>2. Registrar Venda/Garantia</h3>' +
-        '<p><strong>Pelo Catalogo (recomendado):</strong> clique "Registrar" na peca desejada. Ela e adicionada ao formulario com preco e peso. Continue adicionando mais pecas pelo catalogo.</p>' +
-        '<p><strong>Manualmente:</strong> aba "Registrar", preencha tipo (SAC/Sumare/Garantia), cliente, pecas, frete e pagamento.</p>' +
+        '<p><strong>Pelo Catalogo (recomendado):</strong> clique "+ Venda" na peca desejada. Ela e adicionada ao formulario com preco e peso. Continue adicionando mais pecas pelo catalogo.</p>' +
+        '<p><strong>Manualmente:</strong> aba "Pe&ccedil;as", preencha tipo (SAC/Sumare/Garantia), cliente, pecas, frete e pagamento.</p>' +
         '<p>O sistema salva na planilha e envia para o Bling automaticamente.</p>' +
       '</div>' +
 
@@ -421,7 +421,7 @@ function abrirGuiaUso() {
         '<ul>' +
           '<li><strong>Criar:</strong> aba Orcamentos > Novo Orcamento > adicione pecas > Salvar ou Salvar + PDF</li>' +
           '<li><strong>Resgatar:</strong> busque por numero (ORC-...), nome, telefone ou data</li>' +
-          '<li><strong>Aprovar:</strong> abra o orcamento > "Aprovar > Registrar" > formulario preenchido automaticamente</li>' +
+          '<li><strong>Aprovar:</strong> abra o orcamento > "Aprovar > Pe&ccedil;as" > formulario preenchido automaticamente</li>' +
           '<li><strong>PDF:</strong> gerado no Google Drive, link salvo na planilha</li>' +
           '<li><strong>Status:</strong> Pendente (amarelo), Aprovado (verde), Expirado (vermelho)</li>' +
         '</ul>' +
@@ -453,7 +453,7 @@ function abrirGuiaUso() {
         '<table style="width:100%;font-size:0.82rem;border-collapse:collapse;">' +
           '<tr style="border-bottom:1px solid var(--cor-borda);"><td style="padding:0.4rem;"><strong>Identificar peca</strong></td><td style="padding:0.4rem;">Inicio > modelo > catalogo</td></tr>' +
           '<tr style="border-bottom:1px solid var(--cor-borda);"><td style="padding:0.4rem;"><strong>Saber preco/peso</strong></td><td style="padding:0.4rem;">Catalogo ou Tabela de Precos</td></tr>' +
-          '<tr style="border-bottom:1px solid var(--cor-borda);"><td style="padding:0.4rem;"><strong>Registrar venda</strong></td><td style="padding:0.4rem;">Catalogo > "Registrar" > completar formulario</td></tr>' +
+          '<tr style="border-bottom:1px solid var(--cor-borda);"><td style="padding:0.4rem;"><strong>Registrar venda</strong></td><td style="padding:0.4rem;">Cat&aacute;logo > "+ Venda" > completar formulario</td></tr>' +
           '<tr style="border-bottom:1px solid var(--cor-borda);"><td style="padding:0.4rem;"><strong>Fazer orcamento</strong></td><td style="padding:0.4rem;">Orcamentos > Novo > pecas > Salvar</td></tr>' +
           '<tr style="border-bottom:1px solid var(--cor-borda);"><td style="padding:0.4rem;"><strong>Resgatar orcamento</strong></td><td style="padding:0.4rem;">Orcamentos > buscar nome/numero</td></tr>' +
           '<tr style="border-bottom:1px solid var(--cor-borda);"><td style="padding:0.4rem;"><strong>Aprovar orcamento</strong></td><td style="padding:0.4rem;">Abrir > Aprovar > vira registro</td></tr>' +

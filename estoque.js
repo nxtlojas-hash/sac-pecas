@@ -591,6 +591,7 @@
     return '' +
       '<div class="secao-form">' +
         '<div class="secao-form-titulo">Saldo Atual</div>' +
+        '<div style="padding:0.25rem 1rem 0.5rem;color:#9a9a9a;font-size:0.82rem;">Somente leitura &mdash; para corrigir um saldo, use &#9881; Admin &rsaquo; Estoque.</div>' +
         '<div class="form-row" style="align-items:flex-end;">' +
           '<div class="form-group">' +
             '<label for="saldoModelo">Filtrar por modelo</label>' +
