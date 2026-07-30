@@ -455,7 +455,7 @@
     if (!cat) return mostrarFeedback('Selecione categoria', 'erro') && false;
     if (!mot) return mostrarFeedback('Selecione motivo', 'erro') && false;
     if (!orig) return mostrarFeedback('Selecione origem', 'erro') && false;
-    if (!desc) return mostrarFeedback('Preencha descri&ccedil;&atilde;o', 'erro') && false;
+    if (!desc) return mostrarFeedback('Preencha descrição', 'erro') && false;
     if (!vend) return mostrarFeedback('Informe vendedor', 'erro') && false;
     return true;
   }
@@ -518,7 +518,7 @@
     var os = document.getElementById('p3OS').checked;
     var sr = document.getElementById('p3SoRegistro').checked;
     if (!v && !o && !os && !sr) {
-      mostrarFeedback('Marque pelo menos uma a&ccedil;&atilde;o', 'erro');
+      mostrarFeedback('Marque pelo menos uma ação', 'erro');
       return false;
     }
     return true;
@@ -538,7 +538,7 @@
   function htmlPasso4() {
     var html = '<div class="secao-form">' +
       '<div class="secao-form-titulo">Preenchimento de documentos</div>' +
-      '<p style="padding:0.75rem 1rem;color:#9a9a9a;font-size:0.85rem;">Sub-formularios completos ser&atilde;o adicionados na pr&oacute;xima sub-fase. Por enquanto, voc&ecirc; gera o atendimento e cria os documentos pelos fluxos atuais (Registrar / Or&ccedil;amentos / Assist&ecirc;ncias) j&aacute; vinculando o protocolo desta tela.</p>';
+      '<p style="padding:0.75rem 1rem;color:#9a9a9a;font-size:0.85rem;">Sub-formularios completos ser&atilde;o adicionados na pr&oacute;xima sub-fase. Por enquanto, voc&ecirc; gera o atendimento e cria os documentos pelos fluxos atuais (Pe&ccedil;as / Or&ccedil;amentos / Abrir OS) j&aacute; vinculando o protocolo desta tela.</p>';
 
     if (dados.acoes.indexOf('venda') !== -1) {
       html += '<div class="form-row"><div class="form-group" style="flex:1 1 100%;color:#22c55e;padding:0.5rem 1rem;">&bull; 🛒 Venda ser&aacute; criada (preenchimento pendente nesta fase)</div></div>';

@@ -250,7 +250,7 @@ function renderCatalogo() {
         '</div>' +
         '<div class="peca-actions">' +
           '<button class="btn-action btn-orcamento" data-idx="' + origIdx + '">+ Orcamento</button>' +
-          '<button class="btn-action btn-registrar" data-idx="' + origIdx + '">\uD83D\uDCCB Registrar</button>' +
+          '<button class="btn-action btn-registrar" data-idx="' + origIdx + '">+ Venda</button>' +
           '<button class="btn-action btn-edit-peca" data-idx="' + origIdx + '" title="Editar peca">&#9998;</button>' +
         '</div>' +
       '</div>';
@@ -414,5 +414,7 @@ function addToFormAndNavigate(idx) {
     if (typeof atualizarPesoTotal === 'function') atualizarPesoTotal();
   }
 
-  mostrarFeedback(peca.nome + ' adicionado! Continue no catalogo ou va para Registrar', 'sucesso');
+  // Acento CRU de proposito: mostrarFeedback usa toast.textContent (app.js:615),
+  // que NAO interpreta entidade HTML — '&ccedil;' apareceria literal na tela.
+  mostrarFeedback(peca.nome + ' adicionado! Continue no catalogo ou va para Peças', 'sucesso');
 }
