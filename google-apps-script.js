@@ -1072,6 +1072,10 @@ function doPost(e) {
       case 'atualizar_status_os':
         return jsonResponse(atualizarStatusOS(body.numeroOS, body.novoStatus, 'sac', body.quem || ''));
 
+      // --- Acrescenta observacao a uma OS existente (2026-07-30) ---
+      case 'adicionar_observacao_os':
+        return jsonResponse(adicionarObservacaoOS(body.numeroOS, body.texto));
+
       // --- Registrar Venda (Planilha + Bling) ---
       case 'registrar_venda':
         return jsonResponse(registrarVenda(body));
@@ -4547,6 +4551,37 @@ function contarSemVinculo(oses) {
   return n;
 }
 
+// COPIA IDENTICA de lib/observacoes-os.js. O backend e um arquivo unico colado no
+// editor do Apps Script e nao consegue dar require na pasta lib/ — mesmo arranjo
+// das funcoes de busca e de vinculo aqui em cima.
+// tests/observacoes-os.test.js compara os corpos das duas copias, entao consertar
+// so um lado quebra o teste de proposito. Se mexer aqui, mexa la.
+
+var LIMITE_OBSERVACAO = 500;
+
+function validarTextoObservacao(texto) {
+  if (typeof texto !== 'string' || !texto.trim()) {
+    return { ok: false, erro: 'Texto vazio ou apenas espacos nao e permitido' };
+  }
+  if (texto.length > LIMITE_OBSERVACAO) {
+    return { ok: false, erro: 'Texto muito longo: limite de ' + LIMITE_OBSERVACAO + ' caracteres por observacao (recebeu ' + texto.length + ')' };
+  }
+  return { ok: true };
+}
+
+function montarCarimboObservacao(agora) {
+  var d = (agora instanceof Date) ? agora : new Date();
+  var pad = function(n) { return n < 10 ? '0' + n : String(n); };
+  return '[' + pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear() +
+    ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ']';
+}
+
+function acrescentarObservacao(atual, texto, agora) {
+  var prefixo = montarCarimboObservacao(agora) + ' ' + texto;
+  var atualStr = String(atual == null ? '' : atual);
+  return atualStr ? atualStr + '\n' + prefixo : prefixo;
+}
+
 // Lista as OS do master com filtros. NAO lista a serie antiga (ela e historico
 // e nao tem colunas para status) — a serie antiga se acha pela busca (buscar_os).
 function listarOS(filtros) {
@@ -4582,6 +4617,7 @@ function listarOS(filtros) {
       tipo: String(r[15] || ''),
       assistencia: String(r[16] || ''),
       problema: String(r[19] || ''),
+      observacoes: String(r[20] || ''),
       status: String(r[21] || 'Aberta'),
       etapa: etapaDoStatus_(String(r[21] || 'Aberta')),
       atendimentoId: colAt > 0 ? String(r[colAt - 1] || '') : '',
@@ -4646,6 +4682,43 @@ function atualizarStatusOS(numeroOS, novoStatus, origem, quem) {
       aba.getRange(i + 1, 22).setValue(novoStatus);
       registrarHistoricoOS_(String(dados[i][1]), anterior, novoStatus, origem || 'sac', quem || '');
       return { ok: true, numeroOS: String(dados[i][1]), status: novoStatus, anterior: anterior };
+    }
+    return { ok: false, erro: 'OS nao encontrada no master' };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// Acrescenta texto a observacao de uma OS existente. NUNCA sobrescreve: o
+// apendice preserva todo o historico anterior (regra de negocio em
+// lib/observacoes-os.js — uma observacao que apaga a anterior e pior que nao
+// ter o campo).
+//
+// Limitacao conhecida: os espelhos nao recebem a observacao nova.
+//   - Sumare ('ASSISTENCIA SUMARE'): nao tem coluna OBSERVACOES no cabecalho.
+//   - Terceirizada ('Assistencias parceiras'): tem a coluna (e o layout do master)
+//     mas foi gravada com o linhaMaster do nascimento da OS. Mesmo comportamento
+//     de atualizarStatusOS, que tambem so escreve no master. Nao cria a coluna
+//     no espelho — sem cabecalho nao ha referencia segura de indice.
+//
+// Payload: { action: 'adicionar_observacao_os', numeroOS: '...', texto: '...' }
+// Retorno: { ok: true, numeroOS, observacoes } | { ok: false, erro }
+function adicionarObservacaoOS(numeroOS, texto) {
+  var validacao = validarTextoObservacao(texto);
+  if (!validacao.ok) return { ok: false, erro: validacao.erro };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var aba = ss.getSheetByName(ABA_ASSISTENCIAS);
+    if (!aba) return { ok: false, erro: 'Aba de OS nao encontrada' };
+    var chave = chaveNumeroOS_(numeroOS);
+    var dados = aba.getDataRange().getValues();
+    for (var i = 1; i < dados.length; i++) {
+      if (chaveNumeroOS_(dados[i][1]) !== chave) continue;
+      var novasObs = acrescentarObservacao(dados[i][20], texto, new Date());
+      aba.getRange(i + 1, 21).setValue(novasObs);
+      return { ok: true, numeroOS: String(dados[i][1]), observacoes: novasObs };
     }
     return { ok: false, erro: 'OS nao encontrada no master' };
   } finally {

@@ -157,6 +157,40 @@
       });
   }
 
+  function salvarObservacao(numeroOS, texto, btn, textarea) {
+    btn.disabled = true;
+    btn.textContent = 'Salvando...';
+    return fetch(URL_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'adicionar_observacao_os', numeroOS: numeroOS, texto: texto })
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (!d.ok) throw new Error(d.erro || 'falhou');
+        // Atualiza a exibicao no cartao sem recarregar a pagina inteira.
+        var novasObs = d.observacoes || '';
+        var divObs = document.querySelector('.os-obs-texto[data-os="' + numeroOS + '"]');
+        if (divObs) {
+          divObs.textContent = novasObs;
+          divObs.style.display = '';
+        }
+        // Mantém cache coerente: se status mudar e render() for chamado,
+        // o cartao repinta com a observacao nova.
+        for (var i = 0; i < cache.length; i++) {
+          if (cache[i].numeroOS === numeroOS) { cache[i].observacoes = novasObs; break; }
+        }
+        textarea.value = '';
+        btn.disabled = true;
+        btn.textContent = 'Adicionar obs.';
+      })
+      .catch(function(e) {
+        btn.disabled = false;
+        btn.textContent = 'Adicionar obs.';
+        alert('Nao consegui salvar observacao: ' + e.message);
+      });
+  }
+
   function salvarStatus(numeroOS, novoStatus, btn) {
     btn.disabled = true;
     btn.textContent = 'Salvando...';
@@ -347,6 +381,28 @@
     var opcoes = listaOpcoes.map(function(op) {
       return '<option value="' + esc(op.valor) + '"' + (op.selecionado ? ' selected' : '') + '>' + esc(op.rotulo) + '</option>';
     }).join('');
+    // Observacoes existentes: somente leitura, preservando quebras de linha via
+    // white-space:pre-wrap. esc() nao escapa '\n', entao os carimbo '[dd/mm...]'
+    // separados por '\n' rendem uma linha por entrada — visualmente um mini-log.
+    // O div fica oculto quando vazio; salvarObservacao o exibe apos a 1a adicao
+    // (sem recarregar a pagina). data-os permite achá-lo via querySelector.
+    var obsAtual = String(o.observacoes || '');
+    var obsEstiloBase = 'white-space:pre-wrap;font-size:0.8rem;color:#b0b0c0;background:#0f0f1a;' +
+      'border-radius:4px;padding:0.4rem 0.6rem;margin-top:0.5rem;max-height:7rem;overflow-y:auto;';
+    var obsDisplay = obsAtual
+      ? '<div class="os-obs-texto" data-os="' + esc(o.numeroOS) + '" style="' + obsEstiloBase + '">' + esc(obsAtual) + '</div>'
+      : '<div class="os-obs-texto" data-os="' + esc(o.numeroOS) + '" style="display:none;' + obsEstiloBase + '"></div>';
+    // Campo para adicionar nova observacao. maxlength="500" e o limite de negocio
+    // (validarTextoObservacao em lib/observacoes-os.js). Botao desabilitado
+    // enquanto o textarea estiver vazio — o listener 'input' cuida disso em render().
+    var obsForm =
+      '<div style="margin-top:0.4rem;display:flex;gap:0.4rem;flex-wrap:wrap;align-items:flex-start;">' +
+        '<textarea class="os-obs-input" data-os="' + esc(o.numeroOS) + '" rows="2" maxlength="500" ' +
+          'placeholder="Nova observação..." ' +
+          'style="flex:1 1 180px;resize:vertical;font-size:0.8rem;padding:0.3rem 0.5rem;' +
+          'border-radius:4px;background:#0f0f1a;color:#e8e8f0;border:1px solid #2a2a2a;"></textarea>' +
+        '<button class="os-obs-salvar btn-secundario btn-sm" data-os="' + esc(o.numeroOS) + '" disabled>Adicionar obs.</button>' +
+      '</div>';
     return '' +
       '<div class="al-card" data-idx="' + idx + '" style="background:#161625;border:1px solid #2a2a2a;border-radius:8px;padding:0.85rem 1rem;margin-bottom:0.5rem;">' +
         '<strong style="color:var(--cor-primaria);font-size:1.05rem;">' + esc(o.numeroOS) + '</strong> ' +
@@ -362,6 +418,8 @@
           '<a class="btn-secundario btn-sm" target="_blank" rel="noopener" ' +
              'href="?view=acompanhar&os=' + encodeURIComponent(o.numeroOS) + '">Ver como o cliente vê</a>' +
         '</div>' +
+        obsDisplay +
+        obsForm +
       '</div>';
   }
 
@@ -474,6 +532,28 @@
         // outra view (window.__buscaAtendimento) — nao precisa mexer em app.js.
         window.__buscaAtendimento = id;
         if (typeof navigateTo === 'function') navigateTo('atendimentos');
+      });
+    });
+
+    // Habilita/desabilita o botao de salvar obs conforme o textarea tiver conteudo.
+    // 'input' dispara em cada tecla, paste e corte — mais responsivo que 'change'.
+    div.querySelectorAll('.os-obs-input').forEach(function(ta) {
+      ta.addEventListener('input', function() {
+        var card = ta.closest('.al-card');
+        var btn = card ? card.querySelector('.os-obs-salvar') : null;
+        if (btn) btn.disabled = !ta.value.trim();
+      });
+    });
+
+    // Envia a observacao ao backend e atualiza o card in-place sem reload.
+    div.querySelectorAll('.os-obs-salvar').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var numeroOS = btn.getAttribute('data-os');
+        var card = btn.closest('.al-card');
+        var ta = card ? card.querySelector('.os-obs-input') : null;
+        if (!ta || !ta.value.trim()) return;
+        salvarObservacao(numeroOS, ta.value, btn, ta);
       });
     });
   }
