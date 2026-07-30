@@ -96,7 +96,7 @@ document.getElementById('nav-tabs').addEventListener('click', function(e) {
   navigateTo(view);
 });
 
-// --- Home: Render atalhos (Atendimento, Catalogo, Registrar, Assistencia, Estoque) + Links uteis (Drive) ---
+// --- Home: Render atalhos (Atendimento, Catalogo, Pecas, Abrir OS, Estoque) + Links uteis (Drive) ---
 function renderHome() {
   var grid = document.getElementById('grid-modelos');
   if (!grid) return;

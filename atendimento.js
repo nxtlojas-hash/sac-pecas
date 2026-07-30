@@ -455,7 +455,7 @@
     if (!cat) return mostrarFeedback('Selecione categoria', 'erro') && false;
     if (!mot) return mostrarFeedback('Selecione motivo', 'erro') && false;
     if (!orig) return mostrarFeedback('Selecione origem', 'erro') && false;
-    if (!desc) return mostrarFeedback('Preencha descri&ccedil;&atilde;o', 'erro') && false;
+    if (!desc) return mostrarFeedback('Preencha descrição', 'erro') && false;
     if (!vend) return mostrarFeedback('Informe vendedor', 'erro') && false;
     return true;
   }
@@ -518,7 +518,7 @@
     var os = document.getElementById('p3OS').checked;
     var sr = document.getElementById('p3SoRegistro').checked;
     if (!v && !o && !os && !sr) {
-      mostrarFeedback('Marque pelo menos uma a&ccedil;&atilde;o', 'erro');
+      mostrarFeedback('Marque pelo menos uma ação', 'erro');
       return false;
     }
     return true;

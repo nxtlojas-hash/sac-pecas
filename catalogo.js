@@ -414,5 +414,7 @@ function addToFormAndNavigate(idx) {
     if (typeof atualizarPesoTotal === 'function') atualizarPesoTotal();
   }
 
-  mostrarFeedback(peca.nome + ' adicionado! Continue no catalogo ou va para Pe&ccedil;as', 'sucesso');
+  // Acento CRU de proposito: mostrarFeedback usa toast.textContent (app.js:615),
+  // que NAO interpreta entidade HTML — '&ccedil;' apareceria literal na tela.
+  mostrarFeedback(peca.nome + ' adicionado! Continue no catalogo ou va para Peças', 'sucesso');
 }
