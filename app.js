@@ -115,8 +115,8 @@ function renderHome() {
     { titulo: 'Atendimentos', icone: '\uD83D\uDCCB', desc: 'Listar e filtrar atendimentos',    tipo: 'view',  alvo: 'atendimentos' },
     { titulo: 'Clientes',     icone: '\uD83D\uDC64', desc: 'Hist&oacute;rico por CPF/telefone', tipo: 'view',  alvo: 'clientes' },
     { titulo: 'Cat&aacute;logo', icone: '\uD83D\uDCD6', desc: 'Pe&ccedil;as por modelo',         tipo: 'view',  alvo: 'catalogo' },
-    { titulo: 'Registrar',    icone: '\uD83D\uDED2', desc: 'Venda ou or&ccedil;amento de pe&ccedil;a', tipo: 'view', alvo: 'formulario' },
-    { titulo: 'Assist&ecirc;ncia', icone: '\uD83D\uDD27', desc: 'Abrir Ordem de Servi&ccedil;o',  tipo: 'view',  alvo: 'assistencia' },
+    { titulo: 'Pe&ccedil;as',       icone: '\uD83D\uDED2', desc: 'Venda ou or&ccedil;amento de pe&ccedil;a', tipo: 'view', alvo: 'formulario' },
+    { titulo: 'Abrir OS',    icone: '\uD83D\uDD27', desc: 'Assist&ecirc;ncia t&eacute;cnica e garantia',  tipo: 'view',  alvo: 'assistencia' },
     { titulo: 'Estoque',      icone: '\uD83D\uDCE6', desc: 'Movimenta&ccedil;&otilde;es, invent&aacute;rio, saldo', tipo: 'view', alvo: 'estoque' }
   ];
 
@@ -137,19 +137,19 @@ function renderHome() {
       '<div class="home-passos">' +
         '<div class="home-passo">' +
           '<div class="home-passo-num">1</div>' +
-          '<div class="home-passo-texto"><strong>Cliente faz contato</strong> (WhatsApp, telefone, loja). Abra <span style="color:var(--cor-primaria);font-weight:600;">📝 Atendimento</span> e busque pelo CPF/telefone.</div>' +
+          '<div class="home-passo-texto"><strong>O contato chega no Respond.</strong> A maior parte dos atendimentos entra aqui sozinha, puxada de l&aacute;. Abra <span style="color:var(--cor-primaria);font-weight:600;">📋 Atendimentos</span> e procure pelo telefone ou CPF antes de qualquer coisa.</div>' +
         '</div>' +
         '<div class="home-passo">' +
           '<div class="home-passo-num">2</div>' +
-          '<div class="home-passo-texto"><strong>Identifique o motivo</strong> (P&oacute;s-venda, Pr&eacute;-venda, Outro) e marque o que vai gerar: venda, or&ccedil;amento, OS ou s&oacute; registrar.</div>' +
+          '<div class="home-passo-texto"><strong>S&oacute; crie um atendimento novo se n&atilde;o achar</strong> o do cliente na lista. Criar por cima gera dois atendimentos para o mesmo contato.</div>' +
         '</div>' +
         '<div class="home-passo">' +
           '<div class="home-passo-num">3</div>' +
-          '<div class="home-passo-texto"><strong>Salve o atendimento</strong> com protocolo <code style="color:var(--cor-primaria);background:#0f0f1a;padding:2px 6px;border-radius:3px;">PV-AAAA-NNNN</code>. Docs gerados ficam vinculados automaticamente.</div>' +
+          '<div class="home-passo-texto"><strong>Registre o que o atendimento gerou:</strong> 🔧 Abrir OS para assist&ecirc;ncia e garantia, 🛒 Pe&ccedil;as para venda ou or&ccedil;amento. A OS pede o protocolo <code style="color:var(--cor-primaria);background:#0f0f1a;padding:2px 6px;border-radius:3px;">PV-AAAA-NNNN</code> do atendimento.</div>' +
         '</div>' +
         '<div class="home-passo">' +
           '<div class="home-passo-num">4</div>' +
-          '<div class="home-passo-texto"><strong>Acompanhe</strong> em <span style="color:var(--cor-primaria);font-weight:600;">📋 Atendimentos</span> (lista filtrada) ou <span style="color:var(--cor-primaria);font-weight:600;">👤 Clientes</span> (timeline por CPF/tel).</div>' +
+          '<div class="home-passo-texto"><strong>Acompanhe</strong> em <span style="color:var(--cor-primaria);font-weight:600;">📋 OS</span> (andamento da ordem) ou <span style="color:var(--cor-primaria);font-weight:600;">👤 Clientes</span> (tudo que j&aacute; aconteceu com aquele CPF/telefone).</div>' +
         '</div>' +
       '</div>' +
       '<div style="text-align:center;margin-top:1rem;">' +
