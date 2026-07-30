@@ -613,10 +613,29 @@ test('o botao "Migrar pendentes" saiu do front, com listener e fetch juntos', ()
 // CACHE: index.html
 // ===========================================================================
 
-test('index.html carrega a lib nova e nao sobrou nenhuma tag na versao velha', () => {
+test('index.html carrega a lib nova e todas as tags estao na MESMA versao', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /lib\/confirmacao-alteracao\.js\?v=2\.41/,
+
+  assert.match(html, /lib\/confirmacao-alteracao\.js\?v=/,
     'sem esta tag o front cai no fallback e grava sem perguntar');
-  assert.strictEqual((html.match(/v=2\.40/g) || []).length, 0, 'sobrou tag em 2.40');
-  assert.strictEqual((html.match(/v=2\.41/g) || []).length, 19);
+
+  // NAO fixamos o numero da versao. A versao anterior deste teste exigia
+  // literalmente '?v=2.41' e o total 19, entao QUALQUER bump de cache o deixava
+  // vermelho sem nada estar errado (aconteceu em 30/07/2026, no bump 2.41->2.42).
+  // Teste que quebra por motivo errado ensina a "consertar o teste" — e o dia em
+  // que ele ficar vermelho de verdade, alguem vai so trocar o numero de novo.
+  //
+  // O invariante que importa e outro: UMA unica versao em todas as tags. Duas
+  // versoes convivendo significam navegador servindo arquivo velho ao lado de
+  // arquivo novo, que e exatamente o bug que o ?v= existe para evitar.
+  const versoes = new Set(html.match(/\?v=[0-9.]+/g) || []);
+  assert.strictEqual(versoes.size, 1,
+    'tags em versoes diferentes: ' + [...versoes].join(', '));
+
+  // E todo asset local servido precisa ser cache-busted. Sem isso o navegador
+  // devolve a copia velha do cache e o deploy nao chega no operador.
+  // Imagens ficam de fora: o logo nao muda e nao quebra comportamento.
+  const semVersao = (html.match(/(?:src|href)="(?!https?:)[^"]+"/g) || [])
+    .filter(function (tag) { return !/\?v=/.test(tag) && !/\.png"/.test(tag); });
+  assert.deepStrictEqual(semVersao, [], 'asset local servido sem ?v=');
 });
