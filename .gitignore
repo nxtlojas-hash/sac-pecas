@@ -43,3 +43,8 @@ explicacao/
 *.m4a
 *.mp3
 ajustes/
+
+# 07/08: dados de cliente (nomes, casos de SAC, export de WhatsApp) NUNCA no git.
+# Este repo e PUBLICO e serve GitHub Pages a partir da raiz: qualquer arquivo aqui
+# vira URL baixavel sem login. Copia de seguranca fora do git em
+# C:\dev\_privado\sac-sumare-import-2026-05-29\ntools/sumare_import/data/
