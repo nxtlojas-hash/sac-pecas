@@ -199,22 +199,23 @@ function buscarMapeamentoFiscal(descricaoPeca) {
 // BLING: QUAL CONTA (21/08 — "a Ni Hao morre", decisao dela)
 // ========================================
 // O token deste script pertence a UMA conta do Bling — a que estiver logada na
-// hora de autorizar (action=auth_bling). Ate 21/08 era a Ni Hao. A propriedade
-// BLING_EMPRESA diz qual e ('nihao' | 'vollmond') e decide a natureza do pedido:
-// "Venda de mercadoria interestadual PF" tem id DIFERENTE em cada conta (lidos
-// da API em 21/08 — o id fixo antigo era da Ni Hao e nao existe na Vollmond).
-// Sem a propriedade, tudo segue como sempre (Ni Hao). Trocar de conta =
+// hora de autorizar (action=auth_bling). MEDIDO em 21/08 (196 pedidos PCA- de
+// agosto): os pedidos de pecas sempre sairam pela NXT INDUSTRIA — o id fixo
+// antigo (15105967674) era da Ni Hao e o Bling simplesmente o ignorava. A
+// propriedade BLING_EMPRESA diz a conta ('nxt' | 'nihao' | 'vollmond') e decide
+// a natureza: "Venda de mercadoria interestadual PF" tem id DIFERENTE em cada
+// conta (lidos da API em 21/08). Sem a propriedade: Industria. Trocar de conta =
 // 1) app OAuth criado DENTRO da conta nova (escopos completos de nascenca),
 // 2) BLING_CLIENT_ID/SECRET do app novo, 3) BLING_EMPRESA, 4) auth_bling logado
 // na conta nova. Os 16 codigos fiscais de pecas ja existem nas duas contas.
-var NATUREZA_PECAS_POR_EMPRESA = { nihao: 15105967674, vollmond: 15103346620 };
+var NATUREZA_PECAS_POR_EMPRESA = { nxt: 15105726928, nihao: 15105967674, vollmond: 15103346620 };
 
 function empresaBling() {
-  return String(getProperty('BLING_EMPRESA') || 'nihao').toLowerCase();
+  return String(getProperty('BLING_EMPRESA') || 'nxt').toLowerCase();
 }
 
 function naturezaBlingPecas() {
-  return NATUREZA_PECAS_POR_EMPRESA[empresaBling()] || NATUREZA_PECAS_POR_EMPRESA.nihao;
+  return NATUREZA_PECAS_POR_EMPRESA[empresaBling()] || NATUREZA_PECAS_POR_EMPRESA.nxt;
 }
 
 // ========================================
