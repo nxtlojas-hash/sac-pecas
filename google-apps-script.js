@@ -196,6 +196,28 @@ function buscarMapeamentoFiscal(descricaoPeca) {
 }
 
 // ========================================
+// BLING: QUAL CONTA (21/08 — "a Ni Hao morre", decisao dela)
+// ========================================
+// O token deste script pertence a UMA conta do Bling — a que estiver logada na
+// hora de autorizar (action=auth_bling). Ate 21/08 era a Ni Hao. A propriedade
+// BLING_EMPRESA diz qual e ('nihao' | 'vollmond') e decide a natureza do pedido:
+// "Venda de mercadoria interestadual PF" tem id DIFERENTE em cada conta (lidos
+// da API em 21/08 — o id fixo antigo era da Ni Hao e nao existe na Vollmond).
+// Sem a propriedade, tudo segue como sempre (Ni Hao). Trocar de conta =
+// 1) app OAuth criado DENTRO da conta nova (escopos completos de nascenca),
+// 2) BLING_CLIENT_ID/SECRET do app novo, 3) BLING_EMPRESA, 4) auth_bling logado
+// na conta nova. Os 16 codigos fiscais de pecas ja existem nas duas contas.
+var NATUREZA_PECAS_POR_EMPRESA = { nihao: 15105967674, vollmond: 15103346620 };
+
+function empresaBling() {
+  return String(getProperty('BLING_EMPRESA') || 'nihao').toLowerCase();
+}
+
+function naturezaBlingPecas() {
+  return NATUREZA_PECAS_POR_EMPRESA[empresaBling()] || NATUREZA_PECAS_POR_EMPRESA.nihao;
+}
+
+// ========================================
 // BLING: ARMAZENAMENTO DE TOKENS
 // ========================================
 
@@ -592,7 +614,7 @@ function enviarPedidoBling(dados) {
     numero: dados.id.replace('PCA-', ''),
     numeroLoja: dados.id,
     vendedor: { nome: dados.vendedor },
-    naturezaOperacao: { id: 15105967674 },
+    naturezaOperacao: { id: naturezaBlingPecas() },   // por conta — ver empresaBling()
     itens: itens,
     observacoes: 'SAC - ' + (dados.tipoAtendimento || 'Pecas') + (dados.protocoloSac ? ' | Protocolo: ' + dados.protocoloSac : '') + (dados.observacoes ? '\n' + dados.observacoes : '')
   };
@@ -976,6 +998,8 @@ function doGet(e) {
         return jsonResponse({
           status: 'ok',
           bling: {
+            empresa: empresaBling(),
+            naturezaId: naturezaBlingPecas(),
             credenciais: hasCreds,
             refreshToken: hasRefresh,
             accessTokenValido: tokenValido
@@ -996,6 +1020,7 @@ function doGet(e) {
           + '.btn{display:inline-block;background:#27ae60;color:white;padding:15px 30px;border-radius:8px;text-decoration:none;font-size:16px;}'
           + '.btn:hover{background:#219a52;}</style></head>'
           + '<body><h1>Autorizar Bling - NXT Pecas</h1>'
+          + '<p><b>Conta esperada: ' + empresaBling().toUpperCase() + '</b> — entre no Bling com essa empresa antes de clicar.</p>'
           + '<p>Clique no botao abaixo para autorizar o acesso ao Bling:</p>'
           + '<p><a class="btn" href="' + authUrl + '">Autorizar no Bling</a></p>'
           + '<p style="color:#888;font-size:12px;">Redirect URI: ' + redirectUri + '</p>'
