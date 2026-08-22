@@ -20,4 +20,7 @@ assert.ok(/NATUREZA_PECAS_POR_EMPRESA\[empresaBling\(\)\]\s*\|\|\s*NATUREZA_PECA
 // O status e a pagina de autorizacao dizem a conta — a troca se confere, nao se adivinha.
 assert.ok(/empresa:\s*empresaBling\(\)/.test(src), 'status informa a empresa');
 assert.ok(/Conta esperada:/.test(src), 'auth_bling avisa qual conta deve estar logada');
+// 22/08: o status com ?renovar=1 exercita a renovacao real (saude da sessao nao pode chorar por token vencido).
+assert.ok(/e\.parameter\.renovar/.test(src) && /renovacao:\s*renovacao/.test(src), 'status aceita renovar=1 e devolve renovacao');
+assert.ok(/blingRequest\('\/naturezas-operacoes\?pagina=1&limite=1',\s*'get'\)/.test(src), 'renovar=1 faz leitura minima pelo caminho da emissao');
 console.log('bling-empresa: ok');

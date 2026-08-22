@@ -996,6 +996,22 @@ function doGet(e) {
         var hasCreds = !!(getProperty('BLING_CLIENT_ID') && getProperty('BLING_CLIENT_SECRET'));
         var hasRefresh = !!tokens.refreshToken;
         var tokenValido = tokens.accessToken && tokens.expiry && Date.now() < tokens.expiry - 300000;
+        // 22/08: ?renovar=1 exercita a renovacao DE VERDADE — o mesmo caminho
+        // da emissao (getBlingAccessToken sob lock) + uma leitura minima. Sem
+        // isso o status so olha a validade guardada (6h): access token vencido
+        // desde ontem aparecia como "token invalido" e nao era — so ninguem
+        // tinha pedido peca ainda. Token MORTO = 'renovacao' comeca com 'erro'.
+        var renovacao = null;
+        if (e && e.parameter && String(e.parameter.renovar || '') === '1') {
+          try {
+            blingRequest('/naturezas-operacoes?pagina=1&limite=1', 'get');
+            renovacao = 'ok';
+            tokens = getBlingTokens();
+            tokenValido = tokens.accessToken && tokens.expiry && Date.now() < tokens.expiry - 300000;
+          } catch (errRenov) {
+            renovacao = 'erro: ' + String((errRenov && errRenov.message) || errRenov).slice(0, 200);
+          }
+        }
         return jsonResponse({
           status: 'ok',
           bling: {
@@ -1003,7 +1019,8 @@ function doGet(e) {
             naturezaId: naturezaBlingPecas(),
             credenciais: hasCreds,
             refreshToken: hasRefresh,
-            accessTokenValido: tokenValido
+            accessTokenValido: tokenValido,
+            renovacao: renovacao
           }
         });
 
