@@ -1112,6 +1112,10 @@ function loadPartsFromSheets() {
         if (typeof currentView !== 'undefined' && currentView === 'home' && typeof renderHome === 'function') renderHome();
         if (typeof currentView !== 'undefined' && currentView === 'catalogo' && typeof catalogoModelId !== 'undefined' && catalogoModelId && typeof openCatalogo === 'function') openCatalogo(catalogoModelId);
         if (typeof currentView !== 'undefined' && currentView === 'admin' && typeof refreshAdminTable === 'function') refreshAdminTable();
+        // 30/09: o pedido so aceita peca da lista — a lista de sugestoes precisa
+        // conhecer as pecas da planilha assim que elas chegam.
+        var selModelo = document.getElementById('modeloMoto');
+        if (selModelo && selModelo.value && typeof popularDatalistPecas === 'function') popularDatalistPecas(selModelo.value);
       }
     })
     .catch(function(err) {

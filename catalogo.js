@@ -151,19 +151,11 @@ function renderEstoqueBadges(modelId) {
     var badge = document.createElement('div');
     var info = estoqueModelo[nome];
 
-    if (!info) {
-      badge.className = 'estoque-badge estoque-sem-info';
-      badge.textContent = 'Sem info';
-    } else if (info.sumare === 0 && info.jaragua === 0) {
-      badge.className = 'estoque-badge estoque-indisponivel';
-      badge.textContent = 'Indispon\u00edvel';
-    } else if (info.sumare === 0 || info.jaragua === 0) {
-      badge.className = 'estoque-badge estoque-parcial';
-      badge.textContent = 'S: ' + info.sumare + ' | J: ' + info.jaragua;
-    } else {
-      badge.className = 'estoque-badge estoque-disponivel';
-      badge.textContent = 'S: ' + info.sumare + ' | J: ' + info.jaragua;
-    }
+    // 30/09: etiqueta honesta (lib/montadora.js). Negativo ou sem linha =
+    // ninguem contou ("Sem contagem"); so zero contado e "Indisponivel".
+    var et = etiquetaSaldo(info);
+    badge.className = 'estoque-badge ' + et.classe;
+    badge.textContent = et.texto;
 
     var body = card.querySelector('.peca-body');
     if (body) {

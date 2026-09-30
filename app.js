@@ -827,6 +827,11 @@ document.addEventListener('DOMContentLoaded', function() {
     renderNps((params.get('id') || '').trim());
     return; // pagina publica
   }
+  if (params.get('view') === 'montadora') {
+    // 30/09: quantidade + foto, para quem esta em Jaragua (montadora.js)
+    if (typeof window.renderMontadora === 'function') window.renderMontadora();
+    return;
+  }
   renderHome();
   updateSelectionBadge();
   atualizarBadgeAtendimentos();

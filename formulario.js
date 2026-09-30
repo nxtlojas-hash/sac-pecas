@@ -6,6 +6,11 @@ let pecasAdicionadas = [];
 let envioEmAndamento = false;
 let ultimoResumo = '';
 let ultimaVendaPDF = null;
+// 30/09: regras de peca do pedido e baixa de estoque moram em lib/montadora.js
+// (no navegador sao globais; no node, o teste carrega este arquivo por require).
+var regrasMontadora = (typeof module !== 'undefined' && module.exports)
+  ? require('./lib/montadora.js')
+  : { validarPecaDoPedido: validarPecaDoPedido, baixaEstoqueDoItem: baixaEstoqueDoItem, etiquetaSaldo: etiquetaSaldo };
 
 // --- Init ---
 function initFormulario() {
@@ -173,8 +178,13 @@ function buildFormHTML() {
         '</div>' +
         '<div class="form-group form-group-lg">' +
           '<label for="descricaoPeca">Peca</label>' +
-          '<input type="text" id="descricaoPeca" list="listaPecasDatalist" placeholder="Digite ou selecione a peca...">' +
+          '<input type="text" id="descricaoPeca" list="listaPecasDatalist" placeholder="Escolha a peca na lista...">' +
           '<datalist id="listaPecasDatalist"></datalist>' +
+          // 30/09: a peca vem da lista (e o que faz a contagem da montadora valer).
+          // Fora da lista so marcando — e ai nao baixa estoque.
+          '<label style="display:flex;align-items:center;gap:0.4rem;margin-top:0.35rem;font-size:0.8rem;color:#9a9a9a;cursor:pointer;">' +
+            '<input type="checkbox" id="pecaForaDaLista" style="width:auto;margin:0;"> Peça fora da lista (não está no catálogo deste modelo)' +
+          '</label>' +
         '</div>' +
       '</div>' +
       '<div class="form-row">' +
@@ -768,6 +778,20 @@ function adicionarPeca() {
   var outroNome = document.getElementById('outroModeloNome') ? document.getElementById('outroModeloNome').value.trim() : '';
   if (modelId === 'outro' && !outroNome) { mostrarFeedback('Especifique o nome do modelo', 'erro'); return; }
 
+  // 30/09: a peca vem da lista do modelo (lib/montadora.js). Nome da lista
+  // volta com a caixa do catalogo — a mesma linha que a montadora conta.
+  var foraCheck = document.getElementById('pecaForaDaLista');
+  var validacao = regrasMontadora.validarPecaDoPedido({
+    descricao: descricao,
+    modelId: modelId,
+    foraDaLista: !!(foraCheck && foraCheck.checked),
+    catalogo: CATALOGO_MODELOS,
+    globais: (typeof ITENS_GLOBAIS !== 'undefined') ? ITENS_GLOBAIS : []
+  });
+  if (validacao.erro) { mostrarFeedback(validacao.erro, 'erro', 6000); return; }
+  descricao = validacao.descricao;
+  var foraDaLista = validacao.foraDaLista;
+
   var preco = parseMoeda(precoTexto);
   if (isNaN(preco) || preco <= 0) { mostrarFeedback('Informe o preco da peca', 'erro'); return; }
 
@@ -808,10 +832,12 @@ function adicionarPeca() {
     pesoGramas: pesoGramas * qtd,
     img: imgSrc,
     imgManual: imgManual,
-    isMaoDeObra: isMaoDeObra
+    isMaoDeObra: isMaoDeObra,
+    foraDaLista: foraDaLista
   };
 
   pecasAdicionadas.push(peca);
+  if (foraCheck) foraCheck.checked = false;
   renderizarPecas();
   atualizarTotal();
   atualizarPesoTotal();
@@ -853,7 +879,9 @@ function renderizarPecas() {
   lista.innerHTML = pecasAdicionadas.map(function(p) {
     return '<div class="peca-item">' +
       '<div class="peca-info">' +
-        '<div class="peca-item-nome">' + p.descricao + '</div>' +
+        '<div class="peca-item-nome">' + p.descricao +
+          (p.foraDaLista && !p.isMaoDeObra ? ' <span style="font-size:0.7rem;color:#f59e0b;border:1px solid #f59e0b;border-radius:4px;padding:0 0.3rem;">fora da lista</span>' : '') +
+        '</div>' +
         '<div class="peca-item-detalhe">' +
           p.modelo +
           (p.cor ? ' | Cor: ' + p.cor : '') +
@@ -1390,17 +1418,17 @@ function verificarEstoquePeca(modelId, pecaNome) {
   var alertDiv = document.createElement('div');
   alertDiv.id = 'alertaEstoque';
 
-  if (info.sumare === 0 && info.jaragua === 0) {
+  // 30/09: mesma regra da etiqueta do catalogo (lib/montadora.js). Saldo
+  // negativo nao e "indisponivel" \u2014 e linha que ninguem contou.
+  var et = regrasMontadora.etiquetaSaldo(info);
+  if (et.classe === 'estoque-indisponivel') {
     alertDiv.className = 'alerta-estoque alerta-estoque-indisponivel';
-    alertDiv.innerHTML = '\u26A0\uFE0F <strong>' + pecaNome + '</strong> est\u00e1 indispon\u00edvel no estoque. Deseja continuar?';
-  } else if (info.sumare === 0) {
-    alertDiv.className = 'alerta-estoque alerta-estoque-parcial';
-    alertDiv.innerHTML = '\u2139\uFE0F <strong>' + pecaNome + '</strong> dispon\u00edvel apenas em <strong>Jaragu\u00e1</strong> (qtd: ' + info.jaragua + ')';
-  } else if (info.jaragua === 0) {
-    alertDiv.className = 'alerta-estoque alerta-estoque-parcial';
-    alertDiv.innerHTML = '\u2139\uFE0F <strong>' + pecaNome + '</strong> dispon\u00edvel apenas em <strong>Sumar\u00e9</strong> (qtd: ' + info.sumare + ')';
+    alertDiv.innerHTML = '\u26A0\uFE0F <strong>' + pecaNome + '</strong> est\u00e1 indispon\u00edvel no estoque (contado: 0). Deseja continuar?';
+  } else if (et.classe === 'estoque-sem-info') {
+    return; // ninguem contou ainda: nao afirmar nada
   } else {
-    return; // Ambos disponiveis, sem alerta
+    alertDiv.className = 'alerta-estoque alerta-estoque-parcial';
+    alertDiv.innerHTML = '\u2139\uFE0F <strong>' + pecaNome + '</strong> \u2014 ' + et.texto;
   }
 
   var listaPecas = document.getElementById('listaPecas');
@@ -1430,9 +1458,11 @@ function baixaEstoqueVenda(venda) {
     return;
   }
 
-  var pecas = venda.pecas || [];
+  // 30/09: so peca da lista baixa estoque (lib/montadora.js). "Fora da lista"
+  // e mao de obra nao tem linha contada para baixar.
+  var pecas = (venda.pecas || []).filter(regrasMontadora.baixaEstoqueDoItem);
   if (pecas.length === 0) {
-    atualizarChecklist('checkEstoque', true, 'Sem pecas para atualizar');
+    atualizarChecklist('checkEstoque', true, 'Sem pecas de estoque para baixar');
     return;
   }
 
