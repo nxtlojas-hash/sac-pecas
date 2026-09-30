@@ -62,6 +62,14 @@ test('peca da lista: aceita e devolve o nome COMO ESTA no catalogo (caixa igual 
   assert.strictEqual(r.foraDaLista, false);
 });
 
+test('acento nao faz a peca cair fora da lista: "Modulo" acha "Módulo"', () => {
+  const cat = { 'kay': { nome: 'Kay', pecas: [ { nome: 'Módulo', preco: 354 }, { nome: 'Alça encosto', preco: 115 } ] } };
+  let r = validarPecaDoPedido({ descricao: 'modulo', modelId: 'kay', foraDaLista: false, catalogo: cat });
+  assert.strictEqual(r.erro, ''); assert.strictEqual(r.descricao, 'Módulo'); assert.strictEqual(r.foraDaLista, false);
+  r = validarPecaDoPedido({ descricao: 'ALCA ENCOSTO', modelId: 'kay', foraDaLista: false, catalogo: cat });
+  assert.strictEqual(r.descricao, 'Alça encosto');
+});
+
 test('nome digitado que nao esta na lista, sem marcar "fora da lista": recusa e explica', () => {
   const r = validarPecaDoPedido({ descricao: 'Motor', modelId: 'kay', foraDaLista: false, catalogo: CATALOGO });
   assert.ok(/não está na lista/i.test(r.erro), r.erro);
