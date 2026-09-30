@@ -838,4 +838,7 @@ document.addEventListener('DOMContentLoaded', function() {
   if (typeof initFormulario === 'function') initFormulario();
   if (typeof initOrcamentos === 'function') initOrcamentos();
   if (typeof loadPartsFromSheets === 'function') loadPartsFromSheets();
+  // 30/09: ?view=admin abre direto no Admin (link "cadastrar peca" da tela da montadora)
+  var viewInicial = params.get('view');
+  if (viewInicial && document.getElementById('view-' + viewInicial)) navigateTo(viewInicial);
 });

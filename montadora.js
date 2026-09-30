@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.44 - Catalogo da Montadora (quantidade + foto) ===== */
+/* ===== NXT SAC V2.45 - Catalogo da Montadora (quantidade + foto) ===== */
 // Pagina propria: sac-pecas/?view=montadora
 // Para quem esta em Jaragua (Rafael): escolhe o modelo, digita a quantidade
 // que a montadora tem para o SAC e troca a foto. So isso. Sem Admin, sem
@@ -58,6 +58,14 @@
           'Como usar: escolha o modelo, digite a quantidade e aperte Enter (ou saia do campo) — grava na hora. ' +
           'Quantidade vazia = ainda não contada. Zero = não tem. Para a foto, toque em "Trocar foto" e escolha a imagem.' +
         '</p>' +
+        '<div style="border:1px solid #2a2a2a;border-radius:8px;padding:0.9rem 1rem;margin-top:0.75rem;font-size:0.85rem;line-height:1.55;color:#c8c8d0;">' +
+          '<div style="color:' + COR + ';font-weight:700;font-size:0.75rem;letter-spacing:1px;margin-bottom:0.4rem;">PEÇA QUE NÃO ESTÁ NA LISTA</div>' +
+          'Cadastre em <a href="./?view=admin" target="_blank" style="color:' + COR + ';">Admin › Peças › Adicionar</a>: modelo, nome, preço, peso e foto. ' +
+          'Use o <strong>nome do catálogo em PDF</strong> — o nome que você digitar vira o nome oficial da peça no SAC. ' +
+          'Depois de salvar, recarregue esta página e ela aparece aqui.' +
+          '<div style="color:' + COR + ';font-weight:700;font-size:0.75rem;letter-spacing:1px;margin:0.8rem 0 0.4rem;">AUTOPROPELIDO NOVO</div>' +
+          'Modelo novo não se cadastra por aqui: avise a Claudia (NXT). Ela cria o modelo e, depois, as peças dele entram nesta tela.' +
+        '</div>' +
       '</div>' +
       '<div id="toast" class="toast" style="display:none;"></div>';
 
