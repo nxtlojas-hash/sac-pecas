@@ -450,6 +450,13 @@ function confirmarAlteracao(texto) {
 
 // --- Save part (add or edit) ---
 function saveAdminPart(isEdit, editModelId, editIdx) {
+  // Foto ainda subindo: a peca em memoria esta com a previa local. Salvar agora
+  // gravaria a peca SEM imagem por cima da foto que esta chegando.
+  if (avisarFotoEmEnvio.pendentes > 0) {
+    mostrarFeedback('Aguarde: ainda há uma foto sendo enviada. Salve quando aparecer "Foto guardada".', 'erro', 6000);
+    return;
+  }
+
   var nome = document.getElementById('admin-peca-nome').value.trim();
   if (!nome) {
     mostrarFeedback('Nome da peca e obrigatorio', 'erro');
@@ -520,6 +527,10 @@ function saveAdminPart(isEdit, editModelId, editIdx) {
       imgPath = existingPeca.img || '';
     }
 
+    // A imagem que a peca tinha ANTES da previa local. Se a foto nova nao for
+    // guardada, e esta que vale — a previa ('blob:') so existe neste navegador.
+    var imgAnterior = imgPath;
+
     if (imageData) {
       imagemBase64 = imageData.base64;
       imagemNome = imageData.nome;
@@ -536,6 +547,14 @@ function saveAdminPart(isEdit, editModelId, editIdx) {
     if (isEdit) {
       var sourcePeca = CATALOGO_MODELOS[editModelId].pecas[editIdx];
       var nomeOriginal = sourcePeca.nome;
+
+      // Peca do arquivo-base (data.js) nao troca de nome por aqui, tenha ou nao
+      // linha na planilha: o nome antigo continua no arquivo e a peca apareceria
+      // duas vezes, em todos os modelos. O formulario fica aberto para corrigir.
+      if (typeof trocouDeNome === 'function' && trocouDeNome(nome, nomeOriginal) && ehNomeDoArquivoBase(editModelId, nomeOriginal)) {
+        mostrarFeedback('A peça "' + nomeOriginal + '" vem do arquivo-base e o nome não pode ser trocado por aqui. Foto, preço e peso podem mudar.', 'erro', 9000);
+        return;
+      }
 
       // 1. Encontra todas as ocorrencias atuais da peca (por nomeOriginal)
       //    para sincronizar update/add/remove conforme a selecao do usuario.
@@ -702,23 +721,42 @@ function saveAdminPart(isEdit, editModelId, editIdx) {
 
         if (anchorMid && anchorAction === 'editar') {
           var pAnchor = CATALOGO_MODELOS[anchorMid].pecas[anchorIdx];
+          // Como a peca estava: se o servidor nao gravar, a tela volta a isto.
+          var antes = { nome: pAnchor.nome, preco: pAnchor.preco, peso: pAnchor.peso, img: pAnchor.img };
           pAnchor.nome = nome;
           pAnchor.preco = preco;
           pAnchor.peso = peso;
           if (imgPath) pAnchor.img = imgPath;
 
-          savePartToSheets('editar', anchorMid, anchorIdx, pAnchor, imagemBase64, imagemNome, nomeOriginal).then(function(resp) {
-            if (resp && resp.sucesso === false) {
-              mostrarFeedback('Erro ao atualizar peca na planilha: ' + (resp.erro || 'desconhecido'), 'erro');
+          savePartToSheets('editar', anchorMid, anchorIdx, pAnchor, imagemBase64, imagemNome, nomeOriginal, imgAnterior).then(function(resp) {
+            fimDoEnvioDaFoto(hasNewImage);
+            var aviso = avisoAoGravarPeca(resp, hasNewImage);
+            var driveUrl = (resp && resp.imagemUrl) ? resp.imagemUrl : null;
+            if (!resp || resp.sucesso === false) {
+              // Nada foi gravado: a tela nao pode mostrar o que o servidor nao tem,
+              // e os outros modelos NAO sao gravados.
+              pAnchor.nome = antes.nome;
+              pAnchor.preco = antes.preco;
+              pAnchor.peso = antes.peso;
+              pAnchor.img = antes.img;
+              refreshAdminTable();
+              avisarFimDaGravacao(aviso, hasNewImage);
               return;
             }
-            var driveUrl = (resp && resp.imagemUrl) ? resp.imagemUrl : null;
+            if (hasNewImage && !driveUrl) {
+              // A foto nao foi guardada: a tela volta a mostrar a que a peca tinha.
+              imgPath = imgAnterior;
+              pAnchor.img = imgAnterior;
+              refreshAdminTable();
+            }
             if (driveUrl) {
               pAnchor.img = driveUrl;
               refreshAdminTable();
             }
             applyRest(driveUrl);
+            avisarFimDaGravacao(aviso, hasNewImage);
           });
+          avisarFotoEmEnvio(hasNewImage);
         } else if (anchorMid && anchorAction === 'adicionar') {
           var newAnchor = {
             nome: nome,
@@ -728,14 +766,32 @@ function saveAdminPart(isEdit, editModelId, editIdx) {
           };
           CATALOGO_MODELOS[anchorMid].pecas.push(newAnchor);
           var newAnchorIdx = CATALOGO_MODELOS[anchorMid].pecas.length - 1;
-          savePartToSheets('adicionar', anchorMid, newAnchorIdx, newAnchor, imagemBase64, imagemNome).then(function(resp) {
+          savePartToSheets('adicionar', anchorMid, newAnchorIdx, newAnchor, imagemBase64, imagemNome, null, imgAnterior).then(function(resp) {
+            fimDoEnvioDaFoto(hasNewImage);
+            var aviso = avisoAoGravarPeca(resp, hasNewImage);
             var driveUrl = (resp && resp.imagemUrl) ? resp.imagemUrl : null;
+            if (!resp || resp.sucesso === false) {
+              // A primeira gravacao falhou: a peca sai da tela e o resto NAO e
+              // gravado. Gravar os demais e mandar "salvar de novo" duplicava.
+              var ondeAncora = CATALOGO_MODELOS[anchorMid].pecas.indexOf(newAnchor);
+              if (ondeAncora >= 0) CATALOGO_MODELOS[anchorMid].pecas.splice(ondeAncora, 1);
+              refreshAdminTable();
+              avisarFimDaGravacao(aviso, hasNewImage);
+              return;
+            }
+            if (hasNewImage && !driveUrl) {
+              imgPath = imgAnterior;
+              newAnchor.img = imgAnterior || 'img/' + anchorMid + '/' + nome + '.jpeg';
+              refreshAdminTable();
+            }
             if (driveUrl) {
               newAnchor.img = driveUrl;
               refreshAdminTable();
             }
             applyRest(driveUrl);
+            avisarFimDaGravacao(aviso, hasNewImage);
           });
+          avisarFotoEmEnvio(hasNewImage);
         } else {
           // So tem remocoes
           applyRest(null);
@@ -800,12 +856,27 @@ function saveAdminPart(isEdit, editModelId, editIdx) {
         CATALOGO_MODELOS[firstMid].pecas.push(firstPeca);
         var firstIdx = CATALOGO_MODELOS[firstMid].pecas.length - 1;
         savePartToSheets('adicionar', firstMid, firstIdx, firstPeca, imagemBase64, imagemNome).then(function(resp) {
-          var driveUrl = (resp && resp.imagemUrl) ? resp.imagemUrl : firstPeca.img;
-          if (driveUrl !== firstPeca.img) {
-            firstPeca.img = driveUrl;
+          fimDoEnvioDaFoto(true);
+          var aviso = avisoAoGravarPeca(resp, true);
+          var driveUrl = (resp && resp.imagemUrl) ? resp.imagemUrl : '';
+          if (!resp || resp.sucesso === false) {
+            // A primeira gravacao falhou: a peca sai da tela e os outros modelos
+            // NAO sao gravados. Gravar os demais e mandar "salvar de novo" duplicava.
+            var ondePrimeira = CATALOGO_MODELOS[firstMid].pecas.indexOf(firstPeca);
+            if (ondePrimeira >= 0) CATALOGO_MODELOS[firstMid].pecas.splice(ondePrimeira, 1);
             refreshAdminTable();
+            avisarFimDaGravacao(aviso, true);
+            return;
           }
-          adicionarAosDemais(driveUrl, 1);
+          if (!driveUrl) {
+            // A foto nao foi guardada: a previa local nao segue para os outros modelos.
+            imgPath = '';
+            driveUrl = 'img/' + firstMid + '/' + nome + '.jpeg';
+          }
+          firstPeca.img = driveUrl;
+          refreshAdminTable();
+          adicionarAosDemais(resp && resp.imagemUrl ? driveUrl : '', 1);
+          avisarFimDaGravacao(aviso, true);
         });
       } else {
         // Sem imagem nova: cada modelo usa seu proprio fallback path em paralelo
@@ -826,7 +897,11 @@ function saveAdminPart(isEdit, editModelId, editIdx) {
           });
         });
       }
-      mostrarFeedback('Peca "' + nome + '" adicionada a ' + selectedModels.length + ' modelo(s)!', 'sucesso');
+      if (hasNewImage && validModels.length > 0) {
+        avisarFotoEmEnvio(true);
+      } else {
+        mostrarFeedback('Peca "' + nome + '" adicionada a ' + selectedModels.length + ' modelo(s)!', 'sucesso');
+      }
     }
 
     fecharModalEAtualizar();
@@ -845,6 +920,10 @@ function saveAdminPart(isEdit, editModelId, editIdx) {
 function confirmDeletePart(modelId, idx) {
   var peca = CATALOGO_MODELOS[modelId].pecas[idx];
   if (!peca) return;
+  if (avisarFotoEmEnvio.pendentes > 0) {
+    mostrarFeedback('Aguarde: ainda há uma foto sendo enviada. Exclua quando aparecer "Foto guardada".', 'erro', 6000);
+    return;
+  }
 
   var modelNome = CATALOGO_MODELOS[modelId].nome;
   if (!confirm('Tem certeza que deseja excluir "' + peca.nome + '" do modelo ' + modelNome + '?')) {
@@ -870,8 +949,59 @@ function confirmDeletePart(modelId, idx) {
   });
 }
 
+// --- Nomes que vem do arquivo-base (data.js), por modelo ---
+// A lista e tirada quando admin.js carrega: a planilha ainda nao entrou
+// (loadPartsFromSheets e assincrono), entao e data.js puro.
+function ehNomeDoArquivoBase(modelId, nome) {
+  var lista = ehNomeDoArquivoBase.lista;
+  if (!lista || !lista[modelId]) return false;
+  return lista[modelId].indexOf(String(nome || '').trim().toLowerCase()) >= 0;
+}
+ehNomeDoArquivoBase.lista = (function() {
+  var lista = {};
+  if (typeof CATALOGO_MODELOS === 'undefined') return lista;
+  Object.keys(CATALOGO_MODELOS).forEach(function(mid) {
+    lista[mid] = ((CATALOGO_MODELOS[mid] && CATALOGO_MODELOS[mid].pecas) || []).map(function(p) {
+      return String(p.nome || '').trim().toLowerCase();
+    });
+  });
+  return lista;
+})();
+
+// --- Avisos da gravacao de peca (29/09/2026) ---
+// As regras moram em lib/gravacao-peca.js. Sem a lib carregada, vale o aviso
+// antigo (so a recusa do servidor) — a tela nao para por causa de um arquivo.
+function avisoAoGravarPeca(resp, mandouFoto) {
+  if (typeof avisoDaGravacao === 'function') return avisoDaGravacao(resp, mandouFoto);
+  if (!resp) return 'O servidor nao respondeu. Atualize a pagina e confira se a peca foi gravada.';
+  if (resp.sucesso === false) return 'Erro ao atualizar peca na planilha: ' + (resp.erro || 'desconhecido');
+  return '';
+}
+
+// A foto leva de 10 segundos a 1 minuto para subir (medido: 3 MB = 14 s,
+// 8 MB = 23 s). Fechar a pagina antes perde a peca: a tela precisa dizer.
+// `pendentes` conta as fotos em envio; saveAdminPart nao grava enquanto houver.
+function avisarFotoEmEnvio(mandouFoto) {
+  if (!mandouFoto) return;
+  avisarFotoEmEnvio.pendentes = (avisarFotoEmEnvio.pendentes || 0) + 1;
+  mostrarFeedback('Enviando a foto... NÃO feche a página até aparecer "Foto guardada".', 'info', 120000);
+}
+
+// Primeira linha de toda resposta de gravacao com foto: libera o salvar mesmo
+// que o resto do tratamento quebre.
+function fimDoEnvioDaFoto(mandouFoto) {
+  if (!mandouFoto) return;
+  avisarFotoEmEnvio.pendentes = Math.max(0, (avisarFotoEmEnvio.pendentes || 0) - 1);
+}
+
+function avisarFimDaGravacao(aviso, mandouFoto) {
+  if (aviso) mostrarFeedback(aviso, 'erro', 9000);
+  else if (mandouFoto) mostrarFeedback('Foto guardada. Peça gravada.', 'sucesso', 4000);
+}
+
 // --- Save to Google Sheets ---
-function savePartToSheets(acao, modelId, idx, peca, imagemBase64, imagemNome, nomeOriginal) {
+// imgAnterior: a imagem que a peca tinha antes da previa local (opcional).
+function savePartToSheets(acao, modelId, idx, peca, imagemBase64, imagemNome, nomeOriginal, imgAnterior) {
   if (typeof GOOGLE_SCRIPT_URL === 'undefined' || GOOGLE_SCRIPT_URL.indexOf('SUBSTITUIR') !== -1) {
     console.warn('Admin: Google Script URL nao configurada, salvamento apenas local.');
     return Promise.resolve(null);
@@ -886,7 +1016,8 @@ function savePartToSheets(acao, modelId, idx, peca, imagemBase64, imagemNome, no
     nome: peca.nome,
     preco: peca.preco,
     peso: peca.peso,
-    img: peca.img || ''
+    // A previa local ('blob:') nunca vai para a planilha.
+    img: (typeof imgParaGravar === 'function') ? imgParaGravar(peca.img, imgAnterior) : (peca.img || '')
   };
 
   if (nomeOriginal) {
@@ -899,24 +1030,59 @@ function savePartToSheets(acao, modelId, idx, peca, imagemBase64, imagemNome, no
     payload.imagemNome = imagemNome;
   }
 
-  return fetch(GOOGLE_SCRIPT_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify(payload)
-  }).then(function(resp) {
-    return resp.text();
-  }).then(function(text) {
-    try {
-      var data = JSON.parse(text);
-      console.log('Admin: peca salva no Sheets (' + acao + ')', data);
-      return data;
-    } catch (e) {
-      console.warn('Admin: resposta nao-JSON do Sheets', text);
+  function enviar(corpo) {
+    return fetch(GOOGLE_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(corpo)
+    }).then(function(resp) {
+      return resp.text();
+    }).then(function(text) {
+      try {
+        var data = JSON.parse(text);
+        console.log('Admin: peca salva no Sheets (' + corpo.acao + ')', data);
+        return data;
+      } catch (e) {
+        console.warn('Admin: resposta nao-JSON do Sheets', text);
+        return null;
+      }
+    }).catch(function(err) {
+      console.error('Admin: erro ao salvar no Sheets', err);
       return null;
+    });
+  }
+
+  return enviar(payload).then(function(data) {
+    if (typeof faltaNaPlanilha !== 'function' || !faltaNaPlanilha(acao, data)) return data;
+
+    // Troca de nome em peca que so existe em data.js: NAO cadastra. O nome
+    // antigo continua no arquivo-base e a peca apareceria duas vezes.
+    if (typeof trocouDeNome === 'function' && trocouDeNome(payload.nome, nomeOriginal)) {
+      return { sucesso: false, erro: recusaTrocaDeNome(nomeOriginal), imagemUrl: '', trocaDeNomeRecusada: true };
     }
-  }).catch(function(err) {
-    console.error('Admin: erro ao salvar no Sheets', err);
-    return null;
+
+    // A peca so existe em data.js (267 das 384, medido em 29/09/2026): o
+    // servidor nao acha a linha para editar. Cadastra a peca na planilha.
+    // A foto ja foi guardada pelo 'editar' recusado e volta em imagemUrl —
+    // nao e enviada de novo.
+    var cadastro = {
+      action: 'gerenciar_peca',
+      acao: 'adicionar',
+      modelo: payload.modelo,
+      modeloNome: payload.modeloNome,
+      idx: payload.idx,
+      nome: payload.nome,
+      preco: payload.preco,
+      peso: payload.peso,
+      img: data.imagemUrl || payload.img
+    };
+    return enviar(cadastro).then(function(data2) {
+      if (data2 && data2.sucesso) {
+        data2.imagemUrl = data.imagemUrl || '';
+        data2.cadastradaNaPlanilha = true;
+      }
+      return data2;
+    });
   });
 }
 

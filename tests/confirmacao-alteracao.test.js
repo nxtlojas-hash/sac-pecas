@@ -284,6 +284,13 @@ function montarAmbiente(opcoes) {
     'document', 'parseMoeda', 'mostrarFeedback', 'CATALOGO_MODELOS', 'savePartToSheets',
     'refreshAdminTable', 'confirmarAlteracao', 'decidirGravacao', 'escopoModelos',
     'avisoRemocaoModelos',
+    // Os tres avisos da gravacao (29/09/2026) moram no mesmo arquivo e sao
+    // chamados de dentro de saveAdminPart: entram junto, com o codigo real.
+    corpoFuncao(ADMIN, 'avisoAoGravarPeca') + '\n' +
+    corpoFuncao(ADMIN, 'avisarFotoEmEnvio') + '\n' +
+    corpoFuncao(ADMIN, 'fimDoEnvioDaFoto') + '\n' +
+    corpoFuncao(ADMIN, 'ehNomeDoArquivoBase') + '\n' +
+    corpoFuncao(ADMIN, 'avisarFimDaGravacao') + '\n' +
     corpoFuncao(ADMIN, 'saveAdminPart') + '\nreturn saveAdminPart;'
   )(
     doc,

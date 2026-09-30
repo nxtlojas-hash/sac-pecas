@@ -610,20 +610,28 @@ function formatWeight(grams) {
   return Math.round(grams) + 'gr';
 }
 
-function mostrarFeedback(msg, tipo) {
+// duracao (ms) e opcional; o padrao continua 2,5 s.
+// O relogio do aviso anterior e cancelado: sem isso, o aviso novo era apagado
+// pelo relogio do velho (um erro que chega 20 s depois sumia em menos de 2 s).
+var feedbackRelogio = null;
+var feedbackRelogioFim = null;
+
+function mostrarFeedback(msg, tipo, duracao) {
   var toast = document.getElementById('toast');
+  clearTimeout(feedbackRelogio);
+  clearTimeout(feedbackRelogioFim);
   toast.textContent = msg;
   toast.className = 'toast toast-' + (tipo || 'info');
   toast.style.display = 'block';
   toast.offsetHeight; // force reflow
   toast.classList.add('toast-show');
 
-  setTimeout(function() {
+  feedbackRelogio = setTimeout(function() {
     toast.classList.remove('toast-show');
-    setTimeout(function() {
+    feedbackRelogioFim = setTimeout(function() {
       toast.style.display = 'none';
     }, 300);
-  }, 2500);
+  }, duracao || 2500);
 }
 
 function updateSelectionBadge() {
