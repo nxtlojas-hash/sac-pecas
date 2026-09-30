@@ -144,3 +144,48 @@ test('linhas da montadora: modelo casa por nome OU por id (as duas formas existe
   // vale a linha que a VENDA baixa (nome do modelo), porque e nela que a contagem tem de cair
   assert.strictEqual(linhas[0].jaragua, -3);
 });
+
+// ===========================================================================
+// 30/09 (tarde) — a PLANILHA passa a mandar na lista de pecas
+// ===========================================================================
+const { linhasParaMigrar, pecasDaPlanilhaPorModelo, jaExisteNoModelo } = lib;
+
+test('migracao: vai para a planilha so o que esta em data.js e ainda nao esta la (sem caixa/acento)', () => {
+  const dataJs = { 'kay': { nome: 'Kay', pecas: [
+    { nome: 'Acelerador de punho', preco: 125, peso: '10gr', img: 'img/kay/a.jpeg,' },
+    { nome: 'Alça encosto', preco: 115, peso: '55gr', img: 'img/kay/b.jpeg' },
+    { nome: 'Assoalho', preco: 126, peso: '90gr', img: '' }
+  ] }, 'outro': { nome: 'Outro', pecas: [] } };
+  const planilha = [ { modelo: 'kay', nome: 'ALCA ENCOSTO', preco: 115 } ];
+  const existe = (p) => p === 'img/kay/b.jpeg';
+  const r = linhasParaMigrar(dataJs, planilha, existe);
+  assert.deepStrictEqual(r, [
+    { modelo: 'kay', modeloNome: 'Kay', nome: 'Acelerador de punho', preco: 125, peso: '10gr', img: '' },
+    { modelo: 'kay', modeloNome: 'Kay', nome: 'Assoalho', preco: 126, peso: '90gr', img: '' }
+  ]);
+});
+
+test('migracao: caminho de foto que existe no repo vai junto; que nao existe vira vazio', () => {
+  const dataJs = { 'kay': { nome: 'Kay', pecas: [ { nome: 'Banco', preco: 225, peso: '1,60kg', img: 'img/kay/Banco 1,60kg.jpeg' } ] } };
+  const r = linhasParaMigrar(dataJs, [], (p) => p === 'img/kay/Banco 1,60kg.jpeg');
+  assert.strictEqual(r[0].img, 'img/kay/Banco 1,60kg.jpeg');
+});
+
+test('planilha manda: a lista de um modelo vira as linhas da planilha, sem repetidas (a ultima vale)', () => {
+  const linhas = [
+    { modelo: 'kay', nome: 'Banco', preco: '225', peso: '1,60kg', img: 'img/kay/Banco.jpeg' },
+    { modelo: 'kay', nome: 'banco', preco: '230', peso: '1,60kg', img: 'https://drive/x' },
+    { modelo: 'JAYA', nome: 'Motor', preco: '', peso: '', img: '' }
+  ];
+  const porModelo = pecasDaPlanilhaPorModelo(linhas);
+  assert.deepStrictEqual(Object.keys(porModelo).sort(), ['jaya', 'kay']);
+  assert.deepStrictEqual(porModelo.kay, [ { nome: 'banco', preco: 230, peso: '1,60kg', img: 'https://drive/x' } ]);
+  assert.deepStrictEqual(porModelo.jaya, [ { nome: 'Motor', preco: null, peso: null, img: '' } ]);
+});
+
+test('nova peca: recusa nome que ja existe no modelo (sem caixa/acento)', () => {
+  const pecas = [ { nome: 'Módulo' }, { nome: 'Banco' } ];
+  assert.strictEqual(jaExisteNoModelo('modulo', pecas), true);
+  assert.strictEqual(jaExisteNoModelo('Banco ', pecas), true);
+  assert.strictEqual(jaExisteNoModelo('Módulo Juna', pecas), false);
+});

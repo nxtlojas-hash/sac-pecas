@@ -953,6 +953,9 @@ function confirmDeletePart(modelId, idx) {
 // A lista e tirada quando admin.js carrega: a planilha ainda nao entrou
 // (loadPartsFromSheets e assincrono), entao e data.js puro.
 function ehNomeDoArquivoBase(modelId, nome) {
+  // 30/09: modelo cuja lista ja veio da planilha nao tem mais "arquivo-base"
+  // mandando — trocar o nome e seguro (o nome antigo nao volta).
+  if (CATALOGO_MODELOS[modelId] && CATALOGO_MODELOS[modelId].daPlanilha) return false;
   var lista = ehNomeDoArquivoBase.lista;
   if (!lista || !lista[modelId]) return false;
   return lista[modelId].indexOf(String(nome || '').trim().toLowerCase()) >= 0;
@@ -1057,7 +1060,7 @@ function savePartToSheets(acao, modelId, idx, peca, imagemBase64, imagemNome, no
 
     // Troca de nome em peca que so existe em data.js: NAO cadastra. O nome
     // antigo continua no arquivo-base e a peca apareceria duas vezes.
-    if (typeof trocouDeNome === 'function' && trocouDeNome(payload.nome, nomeOriginal)) {
+    if (typeof trocouDeNome === 'function' && trocouDeNome(payload.nome, nomeOriginal) && !(CATALOGO_MODELOS[modelId] && CATALOGO_MODELOS[modelId].daPlanilha)) {
       return { sucesso: false, erro: recusaTrocaDeNome(nomeOriginal), imagemUrl: '', trocaDeNomeRecusada: true };
     }
 
@@ -1125,43 +1128,20 @@ function loadPartsFromSheets() {
 
 // --- Apply parts from Sheets to CATALOGO_MODELOS ---
 function applySheetsParts(sheetParts) {
-  // Group by model
-  var byModel = {};
-  sheetParts.forEach(function(sp) {
-    if (!byModel[sp.modelo]) byModel[sp.modelo] = [];
-    byModel[sp.modelo].push({
-      nome: sp.nome,
-      preco: sp.preco != null && sp.preco !== '' ? parseFloat(sp.preco) : null,
-      peso: sp.peso || null,
-      img: sp.img || ''
-    });
-  });
-
-  // Override/supplement each model
-  Object.keys(byModel).forEach(function(modelId) {
+  // 30/09: a PLANILHA MANDA. Modelo que tem linhas na aba Pecas passa a mostrar
+  // SO essas linhas (uma por modelo+nome); o data.js fica como reserva para
+  // quando a planilha nao carrega. Antes era "mesclar": excluir na planilha
+  // nao valia, porque o data.js trazia a peca de volta (retorno da Jacque).
+  var porModelo = pecasDaPlanilhaPorModelo(sheetParts);
+  Object.keys(porModelo).forEach(function(modelId) {
     if (!CATALOGO_MODELOS[modelId]) return;
-
-    var sheetList = byModel[modelId];
-    sheetList.forEach(function(sp) {
-      // Check if part already exists (by name)
-      var existingIdx = -1;
-      CATALOGO_MODELOS[modelId].pecas.forEach(function(p, i) {
-        if (p.nome.toLowerCase() === sp.nome.toLowerCase()) {
-          existingIdx = i;
-        }
-      });
-
-      if (existingIdx >= 0) {
-        // Update existing
-        if (sp.preco != null) CATALOGO_MODELOS[modelId].pecas[existingIdx].preco = sp.preco;
-        if (sp.peso) CATALOGO_MODELOS[modelId].pecas[existingIdx].peso = sp.peso;
-        if (sp.img) CATALOGO_MODELOS[modelId].pecas[existingIdx].img = sp.img;
-      } else {
-        // Add new
-        CATALOGO_MODELOS[modelId].pecas.push(sp);
-      }
+    var lista = porModelo[modelId].slice().sort(function(a, b) {
+      return String(a.nome).localeCompare(String(b.nome), 'pt-BR', { sensitivity: 'base' });
     });
+    CATALOGO_MODELOS[modelId].pecas = lista;
+    CATALOGO_MODELOS[modelId].daPlanilha = true;
   });
+  window.PECAS_DA_PLANILHA = true;
 }
 
 // --- Edit from catalog (called by edit icon on cards) ---

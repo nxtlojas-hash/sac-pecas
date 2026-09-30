@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.45 - Catalogo da Montadora (quantidade + foto) ===== */
+/* ===== NXT SAC V2.47 - Catalogo da Montadora (quantidade + foto) ===== */
 // Pagina propria: sac-pecas/?view=montadora
 // Para quem esta em Jaragua (Rafael): escolhe o modelo, digita a quantidade
 // que a montadora tem para o SAC e troca a foto. So isso. Sem Admin, sem
@@ -53,6 +53,7 @@
           '</label>' +
         '</div>' +
         '<div id="mont-resumo" style="color:#9a9a9a;font-size:0.85rem;margin-bottom:0.5rem;">Carregando o catálogo…</div>' +
+        '<div id="mont-nova" style="display:none;margin-bottom:0.5rem;"></div>' +
         '<div id="mont-lista"></div>' +
         '<p style="color:#6a6a6a;font-size:0.75rem;margin-top:1.5rem;line-height:1.5;">' +
           'Como usar: escolha o modelo, digite a quantidade e aperte Enter (ou saia do campo) — grava na hora. ' +
@@ -60,9 +61,9 @@
         '</p>' +
         '<div style="border:1px solid #2a2a2a;border-radius:8px;padding:0.9rem 1rem;margin-top:0.75rem;font-size:0.85rem;line-height:1.55;color:#c8c8d0;">' +
           '<div style="color:' + COR + ';font-weight:700;font-size:0.75rem;letter-spacing:1px;margin-bottom:0.4rem;">PEÇA QUE NÃO ESTÁ NA LISTA</div>' +
-          'Cadastre em <a href="./?view=admin" target="_blank" style="color:' + COR + ';">Admin › Peças › Adicionar</a>: modelo, nome, preço, peso e foto. ' +
+          'Escolha o modelo e toque em <strong>+ Nova peça neste modelo</strong>: nome, preço, peso e foto. ' +
           'Use o <strong>nome do catálogo em PDF</strong> — o nome que você digitar vira o nome oficial da peça no SAC. ' +
-          'Depois de salvar, recarregue esta página e ela aparece aqui.' +
+          'Cada modelo tem a sua própria lista: editar, excluir ou renomear aqui vale só para o modelo escolhido.' +
           '<div style="color:' + COR + ';font-weight:700;font-size:0.75rem;letter-spacing:1px;margin:0.8rem 0 0.4rem;">AUTOPROPELIDO NOVO</div>' +
           'Modelo novo não se cadastra por aqui: avise a Claudia (NXT). Ela cria o modelo e, depois, as peças dele entram nesta tela.' +
         '</div>' +
@@ -77,6 +78,7 @@
     });
     sel.addEventListener('change', function() { modeloAtual = this.value; renderLista(); });
     document.getElementById('mont-busca').addEventListener('input', renderLista);
+    montarNova();
 
     carregar();
   };
@@ -166,8 +168,14 @@
         '<label style="cursor:pointer;background:#1f1f1f;border:1px solid #333;border-radius:6px;padding:0.5rem 0.7rem;font-size:0.8rem;">Trocar foto' +
           '<input type="file" accept="image/*" class="mont-foto" style="display:none;">' +
         '</label>' +
+        '<button type="button" class="mont-editar" style="background:#1f1f1f;color:#fff;border:1px solid #333;border-radius:6px;padding:0.5rem 0.7rem;font-size:0.8rem;cursor:pointer;">Editar</button>' +
+        '<button type="button" class="mont-excluir" style="background:none;color:#ef4444;border:1px solid #5a1f1f;border-radius:6px;padding:0.5rem 0.7rem;font-size:0.8rem;cursor:pointer;">Excluir</button>' +
+        '<div class="mont-form" style="display:none;flex-basis:100%;"></div>' +
       '</div>';
     }).join('');
+
+    var topo = document.getElementById('mont-nova');
+    if (topo) topo.style.display = '';
 
     lista.querySelectorAll('.mont-qtd').forEach(function(inp) {
       inp.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); this.blur(); } });
@@ -176,6 +184,179 @@
     lista.querySelectorAll('.mont-foto').forEach(function(inp) {
       inp.addEventListener('change', function() { trocarFoto(this); });
     });
+    lista.querySelectorAll('.mont-editar').forEach(function(b) {
+      b.addEventListener('click', function() { abrirEdicao(this); });
+    });
+    lista.querySelectorAll('.mont-excluir').forEach(function(b) {
+      b.addEventListener('click', function() { pedirExclusao(this); });
+    });
+  }
+
+  // A planilha nao carregou nesta abertura: nao deixar editar/excluir/cadastrar
+  // em cima da lista de reserva (data.js) — gravaria por cima do que nao se viu.
+  function planilhaCarregou(el) {
+    if (window.PECAS_DA_PLANILHA) return true;
+    if (el) status(el, 'A lista da planilha não carregou. Recarregue a página antes de editar.', '#ef4444');
+    return false;
+  }
+
+  function inputStyle() {
+    return 'padding:0.5rem;background:#161616;color:#fff;border:1px solid #333;border-radius:6px;font-size:0.95rem;width:100%;box-sizing:border-box;';
+  }
+  function precoTexto(v) { return (v == null || v === '' || isNaN(v)) ? '' : Number(v).toFixed(2).replace('.', ','); }
+  function precoNumero(t) {
+    var s = String(t || '').trim().replace(/[R$\s]/g, '').replace(/\./g, '').replace(',', '.');
+    if (s === '') return null;
+    var n = parseFloat(s);
+    return isNaN(n) ? NaN : n;
+  }
+
+  // ---------------------------------------------------------------- editar
+  function abrirEdicao(btn) {
+    if (!planilhaCarregou(btn)) return;
+    var linha = linhaDe(btn);
+    var idx = parseInt(linha.dataset.idx);
+    var peca = CATALOGO_MODELOS[modeloAtual].pecas[idx];
+    var form = linha.querySelector('.mont-form');
+    form.style.display = 'block';
+    form.innerHTML =
+      '<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:0.5rem;margin-top:0.5rem;">' +
+        '<label style="font-size:0.7rem;color:#9a9a9a;">NOME<input class="ed-nome" value="' + esc(peca.nome) + '" style="' + inputStyle() + '"></label>' +
+        '<label style="font-size:0.7rem;color:#9a9a9a;">PREÇO (R$)<input class="ed-preco" value="' + precoTexto(peca.preco) + '" placeholder="0,00" style="' + inputStyle() + '"></label>' +
+        '<label style="font-size:0.7rem;color:#9a9a9a;">PESO<input class="ed-peso" value="' + esc(peca.peso || '') + '" placeholder="ex: 55gr" style="' + inputStyle() + '"></label>' +
+      '</div>' +
+      '<div style="display:flex;gap:0.5rem;margin-top:0.5rem;">' +
+        '<button type="button" class="ed-salvar" style="background:' + COR + ';color:#000;border:none;border-radius:6px;padding:0.5rem 0.9rem;font-weight:700;cursor:pointer;">Salvar</button>' +
+        '<button type="button" class="ed-cancelar" style="background:none;color:#9a9a9a;border:1px solid #333;border-radius:6px;padding:0.5rem 0.9rem;cursor:pointer;">Cancelar</button>' +
+      '</div>';
+    form.querySelector('.ed-cancelar').addEventListener('click', function() { form.style.display = 'none'; form.innerHTML = ''; });
+    form.querySelector('.ed-salvar').addEventListener('click', function() { salvarEdicao(linha, idx); });
+  }
+
+  function salvarEdicao(linha, idx) {
+    var peca = CATALOGO_MODELOS[modeloAtual].pecas[idx];
+    var form = linha.querySelector('.mont-form');
+    var nome = form.querySelector('.ed-nome').value.trim();
+    var preco = precoNumero(form.querySelector('.ed-preco').value);
+    var peso = form.querySelector('.ed-peso').value.trim();
+    var btn = form.querySelector('.ed-salvar');
+    if (!nome) { status(btn, 'O nome não pode ficar vazio.', '#ef4444'); return; }
+    if (preco !== null && isNaN(preco)) { status(btn, 'Preço inválido. Use 125,00.', '#ef4444'); return; }
+    var trocouNome = chaveNome(nome) !== chaveNome(peca.nome);
+    if (trocouNome && jaExisteNoModelo(nome, CATALOGO_MODELOS[modeloAtual].pecas)) {
+      status(btn, 'Já existe uma peça com esse nome neste modelo.', '#ef4444'); return;
+    }
+    var nomeOriginal = peca.nome;
+    var nova = { nome: nome, preco: preco, peso: peso || null, img: peca.img || '' };
+    btn.disabled = true; status(btn, 'Gravando…', '#9a9a9a');
+    savePartToSheets('editar', modeloAtual, idx, nova, null, null, nomeOriginal, peca.img).then(function(resp) {
+      btn.disabled = false;
+      var aviso = avisoDaGravacao(resp, false);
+      if (aviso) { status(btn, aviso, '#ef4444'); return; }
+      peca.nome = nome; peca.preco = preco; peca.peso = nova.peso;
+      // A linha de saldo e por nome: se trocou o nome e havia contagem, leva junto.
+      if (trocouNome) copiarSaldo(nomeOriginal, nome);
+      renderLista();
+      var nl = [].slice.call(document.querySelectorAll('.mont-linha')).filter(function(x) { return parseInt(x.dataset.idx) === idx; })[0];
+      if (nl) status(nl.querySelector('.mont-editar'), 'Gravado ' + fmtData(agoraIso()) + '.', '#22c55e');
+    });
+  }
+
+  function copiarSaldo(nomeAntigo, nomeNovo) {
+    var m = chaveModeloEstoque(modeloAtual, CATALOGO_MODELOS).toLowerCase();
+    var e = estoque.filter(function(x) { return String(x.modelo).toLowerCase() === m && chaveNome(x.peca) === chaveNome(nomeAntigo); })[0];
+    if (!e || (parseInt(e.jaragua) || 0) < 0) return;
+    var payload = { action: 'atualizar_estoque', modelo: chaveModeloEstoque(modeloAtual, CATALOGO_MODELOS), peca: nomeNovo, sumare: Math.max(0, parseInt(e.sumare) || 0), jaragua: parseInt(e.jaragua) || 0 };
+    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) })
+      .then(function() { atualizarCache(payload.modelo, nomeNovo, payload.sumare, payload.jaragua); })
+      .catch(function() {});
+  }
+
+  // ---------------------------------------------------------------- excluir
+  function pedirExclusao(btn) {
+    if (!planilhaCarregou(btn)) return;
+    var linha = linhaDe(btn);
+    var idx = parseInt(linha.dataset.idx);
+    var peca = CATALOGO_MODELOS[modeloAtual].pecas[idx];
+    var form = linha.querySelector('.mont-form');
+    form.style.display = 'block';
+    form.innerHTML = '<div style="margin-top:0.5rem;display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">' +
+      '<span>Excluir <strong>' + esc(peca.nome) + '</strong> do modelo ' + esc(CATALOGO_MODELOS[modeloAtual].nome) + '?</span>' +
+      '<button type="button" class="ex-sim" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:0.5rem 0.9rem;font-weight:700;cursor:pointer;">Sim, excluir</button>' +
+      '<button type="button" class="ex-nao" style="background:none;color:#9a9a9a;border:1px solid #333;border-radius:6px;padding:0.5rem 0.9rem;cursor:pointer;">Não</button></div>';
+    form.querySelector('.ex-nao').addEventListener('click', function() { form.style.display = 'none'; form.innerHTML = ''; });
+    form.querySelector('.ex-sim').addEventListener('click', function() {
+      var b = this; b.disabled = true; status(b, 'Excluindo…', '#9a9a9a');
+      savePartToSheets('excluir', modeloAtual, idx, peca).then(function(resp) {
+        if (!resp || resp.sucesso === false) { b.disabled = false; status(b, 'NÃO excluiu: ' + (resp && resp.erro ? resp.erro : 'o servidor não respondeu.'), '#ef4444'); return; }
+        CATALOGO_MODELOS[modeloAtual].pecas.splice(idx, 1);
+        renderLista();
+        document.getElementById('mont-resumo').innerHTML += ' · <span style="color:#22c55e;">"' + esc(peca.nome) + '" excluída.</span>';
+      });
+    });
+  }
+
+  // ---------------------------------------------------------------- nova peca
+  function montarNova() {
+    var box = document.getElementById('mont-nova');
+    box.innerHTML = '<button type="button" id="mont-nova-abrir" style="background:' + COR + ';color:#000;border:none;border-radius:6px;padding:0.55rem 0.9rem;font-weight:700;cursor:pointer;">+ Nova peça neste modelo</button>' +
+      '<div id="mont-nova-form" style="display:none;margin-top:0.5rem;border:1px solid #2a2a2a;border-radius:8px;padding:0.75rem;"></div>';
+    document.getElementById('mont-nova-abrir').addEventListener('click', function() {
+      if (!planilhaCarregou()) { document.getElementById('mont-resumo').innerHTML = '<span style="color:#ef4444;">A lista da planilha não carregou. Recarregue a página antes de cadastrar.</span>'; return; }
+      var f = document.getElementById('mont-nova-form');
+      f.style.display = 'block';
+      f.innerHTML =
+        '<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:0.5rem;">' +
+          '<label style="font-size:0.7rem;color:#9a9a9a;">NOME (o do catálogo em PDF)<input class="nv-nome" style="' + inputStyle() + '"></label>' +
+          '<label style="font-size:0.7rem;color:#9a9a9a;">PREÇO (R$)<input class="nv-preco" placeholder="0,00" style="' + inputStyle() + '"></label>' +
+          '<label style="font-size:0.7rem;color:#9a9a9a;">PESO<input class="nv-peso" placeholder="ex: 55gr" style="' + inputStyle() + '"></label>' +
+        '</div>' +
+        '<div style="display:flex;gap:0.5rem;margin-top:0.5rem;align-items:center;flex-wrap:wrap;">' +
+          '<label style="cursor:pointer;background:#1f1f1f;border:1px solid #333;border-radius:6px;padding:0.5rem 0.7rem;font-size:0.8rem;">Foto (opcional)<input type="file" accept="image/*" class="nv-foto" style="display:none;"></label>' +
+          '<span class="nv-foto-nome" style="color:#9a9a9a;font-size:0.8rem;"></span>' +
+          '<button type="button" class="nv-salvar" style="background:' + COR + ';color:#000;border:none;border-radius:6px;padding:0.5rem 0.9rem;font-weight:700;cursor:pointer;">Cadastrar</button>' +
+          '<button type="button" class="nv-cancelar" style="background:none;color:#9a9a9a;border:1px solid #333;border-radius:6px;padding:0.5rem 0.9rem;cursor:pointer;">Cancelar</button>' +
+        '</div>' +
+        '<div class="nv-status" style="font-size:0.8rem;margin-top:0.4rem;min-height:1em;"></div>';
+      f.querySelector('.nv-foto').addEventListener('change', function() { f.querySelector('.nv-foto-nome').textContent = this.files[0] ? this.files[0].name : ''; });
+      f.querySelector('.nv-cancelar').addEventListener('click', function() { f.style.display = 'none'; f.innerHTML = ''; });
+      f.querySelector('.nv-salvar').addEventListener('click', function() { cadastrarNova(f); });
+    });
+  }
+
+  function cadastrarNova(f) {
+    var st = f.querySelector('.nv-status');
+    var diga = function(m, c) { st.textContent = m; st.style.color = c; };
+    if (!modeloAtual) { diga('Escolha o modelo primeiro.', '#ef4444'); return; }
+    var nome = f.querySelector('.nv-nome').value.trim();
+    var preco = precoNumero(f.querySelector('.nv-preco').value);
+    var peso = f.querySelector('.nv-peso').value.trim();
+    var file = f.querySelector('.nv-foto').files[0];
+    if (!nome) { diga('Informe o nome da peça.', '#ef4444'); return; }
+    if (preco !== null && isNaN(preco)) { diga('Preço inválido. Use 125,00.', '#ef4444'); return; }
+    if (jaExisteNoModelo(nome, CATALOGO_MODELOS[modeloAtual].pecas)) { diga('Já existe uma peça com esse nome neste modelo. Edite a que existe.', '#ef4444'); return; }
+    var btn = f.querySelector('.nv-salvar'); btn.disabled = true;
+    var peca = { nome: nome, preco: preco, peso: peso || null, img: '' };
+    var idx = CATALOGO_MODELOS[modeloAtual].pecas.length;
+    var seguir = function(base64) {
+      diga(base64 ? 'Enviando a foto e cadastrando…' : 'Cadastrando…', '#9a9a9a');
+      var nomeArq = base64 ? (nome + '.jpg').replace(/[\\/:*?"<>|]/g, '_') : null;
+      savePartToSheets('adicionar', modeloAtual, idx, peca, base64, nomeArq).then(function(resp) {
+        btn.disabled = false;
+        var aviso = avisoDaGravacao(resp, !!base64);
+        if (resp && resp.sucesso) {
+          peca.img = resp.imagemUrl || '';
+          CATALOGO_MODELOS[modeloAtual].pecas.push(peca);
+          renderLista();
+          f.style.display = 'none'; f.innerHTML = '';
+          document.getElementById('mont-resumo').innerHTML += ' · <span style="color:' + (aviso ? '#f59e0b' : '#22c55e') + ';">"' + esc(nome) + '" cadastrada' + (aviso ? ' (' + esc(aviso) + ')' : '') + '.</span>';
+        } else {
+          diga(aviso || 'Não cadastrou.', '#ef4444');
+        }
+      });
+    };
+    if (file) comprimirImagem(file, function(b64) { if (!b64) { btn.disabled = false; diga('Não consegui ler essa imagem.', '#ef4444'); return; } seguir(b64); });
+    else seguir(null);
   }
 
   function linhaDe(el) { return el.closest('.mont-linha'); }
