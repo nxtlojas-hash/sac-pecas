@@ -194,16 +194,20 @@ test('nova peca: recusa nome que ja existe no modelo (sem caixa/acento)', () => 
 // Gataka (61), Hyphen (43), V0, Jay, Vega, Juna, Pancho e Akasha so existem na
 // planilha: o Rafael nao via esses modelos. A lista sai do catalogo DEPOIS da
 // planilha, e a tela refaz o seletor quando ela chega.
-test('seletor da montadora: todo modelo com peca (inclusive os que so a planilha trouxe), sem "outro", em ordem de nome', () => {
+// 02/10 (ela): todo modelo que ja passou pela NXT tem suporte — o seletor mostra
+// tambem os sem peca (Juna 2026, Kimbo), para a montadora cadastrar a primeira.
+test('seletor da montadora: TODOS os modelos, inclusive sem peca; fora "outro" e "smart-juna"; ordem de nome', () => {
   const { modelosDaMontadora } = lib;
   const catalogo = {
-    'kay':    { nome: 'Kay', pecas: [ { nome: 'Banco' } ] },
-    'gataka': { nome: 'Gataka', pecas: [ { nome: 'Motor' } ], daPlanilha: true },
-    'akasha': { nome: 'Akasha', pecas: [] },
-    'outro':  { nome: 'Outro', pecas: [ { nome: 'Qualquer' } ] },
-    'jaya':   { nome: 'JAYA', pecas: [ { nome: 'Motor' } ] }
+    'kay':        { nome: 'Kay', pecas: [ { nome: 'Banco' } ] },
+    'gataka':     { nome: 'Gataka', pecas: [ { nome: 'Motor' } ], daPlanilha: true },
+    'akasha':     { nome: 'Akasha', pecas: [] },
+    'juna-2026':  { nome: 'Juna 2026', pecas: [] },
+    'smart-juna': { nome: 'Smart-Juna', pecas: [] },
+    'outro':      { nome: 'Outro', pecas: [ { nome: 'Qualquer' } ] },
+    'jaya':       { nome: 'JAYA', pecas: [ { nome: 'Motor' } ] }
   };
-  assert.deepStrictEqual(modelosDaMontadora(catalogo), ['gataka', 'jaya', 'kay']);
+  assert.deepStrictEqual(modelosDaMontadora(catalogo), ['akasha', 'gataka', 'jaya', 'juna-2026', 'kay']);
   assert.deepStrictEqual(modelosDaMontadora(null), []);
 });
 

@@ -19,6 +19,7 @@ const MODEL_ICONS = {
   'vega': '\u2B50',
   'kimbo': '\uD83E\uDD81',
   'juna': '\uD83D\uDEF4',
+  'juna-2026': '\uD83D\uDEF4',
   'y1': '\uD83D\uDEE3\uFE0F',
   'yzl': '\uD83D\uDEE3\uFE0F',
   'outro': '\u2753'

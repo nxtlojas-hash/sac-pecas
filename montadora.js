@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.49 - Catalogo da Montadora (quantidade + foto) ===== */
+/* ===== NXT SAC V2.50 - Catalogo da Montadora (quantidade + foto) ===== */
 // Pagina propria: sac-pecas/?view=montadora
 // Para quem esta em Jaragua (Rafael): escolhe o modelo, digita a quantidade
 // que a montadora tem para o SAC e troca a foto. So isso. Sem Admin, sem

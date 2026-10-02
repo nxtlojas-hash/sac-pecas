@@ -434,7 +434,11 @@ const CATALOGO_MODELOS = {
     "pecas": []
   },
   "juna": {
-    "nome": "Juna",
+    "nome": "Juna 2025",
+    "pecas": []
+  },
+  "juna-2026": {
+    "nome": "Juna 2026",
     "pecas": []
   },
   "jay": {
