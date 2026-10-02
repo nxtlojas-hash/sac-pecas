@@ -206,3 +206,32 @@ test('seletor da montadora: todo modelo com peca (inclusive os que so a planilha
   assert.deepStrictEqual(modelosDaMontadora(catalogo), ['gataka', 'jaya', 'kay']);
   assert.deepStrictEqual(modelosDaMontadora(null), []);
 });
+
+// 02/10/2026 — a marca "fora da lista" aparecia na tela mas nao ia para a
+// planilha: o mapeamento do envio so levava 12 campos. Sem ela, medir se a
+// lista ajudou exigiu comparar nome por nome. Agora o item gravado diz.
+test('item do pedido gravado: leva foraDaLista e modelId, sem perder os campos de antes', () => {
+  const { itemParaRegistro } = lib;
+  const p = { id: 1, modelId: 'kay', modelo: 'Kay', descricao: 'Banco', cor: 'Preto', tipoPreco: 'cliente',
+    quantidade: 2, precoUnitario: 10, total: 20, peso: '1kg', pesoGramas: 2000, img: '', imgManual: '',
+    isMaoDeObra: false, foraDaLista: true };
+  assert.deepStrictEqual(itemParaRegistro(p), {
+    descricao: 'Banco', modelo: 'Kay', modelId: 'kay', cor: 'Preto', tipoPreco: 'cliente', quantidade: 2,
+    precoUnitario: 10, total: 20, peso: '1kg', pesoGramas: 2000, img: '', imgManual: '',
+    isMaoDeObra: false, foraDaLista: true
+  });
+  const velho = itemParaRegistro({ descricao: 'X', modelo: 'Kay' });
+  assert.strictEqual(velho.foraDaLista, false);
+  assert.strictEqual(velho.isMaoDeObra, false);
+  assert.strictEqual(velho.modelId, '');
+});
+
+// 02/10/2026 — a baixa de estoque (formulario.js, baixaEstoqueVenda) recebe o
+// pedido JA MAPEADO para o envio. Sem foraDaLista no mapeamento, item fora da
+// lista baixava estoque (medido: "Hyphen Carregador -3", "JUNA SMART PAINEL -18").
+test('baixa usa o item mapeado: fora da lista NAO baixa; da lista baixa', () => {
+  const { itemParaRegistro, baixaEstoqueDoItem } = lib;
+  assert.strictEqual(baixaEstoqueDoItem(itemParaRegistro({ descricao: 'Carregador', modelo: 'Hyphen', foraDaLista: true })), false);
+  assert.strictEqual(baixaEstoqueDoItem(itemParaRegistro({ descricao: 'Banco', modelo: 'Kay', foraDaLista: false })), true);
+  assert.strictEqual(baixaEstoqueDoItem(itemParaRegistro({ descricao: 'Mão de obra', modelo: 'Kay', isMaoDeObra: true, foraDaLista: true })), false);
+});

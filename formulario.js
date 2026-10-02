@@ -1125,22 +1125,7 @@ function registrarVenda(event) {
       uf: uf,
       cep: cep.replace(/\D/g, '')
     },
-    pecas: pecasAdicionadas.map(function(p) {
-      return {
-        descricao: p.descricao,
-        modelo: p.modelo,
-        cor: p.cor,
-        tipoPreco: p.tipoPreco,
-        quantidade: p.quantidade,
-        precoUnitario: p.precoUnitario,
-        total: p.total,
-        peso: p.peso,
-        pesoGramas: p.pesoGramas,
-        img: p.img || '',
-        imgManual: p.imgManual || '',
-        isMaoDeObra: p.isMaoDeObra || false
-      };
-    }),
+    pecas: pecasAdicionadas.map(itemParaRegistro),   // lib/montadora.js — leva foraDaLista (02/10)
     pagamento: {
       forma: formaPagamento,
       parcelas: (formaPagamento === 'credito' || formaPagamento === 'link') ? parcelas : '1'
