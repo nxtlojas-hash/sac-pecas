@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.47 - Catalogo da Montadora (quantidade + foto) ===== */
+/* ===== NXT SAC V2.48 - Catalogo da Montadora (quantidade + foto) ===== */
 // Pagina propria: sac-pecas/?view=montadora
 // Para quem esta em Jaragua (Rafael): escolhe o modelo, digita a quantidade
 // que a montadora tem para o SAC e troca a foto. So isso. Sem Admin, sem
@@ -24,12 +24,18 @@
     return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  function modelosComPecas() {
-    return Object.keys(CATALOGO_MODELOS).filter(function(id) {
-      return id !== 'outro' && (CATALOGO_MODELOS[id].pecas || []).length > 0;
-    }).sort(function(a, b) {
-      return CATALOGO_MODELOS[a].nome.localeCompare(CATALOGO_MODELOS[b].nome, 'pt-BR');
+  // Refaz o seletor (no comeco com o data.js, de novo quando a planilha chega),
+  // mantendo o modelo que ja estava escolhido.
+  function preencherModelos() {
+    var sel = document.getElementById('mont-modelo');
+    var escolhido = sel.value;
+    sel.innerHTML = '<option value="">Escolha…</option>';
+    modelosDaMontadora(CATALOGO_MODELOS).forEach(function(id) {
+      var o = document.createElement('option');
+      o.value = id; o.textContent = CATALOGO_MODELOS[id].nome;
+      sel.appendChild(o);
     });
+    if (escolhido && CATALOGO_MODELOS[escolhido]) sel.value = escolhido;
   }
 
   window.renderMontadora = function() {
@@ -71,11 +77,7 @@
       '<div id="toast" class="toast" style="display:none;"></div>';
 
     var sel = document.getElementById('mont-modelo');
-    modelosComPecas().forEach(function(id) {
-      var o = document.createElement('option');
-      o.value = id; o.textContent = CATALOGO_MODELOS[id].nome;
-      sel.appendChild(o);
-    });
+    preencherModelos();
     sel.addEventListener('change', function() { modeloAtual = this.value; renderLista(); });
     document.getElementById('mont-busca').addEventListener('input', renderLista);
     montarNova();
@@ -107,7 +109,14 @@
   // Pecas da planilha (fotos e pecas novas) + saldos, em paralelo. So depois renderiza.
   function carregar() {
     var resumo = document.getElementById('mont-resumo');
-    resumo.innerHTML = 'Carregando o catálogo… (o servidor do Google pode levar até 1 minuto)';
+    // 02/10: a 1a chamada do dia levou 50 s (aquecido, 3 s) e a tela ficou ~2 min
+    // so com "Carregando". Com o relogio andando, quem abre sabe que nao travou.
+    var inicio = Date.now();
+    var relogio = setInterval(function() {
+      var s = Math.round((Date.now() - inicio) / 1000);
+      resumo.innerHTML = 'Carregando o catálogo… <b>' + s + ' s</b> — a primeira abertura do dia pode levar até 2 minutos. Não feche a página.';
+    }, 1000);
+    resumo.innerHTML = 'Carregando o catálogo… a primeira abertura do dia pode levar até 2 minutos. Não feche a página.';
     var avisoPecas = '';
     var pPecas = buscarJson('listar_pecas')
       .then(function(d) { if (d.pecas && typeof applySheetsParts === 'function') applySheetsParts(d.pecas); })
@@ -116,6 +125,8 @@
       .then(function(d) { estoque = d.estoque || []; return true; })
       .catch(function() { return false; });
     Promise.all([pPecas, pEst]).then(function(res) {
+      clearInterval(relogio);
+      preencherModelos();
       if (!res[1]) {
         resumo.innerHTML = '<span style="color:#ef4444;">Não consegui carregar os saldos (o servidor do Google não respondeu). Sem eles a lista não aparece, para não contar por cima.</span> ' +
           '<button type="button" id="mont-retry" style="margin-left:0.5rem;padding:0.4rem 0.8rem;background:#1f1f1f;color:#fff;border:1px solid #333;border-radius:6px;cursor:pointer;">Tentar de novo</button>';
