@@ -8,6 +8,7 @@ let selectedParts = []; // {modelId, idx, nome, preco, peso}
 // --- Model metadata ---
 const MODEL_ICONS = {
   'kay': '\u26A1',
+  'kay-2026': '\u26A1',
   'jaya': '\uD83C\uDFCD\uFE0F',
   'juna-smart': '\uD83D\uDEF5',
   'luna': '\uD83C\uDF19',

@@ -27,6 +27,33 @@ test('saldo gravado pela montadora usa o nome do modelo, o mesmo que a venda bai
   assert.strictEqual(chaveModeloEstoque('nao-existe', CATALOGO), 'nao-existe');
 });
 
+// 14/10/2026 — o Rafael pediu a Kay 2026 separada da antiga "por causa das
+// pecas". A antiga passa a se chamar "Kay 2025", mas as contagens de Jaragua
+// (49 linhas com saldo, a ultima de 13/10) estao gravadas como "Kay": o saldo
+// continua nessa linha, senao a tela mostraria "Sem contagem" em tudo.
+test('modelo que ganhou ano no nome continua com o saldo na linha antiga', () => {
+  const cat = {
+    'kay':      { nome: 'Kay 2025', estoque: 'Kay', pecas: [ { nome: 'Banco' } ] },
+    'kay-2026': { nome: 'Kay 2026', pecas: [] },
+    'juna-smart': { nome: 'JUNA SMART', pecas: [] }
+  };
+  assert.strictEqual(chaveModeloEstoque('kay', cat), 'Kay');
+  assert.strictEqual(chaveModeloEstoque('kay-2026', cat), 'Kay 2026');
+  const { modeloPorNome, linhasMontadora } = lib;
+  // a aba Estoque tem "Kay" e "kay" (o Admin gravava pelo id); a tela, "Kay 2025"
+  assert.strictEqual(modeloPorNome('Kay', cat), 'kay');
+  assert.strictEqual(modeloPorNome('kay', cat), 'kay');
+  assert.strictEqual(modeloPorNome('Kay 2025', cat), 'kay');
+  assert.strictEqual(modeloPorNome('Kay 2026', cat), 'kay-2026');
+  assert.strictEqual(modeloPorNome('JUNA SMART', cat), 'juna-smart');
+  assert.strictEqual(modeloPorNome('Patinete', cat), 'patinete');
+  // a tela da montadora acha a contagem da Kay 2025 na linha "kay"
+  const linhas = linhasMontadora('kay', cat, [{ modelo: 'kay', peca: 'Banco', sumare: 0, jaragua: 9 }]);
+  assert.strictEqual(linhas[0].jaragua, 9);
+  // a Kay 2026 aparece no seletor, vazia, para o Rafael cadastrar as pecas dela
+  assert.deepStrictEqual(lib.modelosDaMontadora(cat), ['juna-smart', 'kay', 'kay-2026']);
+});
+
 // ===========================================================================
 // Etiqueta honesta no catalogo
 // ===========================================================================

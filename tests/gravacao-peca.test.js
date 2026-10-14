@@ -113,10 +113,11 @@ function montarSave(respostas) {
   };
   const save = new Function(
     'GOOGLE_SCRIPT_URL', 'CATALOGO_MODELOS', 'fetch', 'console',
-    'imgParaGravar', 'faltaNaPlanilha', 'trocouDeNome', 'recusaTrocaDeNome',
+    'imgParaGravar', 'faltaNaPlanilha', 'trocouDeNome', 'recusaTrocaDeNome', 'chaveModeloEstoque',
     corpoFuncao('savePartToSheets') + '\nreturn savePartToSheets;'
-  )('https://script.example/exec', { kay: { nome: 'Kay', pecas: [] } }, fetchFalso, { log() {}, warn() {}, error() {} },
-    lib.imgParaGravar, lib.faltaNaPlanilha, lib.trocouDeNome, lib.recusaTrocaDeNome);
+  )('https://script.example/exec', { kay: { nome: 'Kay 2025', estoque: 'Kay', pecas: [] } }, fetchFalso, { log() {}, warn() {}, error() {} },
+    lib.imgParaGravar, lib.faltaNaPlanilha, lib.trocouDeNome, lib.recusaTrocaDeNome,
+    require('../lib/montadora.js').chaveModeloEstoque);
   return { save, pedidos };
 }
 
@@ -128,6 +129,7 @@ test('editar recusado (peca so em data.js) vira cadastro, com a foto ja guardada
   const r = await save('editar', 'kay', 3, { nome: 'Assoalho', preco: 90, peso: '1kg', img: 'blob:https://x/previa' }, 'data:image/jpeg;base64,AAAA', 'foto.jpg', 'Assoalho', '');
   assert.strictEqual(pedidos.length, 2);
   assert.strictEqual(pedidos[0].acao, 'editar');
+  assert.strictEqual(pedidos[0].modeloNome, 'Kay', 'aba Pecas leva o nome de estoque (14/10: "Kay 2025" -> "Kay")');
   assert.strictEqual(pedidos[0].img, '', 'a previa local nao vai para a planilha');
   assert.strictEqual(pedidos[0].imagemBase64, 'data:image/jpeg;base64,AAAA');
   assert.strictEqual(pedidos[1].acao, 'adicionar');

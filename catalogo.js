@@ -10,15 +10,12 @@ let estoqueCache = {}; // Cache de estoque por modelo, indexado por modelId
 // frontend faz lookup pelo id (ex: "juna-smart"). Para modelos onde
 // id.toLowerCase() === nome.toLowerCase() (Kay, Akasha, etc.) o lookup direto
 // funcionava por coincidencia; aqui normalizamos sempre via nome -> id.
+// 14/10: aceita tambem o nome de estoque ("Kay" -> kay, que agora se chama
+// "Kay 2025") — lib/montadora.js modeloPorNome.
 function getModelIdByName(nome) {
   if (!nome) return '';
-  var target = String(nome).toLowerCase();
-  if (typeof CATALOGO_MODELOS !== 'undefined') {
-    for (var id in CATALOGO_MODELOS) {
-      if (CATALOGO_MODELOS[id].nome.toLowerCase() === target) return id;
-    }
-  }
-  return target; // fallback: nome legado nao mapeado -> indexa pelo proprio nome
+  if (typeof CATALOGO_MODELOS !== 'undefined') return modeloPorNome(nome, CATALOGO_MODELOS);
+  return String(nome).toLowerCase(); // fallback: nome legado nao mapeado -> indexa pelo proprio nome
 }
 
 // --- Mostra grid de modelos pra escolher (quando entra em Catalogo sem modelo selecionado) ---

@@ -401,7 +401,8 @@
         });
         if (typeof CATALOGO_MODELOS !== 'undefined') {
           Object.keys(CATALOGO_MODELOS).forEach(function(modelId) {
-            var nome = CATALOGO_MODELOS[modelId].nome;
+            // 14/10: a linha do saldo e a do nome de estoque ("Kay 2025" -> "Kay").
+            var nome = chaveModeloEstoque(modelId, CATALOGO_MODELOS);
             var pecas = CATALOGO_MODELOS[modelId].pecas || [];
             pecas.forEach(function(p) {
               var key = nome.toLowerCase() + '|' + p.nome.toLowerCase();
@@ -628,7 +629,7 @@
     if (modeloSel && typeof CATALOGO_MODELOS !== 'undefined') {
       Object.keys(CATALOGO_MODELOS).forEach(function(id) {
         var opt = document.createElement('option');
-        opt.value = CATALOGO_MODELOS[id].nome;
+        opt.value = chaveModeloEstoque(id, CATALOGO_MODELOS);
         opt.textContent = CATALOGO_MODELOS[id].nome;
         modeloSel.appendChild(opt);
       });

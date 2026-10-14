@@ -10,7 +10,8 @@ let ultimaVendaPDF = null;
 // (no navegador sao globais; no node, o teste carrega este arquivo por require).
 var regrasMontadora = (typeof module !== 'undefined' && module.exports)
   ? require('./lib/montadora.js')
-  : { validarPecaDoPedido: validarPecaDoPedido, baixaEstoqueDoItem: baixaEstoqueDoItem, etiquetaSaldo: etiquetaSaldo };
+  : { validarPecaDoPedido: validarPecaDoPedido, baixaEstoqueDoItem: baixaEstoqueDoItem, etiquetaSaldo: etiquetaSaldo,
+      chaveModeloEstoque: chaveModeloEstoque };
 
 // --- Init ---
 function initFormulario() {
@@ -1456,9 +1457,14 @@ function baixaEstoqueVenda(venda) {
 
   var promessas = pecas.map(function(p) {
     var qtd = p.quantidade || 1;
+    // 14/10: a baixa vai para a linha do saldo (chaveModeloEstoque), nao para o
+    // nome da tela — "Kay 2025" baixa na linha "Kay", onde o Rafael contou.
+    var catalogo = (typeof CATALOGO_MODELOS !== 'undefined') ? CATALOGO_MODELOS : null;
+    var modeloEstoque = (p.modelId && catalogo && catalogo[p.modelId])
+      ? regrasMontadora.chaveModeloEstoque(p.modelId, catalogo) : (p.modelo || '');
     var payload = {
       action: 'baixa_estoque',
-      modelo: p.modelo || '',
+      modelo: modeloEstoque,
       peca: p.descricao || '',
       sumare: ehSumare ? qtd : 0,
       jaragua: ehSumare ? 0 : qtd,

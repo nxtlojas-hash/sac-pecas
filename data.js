@@ -1,6 +1,7 @@
 const CATALOGO_MODELOS = {
   "kay": {
-    "nome": "Kay",
+    "nome": "Kay 2025",
+    "estoque": "Kay",
     "pecas": [
       { "nome": "Acelerador de punho", "preco": 125.00, "peso": "10gr", "img": "img/kay/Acelerador de punho $125,00  10gr.jpeg," },
       { "nome": "Alça encosto", "preco": 115.00, "peso": "55gr", "img": "img/kay/Alça encosto $115,00 55gr.jpeg" },
@@ -78,6 +79,10 @@ const CATALOGO_MODELOS = {
       { "nome": "Trava do banco", "preco": 35.00, "peso": "5gr", "img": "img/kay/Trava do banco $35,00 5gr.jpeg" },
       { "nome": "USB", "preco": 25.00, "peso": "5gr", "img": "img/kay/USB $25,00  5gr.jpeg" }
     ]
+  },
+  "kay-2026": {
+    "nome": "Kay 2026",
+    "pecas": []
   },
   "jaya": {
     "nome": "JAYA",

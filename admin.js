@@ -1014,7 +1014,9 @@ function savePartToSheets(acao, modelId, idx, peca, imagemBase64, imagemNome, no
     action: 'gerenciar_peca',
     acao: acao,
     modelo: modelId,
-    modeloNome: CATALOGO_MODELOS[modelId].nome,
+    // 14/10: o nome de estoque, igual as linhas que ja existem ("Kay" para a
+    // Kay 2025) — o Pos-Venda baixa o saldo por este nome.
+    modeloNome: chaveModeloEstoque(modelId, CATALOGO_MODELOS),
     idx: idx,
     nome: peca.nome,
     preco: peca.preco,
@@ -1374,7 +1376,8 @@ function salvarEstoqueItem(item) {
 
   var payload = {
     action: 'atualizar_estoque',
-    modelo: item.modelo,
+    // item.modelo e o id ("kay-2026"); o saldo e gravado pelo nome (lib/montadora.js)
+    modelo: chaveModeloEstoque(item.modelo, CATALOGO_MODELOS),
     peca: item.peca,
     sumare: parseInt(item.sumare) || 0,
     jaragua: parseInt(item.jaragua) || 0
