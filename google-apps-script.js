@@ -39,6 +39,18 @@
 // ========================================
 
 var BLING_API_BASE = 'https://api.bling.com.br/Api/v3';
+// 14/10/2026: o Bling anunciou o BLOQUEIO do token opaco para 15/10 (guia:
+// https://developer.bling.com.br/migracao-jwt). 'enable-jwt: 1' vai na
+// autorizacao, em TODA renovacao e em toda chamada — sem ele a renovacao
+// devolve o token velho. O JWT tem 1.500-3.000 caracteres: cabe na
+// propriedade do script (limite 9 KB).
+var BLING_CABECALHO_JWT = 'enable-jwt';
+
+// JWT = tres partes separadas por ponto, cabecalho base64 comecando com 'eyJ'.
+// Token opaco guardado nao e reaproveitado: no dia do bloqueio seria recusado.
+function ehJwtBling(token) {
+  return typeof token === 'string' && token.indexOf('eyJ') === 0 && token.split('.').length === 3;
+}
 var PASTA_PDF_ORCAMENTOS = '1rTamTXwXDFWIi_0YLgFD1MdzMigcPlNr';
 var ABA_ORCAMENTOS = 'Orcamentos';
 
@@ -263,8 +275,8 @@ function getBlingAccessToken() {
     throw new Error('Refresh token nao encontrado. Execute a autorizacao do Bling primeiro.');
   }
 
-  // Verificar se access_token ainda e valido (margem de 5 min)
-  if (tokens.accessToken && tokens.expiry && Date.now() < tokens.expiry - 300000) {
+  // Verificar se access_token ainda e valido (margem de 5 min) e ja e JWT
+  if (tokens.accessToken && tokens.expiry && Date.now() < tokens.expiry - 300000 && ehJwtBling(tokens.accessToken)) {
     return tokens.accessToken;
   }
 
@@ -276,19 +288,21 @@ function getBlingAccessToken() {
   try {
     // Reler depois do lock: outra execucao pode ter acabado de renovar
     tokens = getBlingTokens();
-    if (tokens.accessToken && tokens.expiry && Date.now() < tokens.expiry - 300000) {
+    if (tokens.accessToken && tokens.expiry && Date.now() < tokens.expiry - 300000 && ehJwtBling(tokens.accessToken)) {
       return tokens.accessToken;
     }
 
     // Renovar access_token usando refresh_token
     var credentials = Utilities.base64Encode(clientId + ':' + clientSecret);
 
+    var headersRenovacao = {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Authorization': 'Basic ' + credentials
+    };
+    headersRenovacao[BLING_CABECALHO_JWT] = '1';
     var response = UrlFetchApp.fetch(BLING_API_BASE + '/oauth/token', {
       method: 'post',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': 'Basic ' + credentials
-      },
+      headers: headersRenovacao,
       payload: {
         'grant_type': 'refresh_token',
         'refresh_token': tokens.refreshToken
@@ -325,6 +339,7 @@ function blingRequest(endpoint, method, body) {
     },
     muteHttpExceptions: true
   };
+  options.headers[BLING_CABECALHO_JWT] = '1';
 
   if (body && (method === 'post' || method === 'POST' || method === 'put' || method === 'PUT')) {
     options.payload = JSON.stringify(body);
@@ -1020,6 +1035,8 @@ function doGet(e) {
             credenciais: hasCreds,
             refreshToken: hasRefresh,
             accessTokenValido: tokenValido,
+            // 14/10: so diz SE o token guardado ja e JWT — nunca o token
+            tokenJwt: tokens.accessToken ? ehJwtBling(tokens.accessToken) : null,
             renovacao: renovacao
           }
         });
@@ -1055,12 +1072,14 @@ function doGet(e) {
         var cbCredentials = Utilities.base64Encode(cbClientId + ':' + cbClientSecret);
         var cbScriptUrl = ScriptApp.getService().getUrl();
         var cbRedirectUri = cbScriptUrl;
+        var cbHeaders = {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': 'Basic ' + cbCredentials
+        };
+        cbHeaders[BLING_CABECALHO_JWT] = '1';
         var cbResponse = UrlFetchApp.fetch(BLING_API_BASE + '/oauth/token', {
           method: 'post',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Authorization': 'Basic ' + cbCredentials
-          },
+          headers: cbHeaders,
           payload: {
             'grant_type': 'authorization_code',
             'code': code,
