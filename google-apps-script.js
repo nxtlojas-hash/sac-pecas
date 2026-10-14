@@ -1134,6 +1134,10 @@ function doPost(e) {
       case 'atualizar_status_os':
         return jsonResponse(atualizarStatusOS(body.numeroOS, body.novoStatus, 'sac', body.quem || ''));
 
+      // --- Jaraguá marca o pedido pelo Pós-Venda (2026-10-14) ---
+      case 'marcar_pedido':
+        return jsonResponse(marcarPedidoSac_(body));
+
       // --- Acrescenta observacao a uma OS existente (2026-07-30) ---
       case 'adicionar_observacao_os':
         return jsonResponse(adicionarObservacaoOS(body.numeroOS, body.texto));
@@ -4746,6 +4750,53 @@ function atualizarStatusOS(numeroOS, novoStatus, origem, quem) {
       return { ok: true, numeroOS: String(dados[i][1]), status: novoStatus, anterior: anterior };
     }
     return { ok: false, erro: 'OS nao encontrada no master' };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// 14/10/2026 — Jaraguá marca o pedido no Pós-Venda (nxt-posvenda functions/envios.js):
+// enviado (DATA ENVIO + NF) · nao tem a peca · a peca chegou (volta a ORGANIZANDO).
+// So escreve STATUS (G), DATA ENVIO (H) e NF (I) da linha do pedido na aba PEDIDOS,
+// e cada mudanca vai para a trilha (HistoricoPrecoEstoque, tipo 'pedido').
+// Pedido ENVIADO ou CANCELADO nao volta atras por aqui.
+var STATUS_PEDIDO_APP = ['ENVIADO', 'NÃO TEM PEÇA', 'ORGANIZANDO'];
+function marcarPedidoSac_(body) {
+  body = body || {};
+  var pedido = String(body.pedido || '').trim();
+  var status = String(body.status || '').trim().toUpperCase();
+  var quem = String(body.quem || '').trim();
+  if (!pedido) return { ok: false, erro: 'Pedido nao informado' };
+  if (STATUS_PEDIDO_APP.indexOf(status) === -1) return { ok: false, erro: 'Status invalido. Use: ' + STATUS_PEDIDO_APP.join(' / ') };
+  var data = String(body.dataEnvio || '').trim();
+  var nf = String(body.nf || '').replace(/\D/g, '');
+  if (status === 'ENVIADO' && !/^\d{2}\/\d{2}\/\d{4}$/.test(data)) return { ok: false, erro: 'Data do envio (dd/mm/aaaa) obrigatoria' };
+  if (status === 'ENVIADO' && !nf) return { ok: false, erro: 'NF obrigatoria' };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var aba = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('PEDIDOS');
+    if (!aba) return { ok: false, erro: 'Aba PEDIDOS nao encontrada' };
+    var dados = aba.getDataRange().getValues();
+    for (var i = 1; i < dados.length; i++) {
+      if (String(dados[i][1] || '').trim() !== pedido) continue;
+      var anterior = String(dados[i][6] || '').trim();
+      var origem = 'posvenda' + (quem ? ': ' + quem : '');
+      if ((anterior.toUpperCase() === 'ENVIADO' || anterior.toUpperCase() === 'CANCELADO') && anterior.toUpperCase() !== status) {
+        return { ok: false, erro: 'Pedido ja esta ' + anterior + ' na planilha', anterior: anterior };
+      }
+      aba.getRange(i + 1, 7).setValue(status);
+      registrarAlteracaoValor_('pedido', pedido, 'status', anterior, status, origem);
+      if (status === 'ENVIADO') {
+        var dataAntes = dados[i][7], nfAntes = dados[i][8];
+        aba.getRange(i + 1, 8).setValue(data);
+        aba.getRange(i + 1, 9).setValue(Number(nf));
+        registrarAlteracaoValor_('pedido', pedido, 'data envio', dataAntes, data, origem);
+        registrarAlteracaoValor_('pedido', pedido, 'nf', nfAntes, nf, origem);
+      }
+      return { ok: true, pedido: pedido, status: status, anterior: anterior };
+    }
+    return { ok: false, erro: 'Pedido nao encontrado na aba PEDIDOS' };
   } finally {
     lock.releaseLock();
   }
