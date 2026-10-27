@@ -1,4 +1,4 @@
-/* ===== NXT SAC V2.51 - Catalogo da Montadora (quantidade + foto) ===== */
+/* ===== NXT SAC V2.52 - Catalogo da Montadora (quantidade, cores + foto) ===== */
 // Pagina propria: sac-pecas/?view=montadora
 // Para quem esta em Jaragua (Rafael): escolhe o modelo, digita a quantidade
 // que a montadora tem para o SAC e troca a foto. So isso. Sem Admin, sem
@@ -63,7 +63,8 @@
         '<div id="mont-lista"></div>' +
         '<p style="color:#6a6a6a;font-size:0.75rem;margin-top:1.5rem;line-height:1.5;">' +
           'Como usar: escolha o modelo, digite a quantidade e aperte Enter (ou saia do campo) — grava na hora. ' +
-          'Quantidade vazia = ainda não contada. Zero = não tem. Para a foto, toque em "Trocar foto" e escolha a imagem.' +
+          'Quantidade vazia = ainda não contada. Zero = não tem. Para a foto, toque em "Trocar foto" e escolha a imagem. ' +
+          'Peça que tem cor (carenagem, banco…): toque em "Cores" e diga quantas tem de cada cor — o total vira a soma, e o SAC vê as cores.' +
         '</p>' +
         '<div style="border:1px solid #2a2a2a;border-radius:8px;padding:0.9rem 1rem;margin-top:0.75rem;font-size:0.85rem;line-height:1.55;color:#c8c8d0;">' +
           '<div style="color:' + COR + ';font-weight:700;font-size:0.75rem;letter-spacing:1px;margin-bottom:0.4rem;">PEÇA QUE NÃO ESTÁ NA LISTA</div>' +
@@ -170,12 +171,16 @@
           '<div style="font-weight:600;">' + esc(l.nome) + '</div>' +
           '<div style="color:#9a9a9a;font-size:0.8rem;">' + (l.preco != null && l.preco > 0 ? 'R$ ' + Number(l.preco).toFixed(2).replace('.', ',') : 'sem preço') +
             (l.ultima ? ' · gravado ' + esc(fmtData(l.ultima)) : '') + '</div>' +
+          (l.cores.length ? '<div style="font-size:0.85rem;color:' + COR + ';">Cores: ' + esc(coresTexto(l.cores)) + '</div>' : '') +
           '<div class="mont-status" style="font-size:0.8rem;min-height:1em;"></div>' +
         '</div>' +
-        '<label style="display:flex;flex-direction:column;font-size:0.7rem;color:#9a9a9a;gap:0.2rem;">QTD JARAGUÁ' +
+        // 27/10: com cores, o total e a soma delas — muda pelo botao "Cores"
+        '<label style="display:flex;flex-direction:column;font-size:0.7rem;color:#9a9a9a;gap:0.2rem;">' + (l.cores.length ? 'TOTAL (CORES)' : 'QTD JARAGUÁ') +
           '<input type="number" min="0" step="1" class="mont-qtd" value="' + (l.contado ? l.jaragua : '') + '" placeholder="—" data-sumare="' + l.sumare + '" ' +
-            'style="width:90px;padding:0.5rem;font-size:1.1rem;text-align:center;background:#161616;color:#fff;border:1px solid ' + (l.contado ? '#333' : '#8a6d00') + ';border-radius:6px;">' +
+            (l.cores.length ? 'readonly title="Soma das cores. Para mudar, use o botão Cores." ' : '') +
+            'style="width:90px;padding:0.5rem;font-size:1.1rem;text-align:center;background:' + (l.cores.length ? '#0d0d0d' : '#161616') + ';color:#fff;border:1px solid ' + (l.contado ? '#333' : '#8a6d00') + ';border-radius:6px;">' +
         '</label>' +
+        '<button type="button" class="mont-cores" style="background:#1f1f1f;color:#fff;border:1px solid #333;border-radius:6px;padding:0.5rem 0.7rem;font-size:0.8rem;cursor:pointer;">Cores</button>' +
         '<label style="cursor:pointer;background:#1f1f1f;border:1px solid #333;border-radius:6px;padding:0.5rem 0.7rem;font-size:0.8rem;">Trocar foto' +
           '<input type="file" accept="image/*" class="mont-foto" style="display:none;">' +
         '</label>' +
@@ -190,7 +195,10 @@
 
     lista.querySelectorAll('.mont-qtd').forEach(function(inp) {
       inp.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); this.blur(); } });
-      inp.addEventListener('change', function() { gravarQtd(this); });
+      inp.addEventListener('change', function() { if (!this.readOnly) gravarQtd(this); });
+    });
+    lista.querySelectorAll('.mont-cores').forEach(function(b) {
+      b.addEventListener('click', function() { abrirCores(this); });
     });
     lista.querySelectorAll('.mont-foto').forEach(function(inp) {
       inp.addEventListener('change', function() { trocarFoto(this); });
@@ -278,9 +286,91 @@
     var e = estoque.filter(function(x) { return String(x.modelo).toLowerCase() === m && chaveNome(x.peca) === chaveNome(nomeAntigo); })[0];
     if (!e || (parseInt(e.jaragua) || 0) < 0) return;
     var payload = { action: 'atualizar_estoque', modelo: chaveModeloEstoque(modeloAtual, CATALOGO_MODELOS), peca: nomeNovo, sumare: Math.max(0, parseInt(e.sumare) || 0), jaragua: parseInt(e.jaragua) || 0 };
+    if (e.cores) payload.cores = e.cores;   // 27/10: as cores vão junto com o nome novo
     fetch(GOOGLE_SCRIPT_URL, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) })
-      .then(function() { atualizarCache(payload.modelo, nomeNovo, payload.sumare, payload.jaragua); })
+      .then(function() { atualizarCache(payload.modelo, nomeNovo, payload.sumare, payload.jaragua, e.cores || undefined); })
       .catch(function() {});
+  }
+
+  // ---------------------------------------------------------------- cores
+  // 27/10/2026 (Jacque): a cor com a quantidade de cada uma ("preto 10, vermelho 5"). O SAC ve no Pos-Venda as
+  // cores que tem em Jaragua. O total passa a ser a soma das cores (o servidor faz a conta tambem).
+  function linhaDeCorHtml(c) {
+    return '<div class="cor-linha" style="display:flex;gap:0.4rem;margin-top:0.35rem;align-items:center;">' +
+      '<input class="cor-nome" list="mont-cores-lista" value="' + esc(c ? c.cor : '') + '" placeholder="cor (ex: preto)" style="' + inputStyle() + 'flex:2;">' +
+      '<input class="cor-qtd" type="number" min="0" step="1" inputmode="numeric" value="' + (c ? c.qtd : '') + '" placeholder="qtd" style="' + inputStyle() + 'flex:1;max-width:90px;text-align:center;">' +
+      '<button type="button" class="cor-tirar" title="Tirar esta cor" style="background:none;color:#ef4444;border:1px solid #5a1f1f;border-radius:6px;padding:0.45rem 0.6rem;cursor:pointer;">✕</button>' +
+    '</div>';
+  }
+  function abrirCores(btn) {
+    if (!planilhaCarregou(btn)) return;
+    if (!document.getElementById('mont-cores-lista')) {
+      var dl = document.createElement('datalist'); dl.id = 'mont-cores-lista';
+      dl.innerHTML = CORES_COMUNS.map(function(c) { return '<option value="' + c + '">'; }).join('');
+      document.body.appendChild(dl);
+    }
+    var linha = linhaDe(btn);
+    var idx = parseInt(linha.dataset.idx);
+    var l = linhasMontadora(modeloAtual, CATALOGO_MODELOS, estoque)[idx];
+    var form = linha.querySelector('.mont-form');
+    form.style.display = 'block';
+    var atuais = l.cores.length ? l.cores : [null, null];
+    form.innerHTML = '<div style="margin-top:0.5rem;max-width:420px;">' +
+      '<div style="font-size:0.8rem;color:#9a9a9a;">Quantas tem de cada cor em Jaraguá (0 = não tem). O total vira a soma das cores.</div>' +
+      '<div class="cores-lista">' + atuais.map(linhaDeCorHtml).join('') + '</div>' +
+      '<button type="button" class="cor-mais" style="margin-top:0.4rem;background:none;color:' + COR + ';border:1px dashed #444;border-radius:6px;padding:0.4rem 0.8rem;cursor:pointer;">+ outra cor</button>' +
+      '<div style="display:flex;gap:0.5rem;margin-top:0.6rem;flex-wrap:wrap;">' +
+        '<button type="button" class="cor-salvar" style="background:' + COR + ';color:#000;border:none;border-radius:6px;padding:0.5rem 0.9rem;font-weight:700;cursor:pointer;">Gravar cores</button>' +
+        '<button type="button" class="cor-cancelar" style="background:none;color:#9a9a9a;border:1px solid #333;border-radius:6px;padding:0.5rem 0.9rem;cursor:pointer;">Cancelar</button>' +
+      '</div>' +
+      (l.cores.length ? '<div style="font-size:0.75rem;color:#9a9a9a;margin-top:0.4rem;">Para a peça ficar sem cor: tire todas (✕) e grave.</div>' : '') +
+    '</div>';
+    var caixa = form.querySelector('.cores-lista');
+    form.addEventListener('click', function(e) {
+      if (e.target.classList.contains('cor-tirar')) e.target.closest('.cor-linha').remove();
+    });
+    form.querySelector('.cor-mais').addEventListener('click', function() {
+      caixa.insertAdjacentHTML('beforeend', linhaDeCorHtml(null));
+      var ult = caixa.querySelectorAll('.cor-nome'); ult[ult.length - 1].focus();
+    });
+    form.querySelector('.cor-cancelar').addEventListener('click', function() { form.style.display = 'none'; form.innerHTML = ''; });
+    form.querySelector('.cor-salvar').addEventListener('click', function() { gravarCores(linha, idx, this); });
+  }
+  function gravarCores(linha, idx, btn) {
+    var peca = CATALOGO_MODELOS[modeloAtual].pecas[idx];
+    var form = linha.querySelector('.mont-form');
+    var lidas = [].slice.call(form.querySelectorAll('.cor-linha')).map(function(d) {
+      return { cor: d.querySelector('.cor-nome').value, qtd: d.querySelector('.cor-qtd').value };
+    });
+    var r = coresDoFormulario(lidas);
+    if (r.erro) { status(btn, r.erro, '#ef4444'); return; }
+    var qtd = linha.querySelector('.mont-qtd');
+    var sumare = Math.max(0, parseInt(qtd.dataset.sumare) || 0);
+    var payload = {
+      action: 'atualizar_estoque',
+      modelo: chaveModeloEstoque(modeloAtual, CATALOGO_MODELOS),
+      peca: peca.nome,
+      sumare: sumare,
+      // sem cor nenhuma: o total fica o que estava (a soma de antes); com cores, o servidor confere a soma
+      jaragua: r.cores.length ? somaCores(r.cores) : (parseInt(qtd.value) || 0),
+      cores: r.cores.length ? r.cores : ''
+    };
+    btn.disabled = true; status(btn, 'Gravando…', '#9a9a9a');
+    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) })
+      .then(function(resp) { return resp.text(); })
+      .then(function(t) {
+        var d = null;
+        try { d = JSON.parse(t); } catch (e) {}
+        if (!d || !d.sucesso) { btn.disabled = false; status(btn, 'NÃO gravou: ' + (d && d.erro ? d.erro : 'o servidor não respondeu. Tente de novo.'), '#ef4444'); return; }
+        // servidor antigo (sem a coluna Cores) grava só o total e não devolve as cores: dizer, não fingir
+        if (typeof d.cores !== 'string') { btn.disabled = false; status(btn, 'As cores NÃO foram guardadas (o servidor ainda não tem a coluna de cores). Avise a Jacque.', '#ef4444'); return; }
+        var total = d.jaragua != null ? d.jaragua : payload.jaragua;
+        atualizarCache(payload.modelo, peca.nome, sumare, total, d.cores);
+        renderLista();
+        var nl = [].slice.call(document.querySelectorAll('.mont-linha')).filter(function(x) { return parseInt(x.dataset.idx) === idx; })[0];
+        if (nl) status(nl.querySelector('.mont-cores'), (r.cores.length ? 'Cores gravadas ' + fmtData(agoraIso()) + ' — total ' + total : 'A peça ficou sem cor.') + ' O SAC já vê.', '#22c55e');
+      })
+      .catch(function(err) { btn.disabled = false; status(btn, 'NÃO gravou (sem internet?): ' + err.message, '#ef4444'); });
   }
 
   // ---------------------------------------------------------------- excluir
@@ -419,15 +509,17 @@
       .finally(function() { inp.disabled = false; });
   }
 
-  function atualizarCache(modeloNome, pecaNome, sumare, jaragua) {
+  // cores (27/10): o texto "preto=10; vermelho=5" que o servidor gravou; undefined = nao mexe
+  function atualizarCache(modeloNome, pecaNome, sumare, jaragua, cores) {
     var k = pecaNome.toLowerCase(), m = modeloNome.toLowerCase();
     for (var i = 0; i < estoque.length; i++) {
       if (String(estoque[i].modelo).toLowerCase() === m && String(estoque[i].peca).toLowerCase() === k) {
         estoque[i].sumare = sumare; estoque[i].jaragua = jaragua; estoque[i].ultimaAtualizacao = agoraIso();
+        if (cores !== undefined) estoque[i].cores = cores;
         return;
       }
     }
-    estoque.push({ modelo: modeloNome, peca: pecaNome, sumare: sumare, jaragua: jaragua, ultimaAtualizacao: agoraIso() });
+    estoque.push({ modelo: modeloNome, peca: pecaNome, sumare: sumare, jaragua: jaragua, ultimaAtualizacao: agoraIso(), cores: cores || '' });
   }
 
   // Foto: comprime (formulario.js) e grava pela mesma funcao do Admin, que ja

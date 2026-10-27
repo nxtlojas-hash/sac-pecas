@@ -154,7 +154,7 @@ test('linhas da montadora: uma por peca do modelo, com saldo de Jaragua e a data
   ];
   const linhas = linhasMontadora('kay', CATALOGO, estoque);
   assert.strictEqual(linhas.length, 2);
-  assert.deepStrictEqual(linhas[0], { idx: 0, nome: 'Acelerador de punho', img: 'img/kay/a.jpeg', preco: 125, sumare: 0, jaragua: 8, contado: true, ultima: '2026-08-04T20:05:57.513Z' });
+  assert.deepStrictEqual(linhas[0], { idx: 0, nome: 'Acelerador de punho', img: 'img/kay/a.jpeg', preco: 125, sumare: 0, jaragua: 8, contado: true, ultima: '2026-08-04T20:05:57.513Z', cores: [] });
   // negativo = nunca contado: a tela mostra vazio, nao o numero negativo
   assert.strictEqual(linhas[1].jaragua, -5);
   assert.strictEqual(linhas[1].contado, false);

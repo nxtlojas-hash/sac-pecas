@@ -2133,7 +2133,8 @@ function listarEstoque() {
       peca: data[i][1] || '',
       sumare: parseInt(data[i][2]) || 0,
       jaragua: parseInt(data[i][3]) || 0,
-      ultimaAtualizacao: data[i][4] || ''
+      ultimaAtualizacao: data[i][4] || '',
+      cores: String(data[i][5] || '')   // 27/10: "preto=10; vermelho=5" (coluna F; vazia = sem cor)
     });
   }
 
@@ -2179,6 +2180,39 @@ function buscarEstoque(modelo, peca) {
  * Atualiza estoque (set absoluto)
  * body: { modelo, peca, sumare, jaragua }
  */
+// 27/10/2026 (Jacque: "carenagem lateral preto 10, vermelho 5"): as CORES de Jaragua com a quantidade de cada uma, na
+// coluna F da aba Estoque, sempre no formato "preto=10; vermelho=5". Aceita o texto ("preto 10, vermelho 5"), a lista
+// [{cor, qtd}] ou o objeto {preto: 10}. Cor em minusculas; cor repetida = vale a ultima; ate 30 cores; quantidade inteira
+// de 0 a 5000 (fora disso a cor fica de fora). Vazio = a peca nao tem cor contada.
+function normalizarCores_(v) {
+  var pares = [];
+  if (v && typeof v === 'object' && !Array.isArray(v)) {
+    for (var k in v) if (Object.prototype.hasOwnProperty.call(v, k)) pares.push([k, v[k]]);
+  } else if (Array.isArray(v)) {
+    for (var a = 0; a < v.length; a++) if (v[a]) pares.push([v[a].cor, v[a].qtd]);
+  } else {
+    var partes = String(v || '').split(/[;,\n]+/);
+    for (var b = 0; b < partes.length; b++) {
+      var m = /^\s*(.*?)[\s=:]+(\d+)\s*(?:un\.?|unid\.?|unidades?)?\s*$/i.exec(partes[b]);
+      if (m) pares.push([m[1], m[2]]);
+    }
+  }
+  var ordem = []; var qtd = {};
+  for (var i = 0; i < pares.length; i++) {
+    var cor = String(pares[i][0] || '').replace(/\s+/g, ' ').trim().toLowerCase().replace(/[=;:,]/g, '');
+    var n = Number(pares[i][1]);
+    if (!cor || !isFinite(n) || n < 0 || n > 5000 || Math.floor(n) !== n) continue;
+    if (!(cor in qtd)) ordem.push(cor);
+    qtd[cor] = n;
+  }
+  return ordem.slice(0, 30).map(function(c) { return c + '=' + qtd[c]; }).join('; ');
+}
+function somaCores_(texto) {
+  var t = 0;
+  String(texto || '').split(';').forEach(function(p) { var n = parseInt(String(p).split('=')[1], 10); if (!isNaN(n)) t += n; });
+  return t;
+}
+
 function atualizarEstoque(body) {
   var sheet = getOrCreateAbaEstoque();
   var modelo = body.modelo || '';
@@ -2186,6 +2220,10 @@ function atualizarEstoque(body) {
   var sumare = parseInt(body.sumare) || 0;
   var jaragua = parseInt(body.jaragua) || 0;
   var timestamp = new Date().toISOString();
+  // 27/10: com as cores, o total de Jaragua e a soma delas (uma regra so, aqui). Sem o campo cores = como sempre.
+  var temCores = body.cores !== undefined && body.cores !== null;
+  var cores = temCores ? normalizarCores_(body.cores) : '';
+  if (temCores && cores) jaragua = somaCores_(cores);
 
   if (!modelo || !peca) {
     return { sucesso: false, erro: 'Modelo e peca sao obrigatorios' };
@@ -2194,6 +2232,7 @@ function atualizarEstoque(body) {
   var data = sheet.getDataRange().getValues();
   var modeloLower = modelo.toLowerCase();
   var pecaLower = peca.toLowerCase();
+  if (temCores && String(data[0][5] || '') !== 'Cores') sheet.getRange(1, 6).setValue('Cores').setFontWeight('bold');
 
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][0]).toLowerCase() === modeloLower &&
@@ -2205,13 +2244,18 @@ function atualizarEstoque(body) {
       sheet.getRange(i + 1, 1, 1, 5).setValues([[modelo, peca, sumare, jaragua, timestamp]]);
       registrarAlteracaoValor_('saldo', alvoEst, 'sumare', sumareAntes, sumare, 'admin_estoque');
       registrarAlteracaoValor_('saldo', alvoEst, 'jaragua', jaraguaAntes, jaragua, 'admin_estoque');
-      return { sucesso: true, mensagem: 'Estoque atualizado: ' + peca + ' (' + modelo + ')' };
+      if (temCores) {
+        var coresAntes = String(data[i][5] || '');
+        sheet.getRange(i + 1, 6).setValue(cores);
+        registrarAlteracaoValor_('saldo', alvoEst, 'cores', coresAntes, cores, 'admin_estoque');
+      }
+      return { sucesso: true, mensagem: 'Estoque atualizado: ' + peca + ' (' + modelo + ')', jaragua: jaragua, cores: temCores ? cores : undefined };
     }
   }
 
   // Nao encontrou, criar nova linha
-  sheet.appendRow([modelo, peca, sumare, jaragua, timestamp]);
-  return { sucesso: true, mensagem: 'Estoque criado: ' + peca + ' (' + modelo + ')' };
+  sheet.appendRow(temCores ? [modelo, peca, sumare, jaragua, timestamp, cores] : [modelo, peca, sumare, jaragua, timestamp]);
+  return { sucesso: true, mensagem: 'Estoque criado: ' + peca + ' (' + modelo + ')', jaragua: jaragua, cores: temCores ? cores : undefined };
 }
 
 /**
