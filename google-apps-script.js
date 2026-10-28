@@ -1995,8 +1995,37 @@ function salvarImagemDrive(base64Data, nomeArquivo) {
  * Gerencia pecas (adicionar, editar, excluir)
  * body: { action, acao, modelo, modeloNome, idx, nome, preco, peso, img }
  */
+// 28/10/2026 — UMA LINHA POR PECA NA ABA Pecas (Rafael: "o preco some quando atualizo"; as meninas viam peca repetida).
+// Medido: 24 linhas repetidas; quase todas nasceram em dobro, ~15 s uma da outra e cada uma com a sua foto (o mesmo
+// cadastro chegou duas vezes). A tela mostrava a ULTIMA linha e o "editar" gravava na PRIMEIRA: o preco novo ia para uma
+// linha e a tela lia a outra, de junho, sem preco. Agora a peca e modelo + nome sem acento, caixa e espaco das pontas (a
+// mesma chave da tela, lib/montadora.js chaveNome): listar devolve so a linha gravada por ultimo; adicionar de peca que ja
+// existe atualiza a linha (cadastro repetido nao cria outra); editar grava na linha mais nova e apaga as repetidas;
+// excluir apaga todas. Tudo sob a trava do script (dois cadastros juntos nao passam um pelo outro).
+function chavePecaAba_(modelo, nome) {
+  return String(modelo || '').trim().toLowerCase() + '|' +
+    String(nome || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+function tempoLinhaPeca_(v) {
+  if (v instanceof Date) return v.getTime();
+  var t = Date.parse(String(v || ''));
+  return isNaN(t) ? 0 : t;
+}
+// As linhas da peca (indices de getValues), da gravada por ultimo para a mais velha; empate = a de baixo primeiro.
+function linhasDaPeca_(data, modelo, nome) {
+  var k = chavePecaAba_(modelo, nome);
+  var out = [];
+  for (var i = 1; i < data.length; i++) {
+    if (chavePecaAba_(data[i][1], data[i][3]) === k) out.push(i);
+  }
+  out.sort(function(a, b) { return (tempoLinhaPeca_(data[b][0]) - tempoLinhaPeca_(data[a][0])) || (b - a); });
+  return out;
+}
+function apagarLinhasPeca_(sheet, idxs) {
+  idxs.slice().sort(function(a, b) { return b - a; }).forEach(function(i) { sheet.deleteRow(i + 1); });
+}
+
 function gerenciarPeca(body) {
-  var sheet = getOrCreateAbaPecas();
   var acao = body.acao || '';
   var modelo = body.modelo || '';
   var modeloNome = body.modeloNome || '';
@@ -2018,47 +2047,60 @@ function gerenciarPeca(body) {
     }
   }
 
-  if (acao === 'adicionar') {
-    sheet.appendRow([timestamp, modelo, modeloNome, nome, preco, peso, img]);
-    return { sucesso: true, mensagem: 'Peca adicionada: ' + nome, imagemUrl: imagemUrl };
+  if (acao !== 'adicionar' && acao !== 'editar' && acao !== 'excluir') {
+    return { sucesso: false, erro: 'Acao de peca desconhecida: ' + acao };
   }
 
-  if (acao === 'editar') {
-    var nomeBusca = (body.nomeOriginal || nome).toString().toLowerCase();
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(30000);
+  } catch (e) {
+    return { sucesso: false, erro: 'A planilha esta ocupada. Tente de novo em alguns segundos.', imagemUrl: imagemUrl };
+  }
+  try {
+    var sheet = getOrCreateAbaPecas();
     var data = sheet.getDataRange().getValues();
-    var found = false;
-    for (var i = 1; i < data.length; i++) {
-      if (data[i][1] === modelo && data[i][3].toString().toLowerCase() === nomeBusca) {
-        // Trilha de preco/peso (Task 5, 28/07): a linha antiga so existe ATE a
-        // proxima instrucao, entao o de/para e lido aqui, antes de sobrescrever.
-        var precoAntes = data[i][4];
-        var pesoAntes = data[i][5];
-        var alvoHist = (modeloNome || modelo) + ' — ' + (body.nomeOriginal || nome);
-        sheet.getRange(i + 1, 1, 1, 7).setValues([[timestamp, modelo, modeloNome, nome, preco, peso, img]]);
-        registrarAlteracaoValor_('peca', alvoHist, 'preco', precoAntes, preco, 'admin_catalogo');
-        registrarAlteracaoValor_('peca', alvoHist, 'peso', pesoAntes, peso, 'admin_catalogo');
-        found = true;
-        break;
-      }
-    }
-    if (!found) {
-      return { sucesso: false, erro: 'Peca nao encontrada para editar: ' + nomeBusca + ' (modelo ' + modelo + ')', imagemUrl: imagemUrl };
-    }
-    return { sucesso: true, mensagem: 'Peca atualizada: ' + nome, imagemUrl: imagemUrl };
-  }
 
-  if (acao === 'excluir') {
-    var data2 = sheet.getDataRange().getValues();
-    for (var j = 1; j < data2.length; j++) {
-      if (data2[j][1] === modelo && data2[j][3].toString().toLowerCase() === nome.toLowerCase()) {
-        sheet.deleteRow(j + 1);
-        return { sucesso: true, mensagem: 'Peca excluida: ' + nome };
-      }
+    if (acao === 'excluir') {
+      var todas = linhasDaPeca_(data, modelo, nome);
+      apagarLinhasPeca_(sheet, todas);
+      return { sucesso: true, linhasApagadas: todas.length,
+        mensagem: todas.length ? 'Peca excluida: ' + nome : 'Peca nao encontrada na planilha (ja removida da memoria)' };
     }
-    return { sucesso: true, mensagem: 'Peca nao encontrada na planilha (ja removida da memoria)' };
-  }
 
-  return { sucesso: false, erro: 'Acao de peca desconhecida: ' + acao };
+    var nomeBusca = acao === 'editar' ? (body.nomeOriginal || nome) : nome;
+    var linhas = linhasDaPeca_(data, modelo, nomeBusca);
+    if (!linhas.length) {
+      if (acao === 'editar') {
+        return { sucesso: false, erro: 'Peca nao encontrada para editar: ' + String(nomeBusca).toLowerCase() + ' (modelo ' + modelo + ')', imagemUrl: imagemUrl };
+      }
+      sheet.appendRow([timestamp, modelo, modeloNome, nome, preco, peso, img]);
+      return { sucesso: true, mensagem: 'Peca adicionada: ' + nome, imagemUrl: imagemUrl };
+    }
+
+    var i = linhas[0];
+    var antes = data[i];
+    var nova = [timestamp, modelo, modeloNome, nome, preco, peso, img];
+    if (acao === 'adicionar') {
+      // O mesmo cadastro chegou de novo: atualiza a linha que ja existe e nao apaga o que esta vez nao trouxe.
+      if (preco === '' || preco == null) nova[4] = antes[4];
+      if (!peso) nova[5] = antes[5];
+      if (!img) nova[6] = antes[6];
+      if (!modeloNome) nova[2] = antes[2];
+    }
+    sheet.getRange(i + 1, 1, 1, 7).setValues([nova]);
+    if (acao === 'editar') {
+      // Trilha de preco/peso (Task 5, 28/07): o de/para e o da linha que a tela mostrava (a mais nova).
+      var alvoHist = (modeloNome || modelo) + ' — ' + nomeBusca;
+      registrarAlteracaoValor_('peca', alvoHist, 'preco', antes[4], preco, 'admin_catalogo');
+      registrarAlteracaoValor_('peca', alvoHist, 'peso', antes[5], peso, 'admin_catalogo');
+    }
+    apagarLinhasPeca_(sheet, linhas.slice(1));
+    return { sucesso: true, imagemUrl: imagemUrl, repetidasApagadas: linhas.length - 1,
+      mensagem: (acao === 'adicionar' ? 'Peca ja existia, atualizada: ' : 'Peca atualizada: ') + nome };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /**
@@ -2076,17 +2118,26 @@ function listarPecasSheet() {
     return { sucesso: true, pecas: [] };
   }
 
-  var pecas = [];
+  // 28/10/2026: uma linha por peca — a gravada por ultimo (empate = a de baixo). Ver chavePecaAba_.
+  var melhor = {};
+  var ordem = [];
   for (var i = 1; i < data.length; i++) {
-    pecas.push({
-      modelo: data[i][1] || '',
-      modeloNome: data[i][2] || '',
-      nome: data[i][3] || '',
-      preco: data[i][4],
-      peso: data[i][5] || '',
-      img: data[i][6] || ''
-    });
+    var k = chavePecaAba_(data[i][1], data[i][3]);
+    if (melhor[k] === undefined) { melhor[k] = i; ordem.push(k); }
+    else if (tempoLinhaPeca_(data[i][0]) >= tempoLinhaPeca_(data[melhor[k]][0])) melhor[k] = i;
   }
+
+  var pecas = ordem.map(function(k) {
+    var l = data[melhor[k]];
+    return {
+      modelo: l[1] || '',
+      modeloNome: l[2] || '',
+      nome: l[3] || '',
+      preco: l[4],
+      peso: l[5] || '',
+      img: l[6] || ''
+    };
+  });
 
   return { sucesso: true, pecas: pecas };
 }
